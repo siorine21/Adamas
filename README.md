@@ -31,8 +31,14 @@ npm run preview  # ビルド成果物のプレビュー
 
 いずれも「データを追記するだけで機能拡張できる」設計を維持しています。
 
-- **図鑑**: `src/data/dex.ts` の `DEX`（`megaOnly: true` はメガで初めて鋼化する系統）
-- **仮想敵**: `src/data/dex.ts` の `THREATS`
+- **はがね図鑑**: `src/data/dex.ts` の `DEX`（`megaOnly: true` はメガで初めて鋼化する系統）。
+  ポケモンチャンピオンズ内定準拠の **22系統**（ユーザー提供の内定一覧スプレッドシート由来）。
+  SV全体のはがねリストから未内定58系統を除外して再構成済み。
+- **全内定ポケモン（仮想敵プール）**: `src/data/confirmed.ts` の `CONFIRMED`（全317フォルム）。
+  No.・名前・種族値・特性は内定一覧の一次ソースに一致。タイプはシリーズ共通の確定値。
+  `typeVerified: false` はチャンピオンズ新規メガ等で公式タイプ未公表のため素の型を仮採用（UIで要確認表示）。
+  ダメージ計算タブの仮想敵は、このリストから名前絞込みで選択でき、種族値・特性・タイプを自動補完する。
+- **仮想敵（素早さ比較の速度ライン）**: `src/data/dex.ts` の `THREATS`（代表的な環境ポケモンの curated リスト）
 - **技ライブラリ**: `src/data/moves.ts` の `MOVE_LIB`
 - **種族別習得技**: `src/data/moves.ts` の `LEARNSETS`
   - `status: "full"` = 全習得技を検証済み ／ `status: "partial"` = 一部のみ検証済み

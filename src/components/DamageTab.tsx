@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import type { Move, StatBlock, Threat } from "../types";
 import { useStore } from "../store";
-import { NATURES, STAT_KEYS, STAT_LABEL, realStats } from "../data/game";
-import { THREATS } from "../data/dex";
+import { NATURES, STAT_KEYS, STAT_LABEL, TYPES, realStats } from "../data/game";
+import { CONFIRMED } from "../data/confirmed";
 import { MOVE_LIB } from "../data/moves";
 import {
   computeDamage, effLabel, hazardDamage, koAnalysis, typeEffectiveness,
@@ -38,14 +38,21 @@ export function DamageTab() {
   const [selfKey, setSelfKey] = useState<string>(() => selfList[0]?.key ?? "");
   const self = selfList.find((e) => e.key === selfKey) ?? selfList[0];
 
-  // 仮想敵（編集可能なコピー）
-  const [threat, setThreat] = useState<Threat & { nature: string; ap: StatBlock; item: string; ability: string }>(
-    () => ({ ...THREATS[0], base: { ...THREATS[0].base }, types: [...THREATS[0].types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: "（補正なし）" }),
+  // 仮想敵（内定ポケモンから選択・編集可能なコピー）
+  const DEFAULT_THREAT = CONFIRMED.find((c) => c.name === "ガブリアス") ?? CONFIRMED[0];
+  const [threatFilter, setThreatFilter] = useState("");
+  const [threat, setThreat] = useState<Threat & { nature: string; ap: StatBlock; item: string; ability: string; typeVerified: boolean }>(
+    () => ({ name: DEFAULT_THREAT.name, base: { ...DEFAULT_THREAT.base }, types: [...DEFAULT_THREAT.types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: DEFAULT_THREAT.abilities.join("/"), typeVerified: DEFAULT_THREAT.typeVerified }),
   );
+  const threatOptions = useMemo(() => {
+    const q = threatFilter.trim();
+    const list = q ? CONFIRMED.filter((c) => c.name.includes(q)) : CONFIRMED;
+    return list.slice(0, 200);
+  }, [threatFilter]);
   const pickThreat = (name: string) => {
-    const t = THREATS.find((x) => x.name === name);
+    const t = CONFIRMED.find((x) => x.name === name);
     if (!t) return;
-    setThreat({ ...t, base: { ...t.base }, types: [...t.types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: "（補正なし）" });
+    setThreat({ name: t.name, base: { ...t.base }, types: [...t.types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: t.abilities.join("/"), typeVerified: t.typeVerified });
   };
 
   // 技選択
@@ -174,16 +181,32 @@ export function DamageTab() {
         {/* 仮想敵 */}
         <div className="panel">
           <div className="section-title">仮想敵{attackerIsSelf ? "（防御）" : "（攻撃）"}</div>
+          <input
+            type="text"
+            placeholder="内定ポケモンを名前で絞込み…"
+            value={threatFilter}
+            onChange={(e) => setThreatFilter(e.target.value)}
+            style={{ marginBottom: 4 }}
+          />
           <select value={threat.name} onChange={(e) => pickThreat(e.target.value)}>
-            {THREATS.map((t) => (
-              <option key={t.name} value={t.name}>{t.name}</option>
+            {!threatOptions.some((t) => t.name === threat.name) && (
+              <option value={threat.name}>{threat.name}（選択中）</option>
+            )}
+            {threatOptions.map((t) => (
+              <option key={`${t.no}-${t.name}`} value={t.name}>
+                {t.name}（{t.total}）{t.typeVerified ? "" : " ⚠型未確認"}
+              </option>
             ))}
           </select>
+          <div className="small muted">{CONFIRMED.length}体の内定ポケモンから選択（種族値・特性はシート準拠）</div>
+          {!threat.typeVerified && (
+            <div className="banner warn">この個体はチャンピオンズ新規メガ等でタイプが未公表です。素の型を仮採用しています（下で修正可）。</div>
+          )}
           <div className="row tight" style={{ marginTop: 6 }}>
             {threat.types.map((t, i) => (
               <select key={i} value={t} style={{ width: "auto" }}
                 onChange={(e) => setThreat((p) => ({ ...p, types: p.types.map((x, j) => (j === i ? e.target.value : x)) }))}>
-                {["ノーマル", "ほのお", "みず", "でんき", "くさ", "こおり", "かくとう", "どく", "じめん", "ひこう", "エスパー", "むし", "いわ", "ゴースト", "ドラゴン", "あく", "はがね", "フェアリー"].map((tp) => (
+                {TYPES.map((tp) => (
                   <option key={tp} value={tp}>{tp}</option>
                 ))}
               </select>
