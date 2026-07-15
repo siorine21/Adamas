@@ -5,23 +5,39 @@ on:
     branches: [tooling/champ-scrape]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   recon:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect AppMedia steel list link structure
+      - uses: actions/checkout@v4
+        with:
+          ref: tooling/champ-scrape
+      - name: Recon into file
         run: |
           set +e
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-          curl -s -A "$UA" --max-time 25 "https://appmedia.jp/pokemonchampions/79917367" -o list.html
-          echo "list size: $(wc -c <list.html)"
-          echo "===== pokemonchampions/<digits> を含む href の形（uniqサンプル20） ====="
-          grep -oiE 'href="[^"]*pokemonchampions/[0-9]+[^"]*"' list.html | sort -u | head -20
-          echo "===== ボスゴドラ が出る行番号と周辺（tr で1行化して grep） ====="
-          tr '>' '>\n' list.html > lines.txt
-          grep -n "ボスゴドラ" lines.txt | head -5
-          echo "----- ボスゴドラ 前後の行（リンク構造確認） -----"
-          n=$(grep -n "ボスゴドラ" lines.txt | head -1 | cut -d: -f1)
-          if [ -n "$n" ]; then sed -n "$((n-6)),$((n+2))p" lines.txt; fi
-          echo "===== a href 全体で pokemonchampions を含むもの 総数 ====="
-          grep -oiE 'pokemonchampions/[0-9]+' list.html | sort -u | wc -l
+          OUT=recon/out.txt
+          mkdir -p recon
+          curl -s -A "$UA" --max-time 25 "https://appmedia.jp/pokemonchampions/79917367" -o recon/list.html
+          {
+            echo "list size: $(wc -c <recon/list.html)"
+            echo "== href with pokemonchampions/digits (uniq sample) =="
+            grep -oiE 'href="[^"]*pokemonchampions/[0-9]+[^"]*"' recon/list.html | sort -u | head -30
+            echo "== count of distinct pokemonchampions/<id> =="
+            grep -oiE 'pokemonchampions/[0-9]+' recon/list.html | sort -u | wc -l
+            echo "== around ボスゴドラ (tr>) =="
+            tr '>' '>\n' recon/list.html > recon/lines.txt
+            n=$(grep -n "ボスゴドラ" recon/lines.txt | head -1 | cut -d: -f1)
+            echo "ボスゴドラ line: $n"
+            [ -n "$n" ] && sed -n "$((n-8)),$((n+2))p" recon/lines.txt
+          } > "$OUT" 2>&1
+          # keep the raw list too (trimmed) for offline inspection
+          head -c 200000 recon/list.html > recon/list_head.html
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add recon/out.txt recon/list_head.html
+          git commit -q -m "recon output" || echo "nothing to commit"
+          git push origin HEAD:tooling/champ-scrape || echo "push failed"
