@@ -1,6 +1,5 @@
 name: Champ Scrape Recon
 
-# 偵察専用: 攻略サイトへの到達性と、覚える技ページの構造を確認する
 on:
   push:
     branches: [tooling/champ-scrape]
@@ -10,28 +9,21 @@ jobs:
   recon:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe reachability + dump sample structure
+      - name: Inspect AppMedia robots + steel list links + one pokemon page
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-          echo "===== robots.txt / 到達性 ====="
-          for u in \
-            "https://yakkun.com/robots.txt" \
-            "https://yakkun.com/ch/zukan/n306" \
-            "https://appmedia.jp/pokemonchampions/79887950" \
-            "https://gamewith.jp/pokemon-champions/546417" \
-            "https://champs.pokedb.tokyo/" ; do
-            code=$(curl -s -A "$UA" -o /tmp/page.html -w "%{http_code}" --max-time 25 "$u" || echo "ERR")
-            echo ">>> $u  ->  HTTP $code  (size $(wc -c </tmp/page.html 2>/dev/null || echo 0))"
-          done
+          echo "===== AppMedia robots.txt ====="
+          curl -s -A "$UA" --max-time 25 "https://appmedia.jp/robots.txt" | head -40
           echo ""
-          echo "===== yakkun ボスゴドラ 図鑑ページ 構造サンプル ====="
-          curl -s -A "$UA" --max-time 25 "https://yakkun.com/ch/zukan/n306" -o /tmp/boss.html || true
-          echo "--- title / h1 / 覚える 周辺 ---"
-          grep -oiE '<title>[^<]*</title>' /tmp/boss.html | head -1 || true
-          echo "--- 「覚える技」を含む箇所の前後 ---"
-          grep -n -i "覚える" /tmp/boss.html | head -20 || echo "（覚える 見つからず）"
-          echo "--- テーブル/クラス名の雰囲気（class= を頻度集計） ---"
-          grep -oE 'class="[^"]*"' /tmp/boss.html | sort | uniq -c | sort -rn | head -30 || true
-          echo "--- 技名リンクらしき a href の例 ---"
-          grep -oiE '<a[^>]*waza[^>]*>[^<]+</a>' /tmp/boss.html | head -20 || true
-          grep -oiE 'href="[^"]*(waza|move)[^"]*"[^>]*>[^<]+' /tmp/boss.html | head -20 || true
+          echo "===== GameWith robots.txt ====="
+          curl -s -A "$UA" --max-time 25 "https://gamewith.jp/robots.txt" | head -40
+          sleep 2
+          echo ""
+          echo "===== AppMedia はがねタイプ一覧(79917367) の個別ページリンク ====="
+          curl -s -A "$UA" --max-time 25 "https://appmedia.jp/pokemonchampions/79917367" -o /tmp/list.html || true
+          echo "size: $(wc -c </tmp/list.html)"
+          # /pokemonchampions/数字 へのリンクとアンカーテキストを抽出
+          grep -oiE '<a[^>]*href="https://appmedia.jp/pokemonchampions/[0-9]+"[^>]*>[^<]+</a>' /tmp/list.html \
+            | sed -E 's/.*pokemonchampions\/([0-9]+)".*>([^<]+)<.*/\1\t\2/' | grep -E 'ボスゴドラ|ハガネール|メタグロス|ギルガルド|サーフゴー|ブリジュラス|ドドゲザン|アーマーガア|エアームド|クチート' | head -30
+          echo "--- (fallback) ボスゴドラ 近傍のリンク ---"
+          grep -oiE 'pokemonchampions/[0-9]+"[^>]*>ボスゴドラ' /tmp/list.html | head -5
