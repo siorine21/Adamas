@@ -1,0 +1,38 @@
+list size: 440548
+== href with pokemonchampions/digits (uniq sample) ==
+href="/pokemonchampions/79917367#respond"
+href="https://appmedia.jp/pokemonchampions/79638443"
+href="https://appmedia.jp/pokemonchampions/79638506"
+href="https://appmedia.jp/pokemonchampions/79638926"
+href="https://appmedia.jp/pokemonchampions/79639199"
+href="https://appmedia.jp/pokemonchampions/79639586"
+href="https://appmedia.jp/pokemonchampions/79639622"
+href="https://appmedia.jp/pokemonchampions/79639628"
+href="https://appmedia.jp/pokemonchampions/79639868"
+href="https://appmedia.jp/pokemonchampions/79783190"
+href="https://appmedia.jp/pokemonchampions/79875914"
+href="https://appmedia.jp/pokemonchampions/79875923"
+href="https://appmedia.jp/pokemonchampions/79875989"
+href="https://appmedia.jp/pokemonchampions/79876118"
+href="https://appmedia.jp/pokemonchampions/79876154"
+href="https://appmedia.jp/pokemonchampions/79876217"
+href="https://appmedia.jp/pokemonchampions/79876499"
+href="https://appmedia.jp/pokemonchampions/79876502"
+href="https://appmedia.jp/pokemonchampions/79876505"
+href="https://appmedia.jp/pokemonchampions/79876514"
+href="https://appmedia.jp/pokemonchampions/79876517"
+href="https://appmedia.jp/pokemonchampions/79876547"
+href="https://appmedia.jp/pokemonchampions/79876550"
+href="https://appmedia.jp/pokemonchampions/79876694"
+href="https://appmedia.jp/pokemonchampions/79876697"
+href="https://appmedia.jp/pokemonchampions/79876700"
+href="https://appmedia.jp/pokemonchampions/79876703"
+href="https://appmedia.jp/pokemonchampions/79876820"
+href="https://appmedia.jp/pokemonchampions/79876856"
+href="https://appmedia.jp/pokemonchampions/79876859"
+== count of distinct pokemonchampions/<id> ==
+177
+== around ボスゴドラ (tr>) ==
+tr: extra operand ‘recon/list.html’
+Try 'tr --help' for more information.
+ボスゴドラ line: 
