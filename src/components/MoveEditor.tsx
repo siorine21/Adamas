@@ -1,6 +1,7 @@
 import type { Move } from "../types";
 import { LEARNSETS, MOVE_BY_NAME, MOVE_LIB } from "../data/moves";
 import { TYPES } from "../data/game";
+import { typeSelectStyle } from "./TypeBadge";
 
 /** その種族の技ドロップダウン候補（習得技のみ or 全ライブラリ）と検証状況 */
 export function moveOptionsFor(speciesName: string): {
@@ -60,7 +61,7 @@ export function MoveEditor({ move, options, onChange }: Props) {
               onChange={(e) => onChange({ ...move, name: e.target.value })}
             />
             <select
-              style={{ flex: "0 1 90px" }}
+              style={{ flex: "0 1 90px", ...typeSelectStyle(move.type) }}
               value={move.type}
               onChange={(e) => onChange({ ...move, type: e.target.value })}
             >

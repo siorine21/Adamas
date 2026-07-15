@@ -8,7 +8,7 @@ import {
   computeDamage, effLabel, hazardDamage, koAnalysis, typeEffectiveness,
   type Weather,
 } from "../calc";
-import { TypeBadges } from "./TypeBadge";
+import { TypeBadges, typeSelectStyle } from "./TypeBadge";
 import { MoveEditor } from "./MoveEditor";
 
 type Dir = "toThreat" | "toSelf";
@@ -204,7 +204,7 @@ export function DamageTab() {
           )}
           <div className="row tight" style={{ marginTop: 6 }}>
             {threat.types.map((t, i) => (
-              <select key={i} value={t} style={{ width: "auto" }}
+              <select key={i} value={t} style={{ width: "auto", ...typeSelectStyle(t) }}
                 onChange={(e) => setThreat((p) => ({ ...p, types: p.types.map((x, j) => (j === i ? e.target.value : x)) }))}>
                 {TYPES.map((tp) => (
                   <option key={tp} value={tp}>{tp}</option>
