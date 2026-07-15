@@ -25,6 +25,13 @@ for pid,nm in idname.items():
         if nm==t or nm.startswith(t): name2id.setdefault(t,pid)
 
 os.makedirs("recon/pages", exist_ok=True)
+# 生HTMLの構造ダンプ（各ターゲット名の最初の出現周辺）
+with open("recon/ctx.txt","w") as cf:
+    cf.write(f"list html size={len(html)}\n")
+    for t in ["ボスゴドラ","メタグロス","サーフゴー"]:
+        i=html.find(t)
+        cf.write(f"\n===== {t} idx={i} =====\n")
+        if i>=0: cf.write(re.sub(r'\s+',' ', html[max(0,i-400):i+120]))
 with open("recon/map.txt","w") as f:
     f.write("=== 全id→名前ペア（%d件） ===\n"%len(idname))
     for pid,nm in list(idname.items())[:200]: f.write(f"{pid}\t{nm}\n")
