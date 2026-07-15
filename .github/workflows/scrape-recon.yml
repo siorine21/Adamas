@@ -15,29 +15,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: tooling/champ-scrape
-      - name: Recon into file
+      - name: Run scrape recon script
         run: |
-          set +e
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-          OUT=recon/out.txt
-          mkdir -p recon
-          curl -s -A "$UA" --max-time 25 "https://appmedia.jp/pokemonchampions/79917367" -o recon/list.html
-          {
-            echo "list size: $(wc -c <recon/list.html)"
-            echo "== href with pokemonchampions/digits (uniq sample) =="
-            grep -oiE 'href="[^"]*pokemonchampions/[0-9]+[^"]*"' recon/list.html | sort -u | head -30
-            echo "== count of distinct pokemonchampions/<id> =="
-            grep -oiE 'pokemonchampions/[0-9]+' recon/list.html | sort -u | wc -l
-            echo "== around ボスゴドラ (tr>) =="
-            tr '>' '>\n' recon/list.html > recon/lines.txt
-            n=$(grep -n "ボスゴドラ" recon/lines.txt | head -1 | cut -d: -f1)
-            echo "ボスゴドラ line: $n"
-            [ -n "$n" ] && sed -n "$((n-8)),$((n+2))p" recon/lines.txt
-          } > "$OUT" 2>&1
-          # keep the raw list too (trimmed) for offline inspection
-          head -c 200000 recon/list.html > recon/list_head.html
+          python3 recon/scrape.py || echo "script error"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add recon/out.txt recon/list_head.html
-          git commit -q -m "recon output" || echo "nothing to commit"
+          git add recon/map.txt recon/struct.txt 2>/dev/null
+          git commit -q -m "recon map+struct" || echo "nothing to commit"
           git push origin HEAD:tooling/champ-scrape || echo "push failed"
