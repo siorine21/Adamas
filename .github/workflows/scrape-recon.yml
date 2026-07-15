@@ -9,23 +9,19 @@ jobs:
   recon:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect AppMedia steel-list link structure and boss page
+      - name: Inspect AppMedia steel list link structure
         run: |
+          set +e
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-          curl -s -A "$UA" --max-time 25 "https://appmedia.jp/pokemonchampions/79917367" -o /tmp/list.html
-          echo "list size: $(wc -c </tmp/list.html)"
-          echo "===== /pokemonchampions/数字 を含む href の総数と例（相対・絶対両方） ====="
-          grep -oiE 'href="[^"]*pokemonchampions/[0-9]+[^"]*"' /tmp/list.html | sort | uniq -c | sort -rn | head -25
-          echo ""
-          echo "===== 「ボスゴドラ」出現箇所の生HTML（前後250字）×2 ====="
-          python3 - <<'PY'
-import re
-h=open('/tmp/list.html',encoding='utf-8',errors='replace').read()
-for i,m in enumerate(re.finditer('ボスゴドラ', h)):
-    if i>=2: break
-    s=max(0,m.start()-250); print(repr(h[s:m.start()+60])); print('----')
-# 一覧の行にありがちな a href とテキストのペアを、ポケモン名っぽい行で
-print("=== name-link pairs sample ===")
-for m in re.finditer(r'href="([^"]*pokemonchampions/\d+[^"]*)"[^>]*>([^<]{1,20})<', h):
-    print(m.group(1), '|', m.group(2))
-PY
+          curl -s -A "$UA" --max-time 25 "https://appmedia.jp/pokemonchampions/79917367" -o list.html
+          echo "list size: $(wc -c <list.html)"
+          echo "===== pokemonchampions/<digits> を含む href の形（uniqサンプル20） ====="
+          grep -oiE 'href="[^"]*pokemonchampions/[0-9]+[^"]*"' list.html | sort -u | head -20
+          echo "===== ボスゴドラ が出る行番号と周辺（tr で1行化して grep） ====="
+          tr '>' '>\n' list.html > lines.txt
+          grep -n "ボスゴドラ" lines.txt | head -5
+          echo "----- ボスゴドラ 前後の行（リンク構造確認） -----"
+          n=$(grep -n "ボスゴドラ" lines.txt | head -1 | cut -d: -f1)
+          if [ -n "$n" ]; then sed -n "$((n-6)),$((n+2))p" lines.txt; fi
+          echo "===== a href 全体で pokemonchampions を含むもの 総数 ====="
+          grep -oiE 'pokemonchampions/[0-9]+' list.html | sort -u | wc -l
