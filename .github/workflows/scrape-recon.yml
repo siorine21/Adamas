@@ -9,21 +9,23 @@ jobs:
   recon:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect AppMedia robots + steel list links + one pokemon page
+      - name: Inspect AppMedia steel-list link structure and boss page
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-          echo "===== AppMedia robots.txt ====="
-          curl -s -A "$UA" --max-time 25 "https://appmedia.jp/robots.txt" | head -40
+          curl -s -A "$UA" --max-time 25 "https://appmedia.jp/pokemonchampions/79917367" -o /tmp/list.html
+          echo "list size: $(wc -c </tmp/list.html)"
+          echo "===== /pokemonchampions/数字 を含む href の総数と例（相対・絶対両方） ====="
+          grep -oiE 'href="[^"]*pokemonchampions/[0-9]+[^"]*"' /tmp/list.html | sort | uniq -c | sort -rn | head -25
           echo ""
-          echo "===== GameWith robots.txt ====="
-          curl -s -A "$UA" --max-time 25 "https://gamewith.jp/robots.txt" | head -40
-          sleep 2
-          echo ""
-          echo "===== AppMedia はがねタイプ一覧(79917367) の個別ページリンク ====="
-          curl -s -A "$UA" --max-time 25 "https://appmedia.jp/pokemonchampions/79917367" -o /tmp/list.html || true
-          echo "size: $(wc -c </tmp/list.html)"
-          # /pokemonchampions/数字 へのリンクとアンカーテキストを抽出
-          grep -oiE '<a[^>]*href="https://appmedia.jp/pokemonchampions/[0-9]+"[^>]*>[^<]+</a>' /tmp/list.html \
-            | sed -E 's/.*pokemonchampions\/([0-9]+)".*>([^<]+)<.*/\1\t\2/' | grep -E 'ボスゴドラ|ハガネール|メタグロス|ギルガルド|サーフゴー|ブリジュラス|ドドゲザン|アーマーガア|エアームド|クチート' | head -30
-          echo "--- (fallback) ボスゴドラ 近傍のリンク ---"
-          grep -oiE 'pokemonchampions/[0-9]+"[^>]*>ボスゴドラ' /tmp/list.html | head -5
+          echo "===== 「ボスゴドラ」出現箇所の生HTML（前後250字）×2 ====="
+          python3 - <<'PY'
+import re
+h=open('/tmp/list.html',encoding='utf-8',errors='replace').read()
+for i,m in enumerate(re.finditer('ボスゴドラ', h)):
+    if i>=2: break
+    s=max(0,m.start()-250); print(repr(h[s:m.start()+60])); print('----')
+# 一覧の行にありがちな a href とテキストのペアを、ポケモン名っぽい行で
+print("=== name-link pairs sample ===")
+for m in re.finditer(r'href="([^"]*pokemonchampions/\d+[^"]*)"[^>]*>([^<]{1,20})<', h):
+    print(m.group(1), '|', m.group(2))
+PY
