@@ -1,7 +1,9 @@
 name: Champ Scrape Recon
 
-# 偵察専用: 攻略サイトへの到達性と、覚える技ページの構造を確認する（手動実行のみ）
+# 偵察専用: 攻略サイトへの到達性と、覚える技ページの構造を確認する
 on:
+  push:
+    branches: [tooling/champ-scrape]
   workflow_dispatch:
 
 jobs:
