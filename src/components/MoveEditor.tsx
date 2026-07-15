@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import type { Move } from "../types";
 import { LEARNSETS, MOVE_BY_NAME, MOVE_LIB } from "../data/moves";
 import { TYPES } from "../data/game";
@@ -29,13 +29,20 @@ interface Props {
 
 const CATS: Move["cat"][] = ["物理", "特殊", "変化"];
 
+const MANUAL = "__manual__";
+
 export function MoveEditor({ move, options, onChange }: Props) {
   const catClass = move?.cat === "物理" ? "phys" : move?.cat === "特殊" ? "spec" : "stat";
   const listId = useId();
+  // 候補が多い（全ライブラリ等）の時だけ検索式、種族の習得技リストはドロップダウン選択
+  const useSearch = options.length > 150;
+  // 選択中の技が候補に無い＝手動入力扱い
+  const isCustom = !!move && !options.some((o) => o.name === move.name);
+  const [manual, setManual] = useState(false);
+  const showName = manual || isCustom;
 
   const commitName = (v: string) => {
     if (!v) return onChange(undefined);
-    // 候補（種族別 or 全ライブラリ）に一致すれば技データを自動補完、無ければ手動入力扱い
     const picked = options.find((o) => o.name === v) ?? MOVE_BY_NAME[v];
     if (picked) return onChange({ ...picked });
     onChange(move ? { ...move, name: v } : { name: v, type: "ノーマル", power: 0, cat: "変化" });
@@ -44,23 +51,60 @@ export function MoveEditor({ move, options, onChange }: Props) {
   return (
     <div className="move-row">
       <div className="move-main">
-        <input
-          style={{ flex: "2 1 150px" }}
-          type="text"
-          list={listId}
-          value={move?.name ?? ""}
-          placeholder="技を検索 / 入力…"
-          onChange={(e) => commitName(e.target.value)}
-        />
-        <datalist id={listId}>
-          {options.map((o) => (
-            <option key={o.name} value={o.name}>
-              {o.type}{o.power ? ` ${o.power}` : ""} {o.cat}
-            </option>
-          ))}
-        </datalist>
+        {useSearch ? (
+          <>
+            <input
+              style={{ flex: "2 1 150px" }}
+              type="text"
+              list={listId}
+              value={move?.name ?? ""}
+              placeholder="技を検索 / 入力…"
+              onChange={(e) => commitName(e.target.value)}
+            />
+            <datalist id={listId}>
+              {options.map((o) => (
+                <option key={o.name} value={o.name}>
+                  {o.type}{o.power ? ` ${o.power}` : ""} {o.cat}
+                </option>
+              ))}
+            </datalist>
+          </>
+        ) : (
+          <select
+            style={{ flex: "2 1 150px" }}
+            value={showName ? MANUAL : move?.name ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) { setManual(false); return onChange(undefined); }
+              if (v === MANUAL) {
+                setManual(true);
+                if (!move) onChange({ name: "", type: "ノーマル", power: 0, cat: "変化" });
+                return;
+              }
+              setManual(false);
+              commitName(v);
+            }}
+          >
+            <option value="">— 覚える技から選択 / 空 —</option>
+            {options.map((o) => (
+              <option key={o.name} value={o.name}>
+                {o.name}（{o.type}{o.power ? ` ${o.power}` : ""}）
+              </option>
+            ))}
+            <option value={MANUAL}>✏️ 手動入力（リスト外の技）…</option>
+          </select>
+        )}
         {move && (
           <>
+            {showName && !useSearch && (
+              <input
+                style={{ flex: "1 1 90px" }}
+                type="text"
+                value={move.name}
+                placeholder="技名を入力"
+                onChange={(e) => onChange({ ...move, name: e.target.value })}
+              />
+            )}
             <select
               style={{ flex: "0 1 90px", ...typeSelectStyle(move.type) }}
               value={move.type}
