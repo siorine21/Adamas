@@ -5,19 +5,16 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# GITHUB_TOKEN に Pages デプロイ権限を付与
+# gh-pages ブランチへ push するため contents:write のみ必要
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# 同時実行は1つに絞る（進行中のデプロイはキャンセルしない）
 concurrency:
-  group: pages
+  group: pages-deploy
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,16 +28,16 @@ jobs:
         env:
           # GitHub Pages のプロジェクトサイトはリポジトリ名のサブパスで配信される
           VITE_BASE: /Adamas/
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish to gh-pages branch
+        run: |
+          cd dist
+          touch .nojekyll               # Jekyll 処理を無効化（Vite の assets をそのまま配信）
+          git init -q
+          git checkout -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
