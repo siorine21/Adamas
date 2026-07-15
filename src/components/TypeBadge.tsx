@@ -1,4 +1,16 @@
+import type { CSSProperties } from "react";
 import { TYPE_COLORS } from "../data/game";
+
+/** タイプ名を表示する <select>/コントロールに、そのタイプ色の背景を付けるスタイル */
+export function typeSelectStyle(type: string): CSSProperties {
+  const bg = TYPE_COLORS[type] ?? "#666";
+  return {
+    background: bg,
+    color: "#14171c",
+    fontWeight: 600,
+    borderColor: bg,
+  };
+}
 
 export function TypeBadge({ type }: { type: string }) {
   const color = TYPE_COLORS[type] ?? "#666";
