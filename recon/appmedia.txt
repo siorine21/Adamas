@@ -1,0 +1,11 @@
+total anchors: 525
+steel-name links found: 5
+  https://appmedia.jp/pokemonchampions/79876502  text="ハガネール" alt="ポケモン_ハガネール"
+  https://appmedia.jp/pokemonchampions/79876700  text="ボスゴドラ" alt="ポケモン_ボスゴドラ"
+  https://appmedia.jp/pokemonchampions/79876856  text="メタグロス" alt="ポケモン_メタグロス"
+  https://appmedia.jp/pokemonchampions/79878338  text="サーフゴー" alt="ポケモン_サーフゴー"
+  https://appmedia.jp/pokemonchampions/79943590  text="ギルガルド" alt="ギルガルド"
+BOSS URL: https://appmedia.jp/pokemonchampions/79876700
+ERROR page.goto: Timeout 60000ms exceeded.
+Call log:
+  - navigating to "https://appmedia.jp/pokemonchampions/79876700", waiting until "networkidle"
