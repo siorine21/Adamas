@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Move } from "../types";
 import { TYPE_COLORS } from "../data/game";
 
@@ -7,14 +7,26 @@ interface Props {
   value: string; // 選択中の技名
   onChange: (name: string) => void;
   placeholder?: string;
+  style?: CSSProperties; // ラッパー（flexレイアウト等）
+  searchable?: boolean; // ポップアップ内に検索欄を出す（候補が多い時）
+  clearLabel?: string; // 先頭に「空にする」行を出す
+  onClear?: () => void;
+  manualLabel?: string; // 末尾に「手動入力」行を出す
+  onManual?: () => void;
+  manualActive?: boolean; // 手動入力モード表示
 }
 
 /** タイプ色バッジ付きのカスタム技ドロップダウン。
  *  ネイティブ <select> は option に背景色が付けられない（特にiOS）ため自前で描画する。 */
-export function MoveSelect({ moves, value, onChange, placeholder }: Props) {
+export function MoveSelect({
+  moves, value, onChange, placeholder, style, searchable,
+  clearLabel, onClear, manualLabel, onManual, manualActive,
+}: Props) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-  const selected = moves.find((m) => m.name === value) ?? moves[0];
+  const searchRef = useRef<HTMLInputElement>(null);
+  const selected = moves.find((m) => m.name === value);
 
   useEffect(() => {
     if (!open) return;
@@ -34,29 +46,65 @@ export function MoveSelect({ moves, value, onChange, placeholder }: Props) {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (open && searchable) searchRef.current?.focus();
+    if (!open) setQuery("");
+  }, [open, searchable]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim();
+    return q ? moves.filter((m) => m.name.includes(q)) : moves;
+  }, [moves, query]);
+
+  const close = () => setOpen(false);
+
   return (
-    <div className="mvsel" ref={ref}>
+    <div className="mvsel" ref={ref} style={style}>
       <button type="button" className="mvsel-btn" onClick={() => setOpen((o) => !o)}>
-        {selected ? <MoveRow m={selected} /> : <span className="muted">{placeholder ?? "技を選択"}</span>}
+        {manualActive ? (
+          <span className="muted">✏️ {manualLabel ?? "手動入力"}</span>
+        ) : selected ? (
+          <MoveRow m={selected} />
+        ) : (
+          <span className="muted">{placeholder ?? "技を選択"}</span>
+        )}
         <span className="mvsel-caret">▾</span>
       </button>
       {open && (
         <div className="mvsel-pop" role="listbox">
-          {moves.map((m) => (
+          {searchable && (
+            <input
+              ref={searchRef}
+              className="mvsel-search"
+              type="text"
+              placeholder="技を検索…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          )}
+          {clearLabel && onClear && !query && (
+            <button type="button" className="mvsel-opt special" onClick={() => { onClear(); close(); }}>
+              {clearLabel}
+            </button>
+          )}
+          {filtered.map((m) => (
             <button
               type="button"
               key={m.name}
               role="option"
-              aria-selected={m.name === selected?.name}
-              className={`mvsel-opt ${m.name === selected?.name ? "sel" : ""}`}
-              onClick={() => {
-                onChange(m.name);
-                setOpen(false);
-              }}
+              aria-selected={m.name === value}
+              className={`mvsel-opt ${m.name === value ? "sel" : ""}`}
+              onClick={() => { onChange(m.name); close(); }}
             >
               <MoveRow m={m} />
             </button>
           ))}
+          {filtered.length === 0 && <div className="mvsel-empty muted">該当なし</div>}
+          {manualLabel && onManual && !query && (
+            <button type="button" className="mvsel-opt special" onClick={() => { onManual(); close(); }}>
+              ✏️ {manualLabel}
+            </button>
+          )}
         </div>
       )}
     </div>
