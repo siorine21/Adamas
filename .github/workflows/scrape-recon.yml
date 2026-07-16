@@ -25,6 +25,6 @@ jobs:
           node recon/pw.cjs || echo "node error"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add recon/appmedia.txt 2>/dev/null
+          git add recon/champ_moves.json recon/champ_log.txt 2>/dev/null
           git commit -q -m "yakkun playwright recon" || echo "nothing to commit"
           git push origin HEAD:tooling/champ-scrape || echo "push failed"
