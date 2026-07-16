@@ -1,0 +1,7 @@
+GOTO https://yakkun.com/ch/zukan/n306
+try0 title="Just a moment..."
+try1 title="しばらくお待ちください..."
+FINAL title=しばらくお待ちください...
+bodyText length=175
+覚える idx=-1
+--- waza-like links ---
