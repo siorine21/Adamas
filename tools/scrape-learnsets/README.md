@@ -34,3 +34,10 @@ node tools/scrape-learnsets/gen-learnsets.mjs # moves.ts の LEARNSETS を再生
 - AppMedia のHTML構造が変わると `scrape.cjs` の抽出条件（「わざ名」「威力」を含む表）を要調整。
 - 取得結果は**必ず目視確認**すること（サイト側の記載ミスや構造変化を検知するため）。
 - Cloudflare 等のbot判定を設けているサイト（yakkun 等）は対象にしない（アクセス制御の回避はしない）。
+
+## 手動修正済みの差分（再スクレイプ時は再適用が必要）
+
+AppMedia の記載が実機と食い違っていた箇所は、手動で修正しています。**再スクレイプすると元に戻る**ため、
+`champ_moves.json` / `src/data/moves.ts` に対して以下を再適用してください。
+
+- **ヒスイヌメルゴン**: `とける` を削除（AppMedia には掲載されているが、チャンピオンズ実機では覚えない。2026/7 実機確認済み）。
