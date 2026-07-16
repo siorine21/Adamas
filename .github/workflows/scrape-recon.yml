@@ -22,7 +22,7 @@ jobs:
         run: |
           npm i -D playwright@1.49 >/dev/null 2>&1 || npm i -D playwright
           npx playwright install --with-deps chromium
-          node recon/pw.js || echo "node error"
+          node recon/pw.cjs || echo "node error"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add recon/yakkun.txt 2>/dev/null
