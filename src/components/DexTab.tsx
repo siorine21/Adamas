@@ -3,7 +3,7 @@ import type { StatKey } from "../types";
 import { useStore } from "../store";
 import { DEX } from "../data/dex";
 import { STAT_KEYS, TYPES, TYPE_COLORS } from "../data/game";
-import { entryFromDex } from "../data/roster";
+import { displayName, entryFromDex } from "../data/roster";
 import { TypeBadges } from "./TypeBadge";
 
 interface Row {
@@ -38,7 +38,10 @@ export function DexTab() {
 
   const rows = useMemo(() => {
     let r = FLAT;
-    if (q.trim()) r = r.filter((x) => x.name.includes(q.trim()));
+    if (q.trim()) {
+      const qq = q.trim();
+      r = r.filter((x) => x.name.includes(qq) || displayName(x.name, x.form).includes(qq));
+    }
     if (megaOnly) r = r.filter((x) => x.megaOnly);
     if (typeFilter.size > 0) {
       r = r.filter((x) => [...typeFilter].every((t) => x.types.includes(t)));
@@ -111,7 +114,7 @@ export function DexTab() {
           <thead>
             <tr>
               <th onClick={() => setSort("name")}>名前{arrow("name")}</th>
-              <th>フォルム / タイプ</th>
+              <th>タイプ</th>
               {STAT_KEYS.map((k) => (
                 <th key={k} className="num" onClick={() => setSort(k)}>{k}{arrow(k)}</th>
               ))}
@@ -123,12 +126,11 @@ export function DexTab() {
             {rows.map((r) => (
               <tr key={`${r.name}/${r.form}`}>
                 <td>
-                  {r.name}
+                  {displayName(r.name, r.form)}
                   {r.megaOnly && <span className="small amber" title="メガシンカで初めてはがね化"> ⚑</span>}
                 </td>
                 <td>
                   <div className="row tight">
-                    <span className="small muted">{r.form}</span>
                     <TypeBadges types={r.types} />
                   </div>
                 </td>
@@ -140,7 +142,13 @@ export function DexTab() {
                   <button
                     className="btn small"
                     title="自軍（ベンチ）へ追加"
-                    onClick={() => { const e = entryFromDex(r.name); if (e) addEntry(e); }}
+                    onClick={() => {
+                      const e = entryFromDex(r.name);
+                      if (!e) return;
+                      const idx = e.forms.findIndex((f) => f.form === r.form);
+                      if (idx >= 0) e.activeForm = idx;
+                      addEntry(e);
+                    }}
                   >
                     ＋自軍へ
                   </button>
