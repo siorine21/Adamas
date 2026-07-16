@@ -190,7 +190,7 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
 .spacer { flex: 1; }
 
 /* ---------- タイプ色付きカスタム技ドロップダウン ---------- */
-.mvsel { position: relative; width: 100%; }
+.mvsel { position: relative; }
 .mvsel-btn {
   display: flex;
   align-items: center;
@@ -233,6 +233,18 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
 }
 .mvsel-opt:hover { background: rgba(127, 168, 207, 0.15); }
 .mvsel-opt.sel { background: rgba(127, 168, 207, 0.25); }
+.mvsel-opt.special { color: var(--dim); font-size: 12px; padding: 6px; }
+.mvsel-search {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 5px 8px;
+  font-size: 13px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+}
+.mvsel-empty { padding: 8px 6px; font-size: 12px; }
 .mvsel-row { display: flex; align-items: center; gap: 8px; }
 .mvsel-name { color: var(--ink); font-size: 13px; }
 .mvsel-meta { margin-left: auto; color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; }
