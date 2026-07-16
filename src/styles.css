@@ -453,3 +453,14 @@ table.dex tbody tr:hover, table.spd tbody tr:hover { background: rgba(127, 168, 
 .filter-types button.on { opacity: 1; outline: 2px solid var(--steel-hi); }
 
 textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-size: 11px; }
+
+/* ---------- iOS: 入力欄タップ時の自動ズーム防止 ----------
+   iOS Safari は font-size が16px未満の入力欄にフォーカスすると自動でズームする。
+   タッチ端末では input / textarea を16pxに引き上げてズームを抑止する
+   （select はズームしないため対象外。ピンチズームは無効化しない＝アクセシビリティ維持）。 */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea {
+    font-size: 16px;
+  }
+}
