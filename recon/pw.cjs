@@ -1,48 +1,49 @@
-// yakkun 図鑑ページを Playwright で開き、Cloudflare通過後に「覚える技」構造を確認する
+// AppMedia(JS描画・Cloudflare無し) を Playwright で描画し、ボスゴドラの覚える技構造を確認
 const { chromium } = require("playwright");
 const fs = require("fs");
 
 (async () => {
   const out = [];
   const browser = await chromium.launch({ args: ["--no-sandbox"] });
-  const ctx = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  const page = await browser.newContext({
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
     locale: "ja-JP",
-  });
-  const page = await ctx.newPage();
-  const url = "https://yakkun.com/ch/zukan/n306"; // ボスゴドラ
-  out.push("GOTO " + url);
+  }).then((c) => c.newPage());
+
   try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
-    // Cloudflare「Just a moment」が消えるまで待つ
-    for (let i = 0; i < 15; i++) {
-      const title = await page.title().catch(() => "");
-      out.push(`try${i} title="${title}"`);
-      if (!/just a moment|attention required|checking/i.test(title) && title.length > 0) break;
-      await page.waitForTimeout(2500);
-    }
-    await page.waitForTimeout(2000);
-    const finalTitle = await page.title().catch(() => "");
-    out.push("FINAL title=" + finalTitle);
-    const bodyText = await page.evaluate(() => document.body.innerText).catch(() => "");
-    out.push("bodyText length=" + bodyText.length);
-    // 「覚える技」周辺のテキストを抽出
-    const idx = bodyText.indexOf("覚える");
-    out.push("覚える idx=" + idx);
-    if (idx >= 0) out.push("--- 覚える 周辺テキスト ---\n" + bodyText.slice(idx, idx + 1500));
-    // 技名リンク(a[href*=waza] など)の構造
+    // 1) はがね一覧を描画して、ボスゴドラの個別ページURLを得る
+    await page.goto("https://appmedia.jp/pokemonchampions/79917367", { waitUntil: "networkidle", timeout: 60000 });
+    await page.waitForTimeout(2500);
     const links = await page.$$eval("a", (as) =>
-      as
-        .filter((a) => /waza|move|move_/.test(a.getAttribute("href") || ""))
-        .slice(0, 40)
-        .map((a) => (a.getAttribute("href") || "") + " | " + a.textContent.trim())
-    ).catch((e) => ["link eval err " + e]);
-    out.push("--- waza-like links ---\n" + links.join("\n"));
-    fs.writeFileSync("recon/pages_boss.html", (await page.content()).slice(0, 500000));
+      as.map((a) => ({ href: a.href, text: (a.textContent || "").trim(), alt: (a.querySelector("img") ? a.querySelector("img").getAttribute("alt") : "") || "" }))
+    );
+    out.push("total anchors: " + links.length);
+    const steel = ["ボスゴドラ","メタグロス","サーフゴー","ハガネール","ギルガルド"];
+    const found = links.filter((l) => /pokemonchampions\/\d+/.test(l.href) && steel.some((s) => l.text === s || l.alt === s));
+    out.push("steel-name links found: " + found.length);
+    found.slice(0, 20).forEach((l) => out.push(`  ${l.href}  text="${l.text}" alt="${l.alt}"`));
+
+    const boss = found.find((l) => l.text === "ボスゴドラ" || l.alt === "ボスゴドラ");
+    if (boss) {
+      out.push("BOSS URL: " + boss.href);
+      // 2) 個別ページを描画して覚える技を確認
+      await page.goto(boss.href, { waitUntil: "networkidle", timeout: 60000 });
+      await page.waitForTimeout(2500);
+      const body = await page.evaluate(() => document.body.innerText);
+      const idx = body.indexOf("覚える");
+      out.push("body length: " + body.length + " / 覚える idx: " + idx);
+      if (idx >= 0) out.push("--- 覚える 周辺 innerText(2000) ---\n" + body.slice(idx, idx + 2000));
+      const moves = await page.$$eval("a, td, th", (els) =>
+        els.map((e) => (e.textContent || "").trim()).filter((t) => /^[ぁ-んァ-ヶ一-龠ー0-9]{2,10}$/.test(t))
+      );
+      out.push("--- move-like tokens (first 80) ---\n" + [...new Set(moves)].slice(0, 80).join(", "));
+    } else {
+      out.push("ボスゴドラの個別リンクが見つかりませんでした。pokemonchampions リンク上位30:");
+      links.filter((l) => /pokemonchampions\/\d+/.test(l.href)).slice(0, 30).forEach((l) => out.push(`  ${l.href} text="${l.text}" alt="${l.alt}"`));
+    }
   } catch (e) {
     out.push("ERROR " + e.message);
   }
-  fs.writeFileSync("recon/yakkun.txt", out.join("\n"));
+  fs.writeFileSync("recon/appmedia.txt", out.join("\n"));
   await browser.close();
 })();
