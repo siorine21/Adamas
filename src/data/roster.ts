@@ -10,6 +10,17 @@ export function makeKey(): string {
 
 export const ZERO_AP: StatBlock = { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 };
 
+/** フォルムを反映した表示名。
+ *  メガ→「メガ○○」、メガZ/メガX/メガY→「メガ○○Z」等、その他フォルムは「○○（シールド）」形式。
+ *  保存済みデータ（forms文字列）からその場で組み立てるため、既存ロスターにもそのまま効く。 */
+export function displayName(name: string, form: string): string {
+  if (!name) return "（無名）";
+  if (!form || form === "通常") return name;
+  if (form === "メガ") return `メガ${name}`;
+  if (form.startsWith("メガ")) return `メガ${name}${form.slice(2)}`; // メガZ → メガ○○Z
+  return `${name}（${form}）`;
+}
+
 export function findDex(name: string) {
   return DEX.find((d) => d.name === name);
 }

@@ -9,6 +9,7 @@ import {
   type Weather,
 } from "../calc";
 import { TypeBadges, typeSelectStyle } from "./TypeBadge";
+import { displayName } from "../data/roster";
 import { MoveEditor } from "./MoveEditor";
 
 type Dir = "toThreat" | "toSelf";
@@ -152,8 +153,7 @@ export function DamageTab() {
           <select value={selfKey} onChange={(e) => { setSelfKey(e.target.value); setSelfMoveName(""); }}>
             {selfList.map((e) => (
               <option key={e.key} value={e.key}>
-                {e.starred ? "★ " : ""}{e.name}{e.nickname ? `「${e.nickname}」` : ""}
-                {e.forms.length > 1 ? `（${e.forms[e.activeForm].form}）` : ""}
+                {e.starred ? "★ " : ""}{displayName(e.name, e.forms[e.activeForm].form)}{e.nickname ? `「${e.nickname}」` : ""}
               </option>
             ))}
           </select>
