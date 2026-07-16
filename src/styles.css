@@ -305,6 +305,7 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
   background: var(--bg);
 }
 .move-row .move-main { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+.move-row .move-edit { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
 .move-row .flags {
   display: flex;
   gap: 8px;
