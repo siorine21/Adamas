@@ -27,8 +27,8 @@ const fs = require("fs");
     if (boss) {
       out.push("BOSS URL: " + boss.href);
       // 2) 個別ページを描画して覚える技を確認
-      await page.goto(boss.href, { waitUntil: "networkidle", timeout: 60000 });
-      await page.waitForTimeout(2500);
+      await page.goto(boss.href, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.waitForTimeout(5000);
       const body = await page.evaluate(() => document.body.innerText);
       const idx = body.indexOf("覚える");
       out.push("body length: " + body.length + " / 覚える idx: " + idx);
