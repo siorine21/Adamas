@@ -26,14 +26,7 @@ async function wazaOf(page, url) {
     locale: "ja-JP",
   })).newPage();
   try {
-    // ギルガルドの正しい図鑑URLを全ポケモン一覧から解決
-    await page.goto("https://appmedia.jp/pokemonchampions/79783190", { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForTimeout(6000);
-    const ls = await page.$$eval("a", (as) => as.map((a) => ({ h: a.href, t: (a.textContent||"").trim(), alt: (a.querySelector("img")?.getAttribute("alt")||"") })));
-    const g = ls.filter((l) => /pokemonchampions\/\d+/.test(l.h) && l.t === "ギルガルド" && !l.h.includes("79943590"));
-    log.push("ギルガルド候補: " + g.map((x)=>x.h+"|"+x.alt).join(" , "));
-    const gurl = (g.find((x)=>x.alt.includes("ポケモン")) || g[0] || {}).h;
-    for (const [name, url] of [["チリーン","https://appmedia.jp/pokemonchampions/79876817"], ["ギルガルド", gurl]]) {
+    for (const [name, url] of [["チリーン","https://appmedia.jp/pokemonchampions/79876817"], ["ギルガルド","https://appmedia.jp/pokemonchampions/79877570"]]) {
       if (!url) { out[name] = []; log.push(name+": URL未解決"); continue; }
       out[name] = await wazaOf(page, url);
       log.push(`${name}: ${out[name].length}技 (${url})  先頭=${out[name].slice(0,8).join("/")}`);
