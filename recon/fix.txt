@@ -1,0 +1,19 @@
+[79917367] チリーン系リンク:
+  https://appmedia.jp/pokemonchampions/79876820 | メガチリーン
+[79783190] チリーン系リンク:
+  https://appmedia.jp/pokemonchampions/79876817 | チリーン
+  https://appmedia.jp/pokemonchampions/79876820 | メガチリーン
+
+[ギルガルド] tables=11 bodyLen=14738
+#0 hasWaza=false rows=8 head="ギルガルド(シールドフォルム)のタイプ・種族値"
+#1 hasWaza=false rows=2 head="高さ・重さ けたぐり/くさむすびの威力"
+#2 hasWaza=false rows=7 head=" 0 32 上昇補正 下降補正"
+#3 hasWaza=false rows=2 head="ランク 強み"
+#4 hasWaza=false rows=3 head="アイテム 理由"
+#5 hasWaza=false rows=7 head="ギルガルド(シールドフォルム) 【特性】 バトルスイッチ わざ構成"
+#6 hasWaza=true rows=3 head="わざ名 理由"
+#7 hasWaza=false rows=8 head="サザンドラのタイプ・種族値"
+#8 hasWaza=false rows=1 head="メガリザードンY ミミッキュ"
+#9 hasWaza=false rows=1 head="カビゴン ガルーラ"
+#10 hasWaza=false rows=5 head="タイプ別ポケモン一覧"
+覚える周辺: 覚えることができます！さらに、チュートリアルを全てクリアすると、リオネル メッシがもらえます！！ また、試合の面白さや爽快感を楽しんでいただくためにスマートアシストを実装。 複雑な操作をしなくても、華麗なドリブルやパスで相手をかわして強烈なシュートでゴールを奪うことができます！ 【基本的な遊び方】 ■好きなチームで始めよう 欧州、米州、アジアなど世界各国のクラブやナショナルチームなどお気に入りのチームでスタートできます！ ■選手を獲得しましょう チームを作成したら、選手を獲得しましょう。現役のスーパースターや、歴史に残るレジェンドたちが、あなたのクラブでの活躍を待っています！ ・スペシャル選手
