@@ -3,7 +3,7 @@ import type { Move, StatBlock, Threat } from "../types";
 import { useStore } from "../store";
 import { NATURES, STAT_KEYS, STAT_LABEL, TYPES, realStats } from "../data/game";
 import { CONFIRMED } from "../data/confirmed";
-import { MOVE_LIB } from "../data/moves";
+import { MOVE_LIB, sortMovesByType } from "../data/moves";
 import {
   computeDamage, effLabel, hazardDamage, koAnalysis, typeEffectiveness,
   type Weather,
@@ -11,6 +11,7 @@ import {
 import { TypeBadges, typeSelectStyle } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
+import { MoveSelect } from "./MoveSelect";
 
 type Dir = "toThreat" | "toSelf";
 
@@ -64,7 +65,7 @@ export function DamageTab() {
     const learn = moveOptionsFor(self.name).options.filter((m) => m.cat !== "変化" && m.power > 0);
     const merged: Move[] = [...own];
     for (const m of learn) if (!merged.some((x) => x.name === m.name)) merged.push(m);
-    return merged;
+    return sortMovesByType(merged); // 統合後にタイプ順で並べ直す（設定済み技が先頭に来るのを防ぐ）
   }, [self]);
   const [selfMoveName, setSelfMoveName] = useState<string>("");
   const selfMove = selfDamaging.find((m) => m.name === selfMoveName) ?? selfDamaging[0];
@@ -175,11 +176,7 @@ export function DamageTab() {
               {selfDamaging.length === 0 ? (
                 <div className="banner warn">この個体・種族に攻撃技が見つかりません。チーム管理で技を追加してください。</div>
               ) : (
-                <select value={selfMove?.name ?? ""} onChange={(e) => setSelfMoveName(e.target.value)}>
-                  {selfDamaging.map((m) => (
-                    <option key={m.name} value={m.name}>{m.name}（{m.type} {m.power} {m.cat}）</option>
-                  ))}
-                </select>
+                <MoveSelect moves={selfDamaging} value={selfMove?.name ?? ""} onChange={setSelfMoveName} />
               )}
             </label>
           )}

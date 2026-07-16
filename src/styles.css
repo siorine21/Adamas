@@ -189,6 +189,54 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
 .row.tight { gap: 5px; }
 .spacer { flex: 1; }
 
+/* ---------- タイプ色付きカスタム技ドロップダウン ---------- */
+.mvsel { position: relative; width: 100%; }
+.mvsel-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.mvsel-btn:hover { border-color: var(--steel); }
+.mvsel-caret { margin-left: auto; color: var(--dim); font-size: 11px; }
+.mvsel-pop {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--panel2);
+  border: 1px solid var(--steel);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+}
+.mvsel-opt {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 6px;
+  cursor: pointer;
+  text-align: left;
+}
+.mvsel-opt:hover { background: rgba(127, 168, 207, 0.15); }
+.mvsel-opt.sel { background: rgba(127, 168, 207, 0.25); }
+.mvsel-row { display: flex; align-items: center; gap: 8px; }
+.mvsel-name { color: var(--ink); font-size: 13px; }
+.mvsel-meta { margin-left: auto; color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; }
+
 /* ---------- type badges ---------- */
 .tbadge {
   display: inline-block;

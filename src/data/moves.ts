@@ -1,4 +1,5 @@
 import type { Learnset, Move, MoveCategory } from "../types";
+import { TYPES } from "./game";
 
 const M = (
   name: string,
@@ -7,6 +8,22 @@ const M = (
   cat: MoveCategory,
   opts: Partial<Move> = {},
 ): Move => ({ name, type, power, cat, ...opts });
+
+const CAT_ORDER: Record<string, number> = { "物理": 0, "特殊": 1, "変化": 2 };
+
+/** 技をタイプ順（TYPES準拠）→分類（物理→特殊→変化）→威力降順で並べ替える。
+ *  ドロップダウン候補の表示順を統一するために使用。 */
+export function sortMovesByType(moves: Move[]): Move[] {
+  return [...moves].sort((a, b) => {
+    const ta = TYPES.indexOf(a.type);
+    const tb = TYPES.indexOf(b.type);
+    if (ta !== tb) return ta - tb;
+    const ca = CAT_ORDER[a.cat] ?? 9;
+    const cb = CAT_ORDER[b.cat] ?? 9;
+    if (ca !== cb) return ca - cb;
+    return b.power - a.power;
+  });
+}
 
 /* ---------- 技ライブラリ（実在技を全収録・833技） ----------
    出典: PokeAPI (github.com/PokeAPI/pokeapi) の技データCSV。
