@@ -62,6 +62,8 @@ export const STAT_LABEL: Record<StatKey, string> = {
 
 export const AP_MAX_TOTAL = 66;
 export const AP_MAX_EACH = 32;
+/** AP配分ドロップダウンの選択肢（0〜32） */
+export const AP_VALUES = Array.from({ length: AP_MAX_EACH + 1 }, (_, i) => i);
 export const MAX_STARRED = 6;
 export const MAX_MOVES = 4;
 

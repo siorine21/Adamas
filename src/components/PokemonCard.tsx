@@ -1,7 +1,7 @@
 import type { Move, RosterEntry, StatKey } from "../types";
 import { useStore } from "../store";
 import {
-  AP_MAX_EACH, AP_MAX_TOTAL, MAX_MOVES, NATURES, realStats,
+  AP_MAX_EACH, AP_MAX_TOTAL, AP_VALUES, MAX_MOVES, NATURES, realStats,
   STAT_KEYS, STAT_LABEL,
 } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
@@ -166,7 +166,9 @@ function StatRow({ k, base, ap, real, onAP }: { k: StatKey; base: number; ap: nu
     <>
       <div className="lbl">{k}<span className="small muted"> {STAT_LABEL[k]}</span></div>
       <div className="base">{base}</div>
-      <input type="number" min={0} max={32} value={ap} onChange={(e) => onAP(Number(e.target.value))} />
+      <select value={ap} onChange={(e) => onAP(Number(e.target.value))}>
+        {AP_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
+      </select>
       <div className="real">{real}</div>
     </>
   );
