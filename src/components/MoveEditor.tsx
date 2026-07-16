@@ -37,11 +37,10 @@ export function MoveEditor({ move, options, onChange }: Props) {
   // 選択中の技が候補に無い（かつ空でない）＝手動入力扱い
   const isCustom = !!move && move.name !== "" && !options.some((o) => o.name === move.name);
   const [manual, setManual] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
   const showName = manual || isCustom;
-  // 威力可変技（威力0の攻撃技）や手動入力時は詳細編集欄を自動で開く
-  const needEdit = showName || (!!move && move.cat !== "変化" && move.power === 0);
-  const editOpen = !!move && (showEdit || needEdit);
+  // 手動入力（リスト外の技）のときだけ、タイプ/威力/分類などの編集欄を出す。
+  // ライブラリ技はゲーム側の値が確定しているので編集欄は不要（ドロップダウンに表示済み）。
+  const editOpen = !!move && showName;
 
   const commitName = (v: string) => {
     if (!v) return onChange(undefined);
@@ -52,51 +51,32 @@ export function MoveEditor({ move, options, onChange }: Props) {
 
   return (
     <div className="move-row">
-      {/* ダメージ計算と同じ全幅のタイプ色付きドロップダウン */}
-      <div className="move-main">
-        <MoveSelect
-          style={{ flex: "1 1 auto", minWidth: 0 }}
-          moves={options}
-          value={showName ? "" : move?.name ?? ""}
-          searchable={useSearch}
-          placeholder="覚える技から選択 / 空"
-          clearLabel="— 空にする —"
-          manualLabel="手動入力（リスト外の技）"
-          manualActive={showName}
-          onChange={(v) => { setManual(false); commitName(v); }}
-          onClear={() => { setManual(false); onChange(undefined); }}
-          onManual={() => {
-            setManual(true);
-            if (!move) onChange({ name: "", type: "ノーマル", power: 0, cat: "変化" });
-          }}
-        />
-        {move && (
-          <>
-            <button
-              className={`btn small ${editOpen ? "primary" : ""}`}
-              title="威力・タイプ・分類などを編集"
-              onClick={() => setShowEdit((v) => !v)}
-            >
-              詳細
-            </button>
-            <button className="btn small danger" title="この技を消す" onClick={() => onChange(undefined)}>
-              ×
-            </button>
-          </>
-        )}
-      </div>
+      {/* ダメージ計算と同じ全幅のタイプ色付きドロップダウン（削除は「空にする」で行う） */}
+      <MoveSelect
+        moves={options}
+        value={showName ? "" : move?.name ?? ""}
+        searchable={useSearch}
+        placeholder="覚える技から選択 / 空"
+        clearLabel="— 空にする —"
+        manualLabel="手動入力（リスト外の技）"
+        manualActive={showName}
+        onChange={(v) => { setManual(false); commitName(v); }}
+        onClear={() => { setManual(false); onChange(undefined); }}
+        onManual={() => {
+          setManual(true);
+          if (!move) onChange({ name: "", type: "ノーマル", power: 0, cat: "変化" });
+        }}
+      />
 
-      {/* 詳細編集（手動入力・威力可変技のとき自動表示 / それ以外は「詳細」で開閉） */}
+      {/* 手動入力（リスト外の技）のときだけ詳細編集欄を表示 */}
       {editOpen && (
         <>
-          {showName && (
-            <input
-              type="text"
-              value={move.name}
-              placeholder="技名を入力"
-              onChange={(e) => onChange({ ...move, name: e.target.value })}
-            />
-          )}
+          <input
+            type="text"
+            value={move.name}
+            placeholder="技名を入力"
+            onChange={(e) => onChange({ ...move, name: e.target.value })}
+          />
           <div className="move-edit">
             <select
               style={{ flex: "0 1 100px", ...typeSelectStyle(move.type) }}
