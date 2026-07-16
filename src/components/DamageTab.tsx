@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Move, StatBlock, Threat } from "../types";
 import { useStore } from "../store";
-import { NATURES, STAT_KEYS, STAT_LABEL, TYPES, realStats } from "../data/game";
+import { AP_VALUES, NATURES, STAT_KEYS, STAT_LABEL, TYPES, realStats } from "../data/game";
 import { CONFIRMED } from "../data/confirmed";
 import { MOVE_LIB, sortMovesByType } from "../data/moves";
 import {
@@ -342,7 +342,9 @@ function ThreatStatRow({ k, base, ap, real, onBase, onAP }: {
     <>
       <div className="lbl">{k}<span className="small muted"> {STAT_LABEL[k]}</span></div>
       <input type="number" min={1} value={base} onChange={(e) => onBase(Math.max(1, Number(e.target.value) || 1))} />
-      <input type="number" min={0} max={32} value={ap} onChange={(e) => onAP(Number(e.target.value) || 0)} />
+      <select value={ap} onChange={(e) => onAP(Number(e.target.value) || 0)}>
+        {AP_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
+      </select>
       <div className="real">{real}</div>
     </>
   );

@@ -285,7 +285,7 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
   font-variant-numeric: tabular-nums;
 }
 .stat-grid .real { color: var(--steel-hi); font-weight: 600; }
-.stat-grid input {
+.stat-grid input, .stat-grid select {
   padding: 3px 4px;
   text-align: center;
   font-size: 12px;
