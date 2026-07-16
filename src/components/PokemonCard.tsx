@@ -5,6 +5,7 @@ import {
   STAT_KEYS, STAT_LABEL,
 } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
+import { displayName } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 
 interface Props {
@@ -53,7 +54,7 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="row tight" style={{ alignItems: "baseline" }}>
-            <strong style={{ color: "var(--steel-hi)" }}>{entry.name || "（無名）"}</strong>
+            <strong style={{ color: "var(--steel-hi)" }}>{displayName(entry.name, form.form)}</strong>
             {entry.nickname && <span className="small muted">「{entry.nickname}」</span>}
             <TypeBadges types={form.types} />
           </div>
@@ -75,7 +76,7 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
             <span>フォルム</span>
             <select value={entry.activeForm} onChange={(e) => setForm(Number(e.target.value))}>
               {entry.forms.map((f, i) => (
-                <option key={i} value={i}>{f.form}</option>
+                <option key={i} value={i}>{displayName(entry.name, f.form)}</option>
               ))}
             </select>
           </label>

@@ -3,6 +3,7 @@ import { useStore } from "../store";
 import { THREATS } from "../data/dex";
 import { calcStat, rankMul, realStats } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
+import { displayName } from "../data/roster";
 
 interface SpeedRow {
   label: string;
@@ -41,7 +42,7 @@ export function SpeedTab() {
       if ((rank[e.key] ?? 0) !== 0) tags.push(`S${(rank[e.key] ?? 0) > 0 ? "+" : ""}${rank[e.key]}`);
       return {
         key: e.key,
-        label: `${e.name}${e.nickname ? `「${e.nickname}」` : ""}`,
+        label: `${displayName(e.name, form.form)}${e.nickname ? `「${e.nickname}」` : ""}`,
         detail: `実数${base}${tags.length ? " / " + tags.join(" ") : ""}`,
         types: form.types,
         speed: s,
@@ -67,7 +68,7 @@ export function SpeedTab() {
           return (
             <div className="row" key={e.key} style={{ padding: "6px 0", borderBottom: "1px solid var(--line)" }}>
               <div style={{ flex: "1 1 160px" }}>
-                <b style={{ color: "var(--steel-hi)" }}>{e.name}</b>
+                <b style={{ color: "var(--steel-hi)" }}>{displayName(e.name, form.form)}</b>
                 {e.nickname && <span className="small muted">「{e.nickname}」</span>}
                 <span className="small muted tnum"> 実数S {base}</span>
               </div>

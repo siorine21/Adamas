@@ -9,7 +9,8 @@ import {
   type Weather,
 } from "../calc";
 import { TypeBadges, typeSelectStyle } from "./TypeBadge";
-import { MoveEditor } from "./MoveEditor";
+import { displayName } from "../data/roster";
+import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 
 type Dir = "toThreat" | "toSelf";
 
@@ -55,9 +56,16 @@ export function DamageTab() {
     setThreat({ name: t.name, base: { ...t.base }, types: [...t.types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: t.abilities.join("/"), typeVerified: t.typeVerified });
   };
 
-  // 技選択
+  // 技選択：その種族がチャンピオンズで覚える攻撃技すべて＋この個体に設定済みの攻撃技を候補にする
   const selfForm = self?.forms[self.activeForm];
-  const selfDamaging = (self?.moves ?? []).filter((m) => m.cat !== "変化" && m.power > 0);
+  const selfDamaging = useMemo<Move[]>(() => {
+    if (!self) return [];
+    const own = self.moves.filter((m) => m.cat !== "変化" && m.power > 0);
+    const learn = moveOptionsFor(self.name).options.filter((m) => m.cat !== "変化" && m.power > 0);
+    const merged: Move[] = [...own];
+    for (const m of learn) if (!merged.some((x) => x.name === m.name)) merged.push(m);
+    return merged;
+  }, [self]);
   const [selfMoveName, setSelfMoveName] = useState<string>("");
   const selfMove = selfDamaging.find((m) => m.name === selfMoveName) ?? selfDamaging[0];
   const [threatMove, setThreatMove] = useState<Move | undefined>(() => ({ ...MOVE_LIB[0] }));
@@ -152,8 +160,7 @@ export function DamageTab() {
           <select value={selfKey} onChange={(e) => { setSelfKey(e.target.value); setSelfMoveName(""); }}>
             {selfList.map((e) => (
               <option key={e.key} value={e.key}>
-                {e.starred ? "★ " : ""}{e.name}{e.nickname ? `「${e.nickname}」` : ""}
-                {e.forms.length > 1 ? `（${e.forms[e.activeForm].form}）` : ""}
+                {e.starred ? "★ " : ""}{displayName(e.name, e.forms[e.activeForm].form)}{e.nickname ? `「${e.nickname}」` : ""}
               </option>
             ))}
           </select>
@@ -164,9 +171,9 @@ export function DamageTab() {
           <StatLine real={selfReal} />
           {attackerIsSelf && (
             <label className="fld">
-              <span>使用技（習得済みの攻撃技のみ）</span>
+              <span>使用技（この種族が覚える攻撃技）</span>
               {selfDamaging.length === 0 ? (
-                <div className="banner warn">この個体に攻撃技が設定されていません。チーム管理で技を追加してください。</div>
+                <div className="banner warn">この個体・種族に攻撃技が見つかりません。チーム管理で技を追加してください。</div>
               ) : (
                 <select value={selfMove?.name ?? ""} onChange={(e) => setSelfMoveName(e.target.value)}>
                   {selfDamaging.map((m) => (
