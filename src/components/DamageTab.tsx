@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Move, StatBlock, Threat } from "../types";
 import { useStore } from "../store";
 import { AP_VALUES, NATURES, STAT_KEYS, STAT_LABEL, TYPES, realStats } from "../data/game";
 import { CONFIRMED } from "../data/confirmed";
-import { MOVE_LIB, sortMovesByType } from "../data/moves";
+import { MOVE_BY_NAME, MOVE_LIB, sortMovesByType } from "../data/moves";
 import {
   computeDamage, effLabel, hazardDamage, koAnalysis, typeEffectiveness,
   type Weather,
@@ -61,14 +61,23 @@ export function DamageTab() {
   const selfForm = self?.forms[self.activeForm];
   const selfDamaging = useMemo<Move[]>(() => {
     if (!self) return [];
-    const own = self.moves.filter((m) => m.cat !== "変化" && m.power > 0);
-    const learn = moveOptionsFor(self.name).options.filter((m) => m.cat !== "変化" && m.power > 0);
+    // 攻撃技（変化技以外）は威力0の威力変動技も候補に含める（威力は下で手入力）
+    const own = self.moves.filter((m) => m.cat !== "変化");
+    const learn = moveOptionsFor(self.name).options.filter((m) => m.cat !== "変化");
     const merged: Move[] = [...own];
     for (const m of learn) if (!merged.some((x) => x.name === m.name)) merged.push(m);
     return sortMovesByType(merged); // 統合後にタイプ順で並べ直す（設定済み技が先頭に来るのを防ぐ）
   }, [self]);
   const [selfMoveName, setSelfMoveName] = useState<string>("");
   const selfMove = selfDamaging.find((m) => m.name === selfMoveName) ?? selfDamaging[0];
+  // 威力変動技（ライブラリ威力0）は威力を手入力。技を切り替えたら設定済み威力で初期化。
+  const selfVarPower = !!selfMove && selfMove.cat !== "変化"
+    && (MOVE_BY_NAME[selfMove.name]?.power ?? selfMove.power) === 0;
+  const [selfPow, setSelfPow] = useState(0);
+  useEffect(() => {
+    setSelfPow(selfMove && selfMove.power > 0 ? selfMove.power : 0);
+  }, [selfMove?.name]);
+  const selfMoveEff = selfMove && selfVarPower ? { ...selfMove, power: selfPow } : selfMove;
   const [threatMove, setThreatMove] = useState<Move | undefined>(() => ({ ...MOVE_LIB[0] }));
 
   // 戦闘条件
@@ -93,7 +102,7 @@ export function DamageTab() {
 
   // 役割の割り当て
   const attackerIsSelf = dir === "toThreat";
-  const move: Move | undefined = attackerIsSelf ? selfMove : threatMove;
+  const move: Move | undefined = attackerIsSelf ? selfMoveEff : threatMove;
 
   const atkTypes = attackerIsSelf ? selfForm.types : threat.types;
   const defTypes = attackerIsSelf ? threat.types : selfForm.types;
@@ -177,6 +186,18 @@ export function DamageTab() {
                 <div className="banner warn">この個体・種族に攻撃技が見つかりません。チーム管理で技を追加してください。</div>
               ) : (
                 <MoveSelect moves={selfDamaging} value={selfMove?.name ?? ""} onChange={setSelfMoveName} />
+              )}
+              {selfVarPower && (
+                <div className="row tight" style={{ marginTop: 6 }}>
+                  <span className="small muted">威力変動技 — 威力を入力:</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={selfPow}
+                    style={{ width: 90 }}
+                    onChange={(e) => setSelfPow(Math.max(0, Number(e.target.value) || 0))}
+                  />
+                </div>
               )}
             </label>
           )}

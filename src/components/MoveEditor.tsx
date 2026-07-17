@@ -41,6 +41,10 @@ export function MoveEditor({ move, options, onChange }: Props) {
   // 手動入力（リスト外の技）のときだけ、タイプ/威力/分類などの編集欄を出す。
   // ライブラリ技はゲーム側の値が確定しているので編集欄は不要（ドロップダウンに表示済み）。
   const editOpen = !!move && showName;
+  // ライブラリ上の威力が0＝威力変動技（ハードプレス・ジャイロボール等）。
+  // ユーザーが威力を入れても元技の威力で判定するので、入力欄は出したまま。
+  const libBase = move ? MOVE_BY_NAME[move.name] : undefined;
+  const isVariablePower = !!move && !showName && move.cat !== "変化" && !!libBase && libBase.power === 0;
 
   const commitName = (v: string) => {
     if (!v) return onChange(undefined);
@@ -125,6 +129,21 @@ export function MoveEditor({ move, options, onChange }: Props) {
             </label>
           </div>
         </>
+      )}
+
+      {/* 威力変動技：ライブラリ技でも威力の自由入力欄を出す */}
+      {isVariablePower && (
+        <div className="move-edit">
+          <span className="small muted" style={{ flex: "1 1 auto" }}>威力変動技 — 威力を入力</span>
+          <input
+            style={{ flex: "0 1 80px" }}
+            type="number"
+            min={0}
+            value={move.power}
+            title="威力"
+            onChange={(e) => onChange({ ...move, power: Math.max(0, Number(e.target.value) || 0) })}
+          />
+        </div>
       )}
     </div>
   );
