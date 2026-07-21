@@ -352,6 +352,18 @@ table.dex td.num, table.spd td.num { text-align: right; font-variant-numeric: ta
 table.dex tbody tr:hover, table.spd tbody tr:hover { background: rgba(127, 168, 207, 0.06); }
 .spd .me { color: var(--steel-hi); font-weight: 600; }
 .spd tr.self-row { background: rgba(127, 168, 207, 0.10); }
+.spd tr.bench-row { background: rgba(217, 164, 65, 0.09); }
+.spd-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.spd-tag.team { background: rgba(127, 168, 207, 0.22); color: var(--steel-hi); }
+.spd-tag.bench { background: rgba(217, 164, 65, 0.20); color: var(--amber); }
 
 /* ---------- stamp ---------- */
 .stamp {

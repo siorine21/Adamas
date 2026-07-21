@@ -1,73 +1,114 @@
 import { useMemo, useState } from "react";
+import type { RosterEntry } from "../types";
 import { useStore } from "../store";
-import { THREATS } from "../data/dex";
+import { CONFIRMED } from "../data/confirmed";
 import { calcStat, rankMul, realStats } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 
+type RefLine = "最速" | "準速" | "無振り";
+type Kind = "team" | "bench" | "ref";
+
 interface SpeedRow {
+  key: string;
   label: string;
   detail: string;
   types?: string[];
   speed: number;
-  self: boolean;
-  key: string;
+  kind: Kind;
 }
 
-// 環境レポケモンの速度ライン（最速 / 準速 / 無振り）
-const THREAT_LINES: SpeedRow[] = THREATS
-  .filter((t) => t.name !== "手動入力")
-  .flatMap((t) => [
-    { key: `${t.name}-fast`, label: t.name, detail: "最速(S↑/AP32)", types: t.types, speed: calcStat(t.base.S, 32, 1.1), self: false },
-    { key: `${t.name}-mid`, label: t.name, detail: "準速(無補正/AP32)", types: t.types, speed: calcStat(t.base.S, 32, 1.0), self: false },
-    { key: `${t.name}-none`, label: t.name, detail: "無振り(AP0)", types: t.types, speed: calcStat(t.base.S, 0, 1.0), self: false },
-  ]);
+const RANKS = [6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6];
+
+function refSpeed(baseS: number, line: RefLine): number {
+  if (line === "最速") return calcStat(baseS, 32, 1.1);
+  if (line === "準速") return calcStat(baseS, 32, 1.0);
+  return calcStat(baseS, 0, 1.0); // 無振り
+}
 
 export function SpeedTab() {
   const { roster } = useStore();
-  const starred = roster.filter((e) => e.starred);
   // 個体ごとの スカーフ / ランク設定
   const [scarf, setScarf] = useState<Record<string, boolean>>({});
   const [rank, setRank] = useState<Record<string, number>>({});
+  // 内定リファレンスの素早さライン
+  const [line, setLine] = useState<RefLine>("最速");
+  const [onlyMine, setOnlyMine] = useState(false);
+  const [q, setQ] = useState("");
 
-  const myRows: SpeedRow[] = useMemo(() =>
-    starred.map((e) => {
-      const form = e.forms[e.activeForm];
-      const base = realStats(form.base, e.ap, e.nature).S;
-      let s = base;
-      if (scarf[e.key]) s = Math.floor(s * 1.5);
-      s = rankMul(s, rank[e.key] ?? 0);
-      const tags: string[] = [];
-      if (scarf[e.key]) tags.push("スカーフ");
-      if ((rank[e.key] ?? 0) !== 0) tags.push(`S${(rank[e.key] ?? 0) > 0 ? "+" : ""}${rank[e.key]}`);
-      return {
-        key: e.key,
-        label: `${displayName(e.name, form.form)}${e.nickname ? `「${e.nickname}」` : ""}`,
-        detail: `実数${base}${tags.length ? " / " + tags.join(" ") : ""}`,
-        types: form.types,
-        speed: s,
-        self: true,
-      };
-    }), [starred, scarf, rank]);
-
-  const merged = useMemo(
-    () => [...myRows, ...THREAT_LINES].sort((a, b) => b.speed - a.speed),
-    [myRows],
+  // 手持ち(★)→控えの順に全個体
+  const sortedRoster = useMemo(
+    () => [...roster].sort((a, b) => (a.starred === b.starred ? 0 : a.starred ? -1 : 1)),
+    [roster],
   );
 
-  const RANKS = [6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6];
+  const rosterRow = (e: RosterEntry): SpeedRow => {
+    const form = e.forms[e.activeForm];
+    const base = realStats(form.base, e.ap, e.nature).S;
+    let s = base;
+    if (scarf[e.key]) s = Math.floor(s * 1.5);
+    s = rankMul(s, rank[e.key] ?? 0);
+    const tags: string[] = [`実数${base}`];
+    if (scarf[e.key]) tags.push("スカーフ");
+    if ((rank[e.key] ?? 0) !== 0) tags.push(`S${(rank[e.key] ?? 0) > 0 ? "+" : ""}${rank[e.key]}`);
+    return {
+      key: e.key,
+      label: `${displayName(e.name, form.form)}${e.nickname ? `「${e.nickname}」` : ""}`,
+      detail: tags.join(" / "),
+      types: form.types,
+      speed: s,
+      kind: e.starred ? "team" : "bench",
+    };
+  };
+
+  const rows = useMemo(() => {
+    // ロスター個体を表示名で引けるように（内定名と一致するものはハイライト行に置換）
+    const byName = new Map<string, RosterEntry>();
+    for (const e of sortedRoster) byName.set(displayName(e.name, e.forms[e.activeForm].form), e);
+    const used = new Set<string>();
+    const out: SpeedRow[] = [];
+    for (const c of CONFIRMED) {
+      const e = byName.get(c.name);
+      if (e && !used.has(c.name)) {
+        used.add(c.name);
+        out.push(rosterRow(e));
+      } else {
+        out.push({
+          key: `ref-${c.no}-${c.name}`,
+          label: c.name,
+          detail: line,
+          types: c.types,
+          speed: refSpeed(c.base.S, line),
+          kind: "ref",
+        });
+      }
+    }
+    // 内定名と一致しなかったロスター個体（フォルム表記差など）も必ず表示
+    for (const e of sortedRoster) {
+      const nm = displayName(e.name, e.forms[e.activeForm].form);
+      if (!used.has(nm)) { used.add(nm); out.push(rosterRow(e)); }
+    }
+    let list = onlyMine ? out.filter((r) => r.kind !== "ref") : out;
+    const qq = q.trim();
+    if (qq) list = list.filter((r) => r.label.includes(qq));
+    return list.sort((a, b) => b.speed - a.speed);
+  }, [sortedRoster, scarf, rank, line, onlyMine, q]);
+
+  const marker = (k: Kind) => (k === "team" ? "★ " : k === "bench" ? "◆ " : "");
+  const rowClass = (k: Kind) => (k === "team" ? "self-row" : k === "bench" ? "bench-row" : "");
 
   return (
     <div>
       <div className="panel">
-        <div className="section-title">★手持ちの素早さ設定</div>
-        {starred.length === 0 && <div className="muted small">★手持ちがいません。チーム管理で登録してください。</div>}
-        {starred.map((e) => {
+        <div className="section-title">手持ち・控えの素早さ設定</div>
+        {sortedRoster.length === 0 && <div className="muted small">個体がいません。チーム管理で登録してください。</div>}
+        {sortedRoster.map((e) => {
           const form = e.forms[e.activeForm];
           const base = realStats(form.base, e.ap, e.nature).S;
           return (
             <div className="row" key={e.key} style={{ padding: "6px 0", borderBottom: "1px solid var(--line)" }}>
               <div style={{ flex: "1 1 160px" }}>
+                <span className={`spd-tag ${e.starred ? "team" : "bench"}`}>{e.starred ? "★手持ち" : "◆控え"}</span>
                 <b style={{ color: "var(--steel-hi)" }}>{displayName(e.name, form.form)}</b>
                 {e.nickname && <span className="small muted">「{e.nickname}」</span>}
                 <span className="small muted tnum"> 実数S {base}</span>
@@ -87,8 +128,37 @@ export function SpeedTab() {
         })}
       </div>
 
+      <div className="panel">
+        <div className="row" style={{ gap: 12 }}>
+          <label className="row tight small">
+            内定の素早さライン
+            <select value={line} onChange={(e) => setLine(e.target.value as RefLine)} style={{ width: "auto" }}>
+              <option value="最速">最速(S↑/AP32)</option>
+              <option value="準速">準速(無補正/AP32)</option>
+              <option value="無振り">無振り(AP0)</option>
+            </select>
+          </label>
+          <label className="row tight small" style={{ cursor: "pointer" }}>
+            <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} />
+            自分の個体のみ
+          </label>
+          <input
+            type="text"
+            placeholder="名前で絞込み…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            style={{ flex: "1 1 140px" }}
+          />
+        </div>
+      </div>
+
       <div className="panel table-scroll">
-        <div className="section-title">素早さ比較（降順）</div>
+        <div className="section-title">素早さ比較（内定{CONFIRMED.length}体・降順）</div>
+        <div className="small muted" style={{ marginBottom: 6 }}>
+          <span className="spd-tag team">★手持ち</span>
+          <span className="spd-tag bench">◆控え</span>
+          は自分の構成（実数値）。それ以外は内定ポケモンの{line}ライン。
+        </div>
         <table className="spd">
           <thead>
             <tr>
@@ -98,10 +168,10 @@ export function SpeedTab() {
             </tr>
           </thead>
           <tbody>
-            {merged.map((r) => (
-              <tr key={r.key} className={r.self ? "self-row" : ""}>
-                <td className="num"><b className={r.self ? "me" : ""}>{r.speed}</b></td>
-                <td className={r.self ? "me" : ""}>{r.self ? "★ " : ""}{r.label}</td>
+            {rows.map((r) => (
+              <tr key={r.key} className={rowClass(r.kind)}>
+                <td className="num"><b className={r.kind !== "ref" ? "me" : ""}>{r.speed}</b></td>
+                <td className={r.kind !== "ref" ? "me" : ""}>{marker(r.kind)}{r.label}</td>
                 <td>
                   <div className="row tight">
                     <span className="small muted">{r.detail}</span>
