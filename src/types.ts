@@ -43,6 +43,12 @@ export interface RosterEntry {
   note: string; // メモ欄
 }
 
+export interface Team {
+  id: string; // 一意識別子
+  name: string; // チーム名
+  roster: RosterEntry[]; // このチームの登録個体（★手持ち＋控え）
+}
+
 export interface DexForm {
   form: string;
   types: string[];

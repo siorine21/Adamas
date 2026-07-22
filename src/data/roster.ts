@@ -73,7 +73,7 @@ function mv(name: string): Move {
   return { name, type: "ノーマル", power: 0, cat: "変化" };
 }
 
-interface PresetSpec {
+export interface PresetSpec {
   name: string;
   nickname?: string;
   starred: boolean;
@@ -83,6 +83,25 @@ interface PresetSpec {
   ap: StatBlock;
   moves: string[];
   note?: string;
+}
+
+/** PresetSpec配列からロスター個体を生成（プリセットチーム／初期編成の共通ビルダー） */
+export function buildRosterFromSpecs(specs: PresetSpec[]): RosterEntry[] {
+  return specs.map((spec) => {
+    const entry = entryFromDex(spec.name) ?? emptyEntry();
+    entry.key = makeKey();
+    entry.name = spec.name;
+    entry.nickname = spec.nickname ?? "";
+    entry.starred = spec.starred;
+    entry.nature = spec.nature;
+    entry.item = spec.item;
+    entry.ap = { ...spec.ap };
+    entry.moves = spec.moves.map(mv);
+    entry.note = spec.note ?? "";
+    const idx = entry.forms.findIndex((f) => f.form === spec.formName);
+    entry.activeForm = idx >= 0 ? idx : 0;
+    return entry;
+  });
 }
 
 const PRESET_SPECS: PresetSpec[] = [
@@ -125,18 +144,5 @@ const PRESET_SPECS: PresetSpec[] = [
 
 /** 初期プリセット（アダマス編成）7体を生成 */
 export function buildPresetRoster(): RosterEntry[] {
-  return PRESET_SPECS.map((spec) => {
-    const entry = entryFromDex(spec.name) ?? emptyEntry();
-    entry.key = makeKey();
-    entry.nickname = spec.nickname ?? "";
-    entry.starred = spec.starred;
-    entry.nature = spec.nature;
-    entry.item = spec.item;
-    entry.ap = { ...spec.ap };
-    entry.moves = spec.moves.map(mv);
-    entry.note = spec.note ?? "";
-    const idx = entry.forms.findIndex((f) => f.form === spec.formName);
-    entry.activeForm = idx >= 0 ? idx : 0;
-    return entry;
-  });
+  return buildRosterFromSpecs(PRESET_SPECS);
 }
