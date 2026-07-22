@@ -1,6 +1,7 @@
-import type { RosterEntry } from "./types";
+import type { RosterEntry, Team } from "./types";
 
-const STORAGE_KEY = "adamas-koubou/roster/v1";
+const STORAGE_KEY = "adamas-koubou/roster/v1"; // 旧: 単一ロスター（移行元）
+const TEAMS_KEY = "adamas-koubou/teams/v1"; // 新: 複数チーム
 const SCHEMA_VERSION = 1;
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
@@ -9,6 +10,18 @@ interface Envelope {
   version: number;
   savedAt: string;
   roster: RosterEntry[];
+}
+
+interface TeamsEnvelope {
+  version: number;
+  savedAt: string;
+  teams: Team[];
+  activeTeamId: string;
+}
+
+export interface TeamsState {
+  teams: Team[];
+  activeTeamId: string;
 }
 
 export function loadRoster(): RosterEntry[] | null {
@@ -21,6 +34,49 @@ export function loadRoster(): RosterEntry[] | null {
   } catch (e) {
     console.error("ロスターの読み込みに失敗しました", e);
     return null;
+  }
+}
+
+/** 複数チームを読み込む。無ければ旧単一ロスターから移行、それも無ければ null。 */
+export function loadTeams(): TeamsState | null {
+  try {
+    const raw = localStorage.getItem(TEAMS_KEY);
+    if (raw) {
+      const data = JSON.parse(raw) as TeamsEnvelope;
+      if (data && Array.isArray(data.teams) && data.teams.length > 0) {
+        const activeTeamId = data.teams.some((t) => t.id === data.activeTeamId)
+          ? data.activeTeamId
+          : data.teams[0].id;
+        return { teams: data.teams, activeTeamId };
+      }
+    }
+    // 旧データからの移行（単一ロスター → 1チーム）
+    const legacy = loadRoster();
+    if (legacy) {
+      const team: Team = { id: `team_${Date.now().toString(36)}`, name: "マイチーム", roster: legacy };
+      return { teams: [team], activeTeamId: team.id };
+    }
+    return null;
+  } catch (e) {
+    console.error("チームの読み込みに失敗しました", e);
+    return null;
+  }
+}
+
+export function saveTeams(state: TeamsState): { ok: boolean; error?: string } {
+  try {
+    const envelope: TeamsEnvelope = {
+      version: SCHEMA_VERSION,
+      savedAt: new Date().toISOString(),
+      teams: state.teams,
+      activeTeamId: state.activeTeamId,
+    };
+    localStorage.setItem(TEAMS_KEY, JSON.stringify(envelope));
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("チームの保存に失敗しました", e);
+    return { ok: false, error: msg };
   }
 }
 

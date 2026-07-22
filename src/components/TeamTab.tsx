@@ -3,12 +3,18 @@ import { useStore } from "../store";
 import { MAX_STARRED } from "../data/game";
 import { DEX } from "../data/dex";
 import { emptyEntry, entryFromDex } from "../data/roster";
+import { PRESET_TEAMS } from "../data/teams";
 import { exportJSON, importJSON } from "../storage";
 import { PokemonCard } from "./PokemonCard";
 
 export function TeamTab() {
-  const { roster, addEntry, setRoster, resetToPreset, starredCount } = useStore();
+  const {
+    roster, addEntry, setRoster, resetToPreset, starredCount,
+    teams, activeTeamId, activeTeam, setActiveTeam,
+    createTeam, duplicateTeam, renameTeam, removeTeam, loadPresetTeam,
+  } = useStore();
   const [addName, setAddName] = useState("");
+  const [presetId, setPresetId] = useState("");
   const [ioOpen, setIoOpen] = useState(false);
   const [ioText, setIoText] = useState("");
   const [ioMsg, setIoMsg] = useState<string | null>(null);
@@ -63,8 +69,54 @@ export function TeamTab() {
     }
   };
 
+  const doAddPreset = () => {
+    if (!presetId) return;
+    loadPresetTeam(presetId);
+    setPresetId("");
+  };
+
   return (
     <div>
+      {/* チーム選択・管理 */}
+      <div className="panel">
+        <div className="section-title">チーム</div>
+        <div className="row">
+          <select value={activeTeamId} onChange={(e) => setActiveTeam(e.target.value)} style={{ flex: "1 1 200px" }}>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}（{t.roster.filter((e) => e.starred).length}/{t.roster.length}体）</option>
+            ))}
+          </select>
+          <button className="btn" onClick={() => createTeam()} title="空のチームを新規作成">＋新規</button>
+          <button className="btn" onClick={duplicateTeam} title="このチームを複製">複製</button>
+          <button
+            className="btn"
+            onClick={() => { const n = prompt("チーム名", activeTeam?.name ?? ""); if (n) renameTeam(n); }}
+          >
+            名前変更
+          </button>
+          <button
+            className="btn danger"
+            disabled={teams.length <= 1}
+            title={teams.length <= 1 ? "最後の1チームは削除できません" : "このチームを削除"}
+            onClick={() => { if (confirm(`チーム「${activeTeam?.name}」を削除します。よろしいですか？`)) removeTeam(); }}
+          >
+            削除
+          </button>
+        </div>
+        <div className="row" style={{ marginTop: 8 }}>
+          <select value={presetId} onChange={(e) => setPresetId(e.target.value)} style={{ flex: "1 1 220px" }}>
+            <option value="">＋ プリセットからチーム追加…</option>
+            {PRESET_TEAMS.map((p) => (
+              <option key={p.id} value={p.id}>{p.name} — {p.note}</option>
+            ))}
+          </select>
+          <button className="btn primary" onClick={doAddPreset} disabled={!presetId}>追加</button>
+        </div>
+        <div className="small muted" style={{ marginTop: 6 }}>
+          チームは複数保存できます。別チームであれば同じポケモンも使えます（各チーム独立）。全{teams.length}チーム。
+        </div>
+      </div>
+
       {/* 操作パネル */}
       <div className="panel">
         <div className="row">
