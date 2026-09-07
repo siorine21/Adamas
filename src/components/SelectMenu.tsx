@@ -51,7 +51,10 @@ export function SelectMenu({
   }, [open]);
 
   useEffect(() => {
-    if (open && showSearch) searchRef.current?.focus();
+    // タッチ端末では自動フォーカスしない（ソフトキーボードが出て一覧が隠れ、
+    // スクロールできなくなるため）。絞り込みたいときは検索欄を直接タップする。
+    const coarse = window.matchMedia?.("(pointer: coarse)").matches;
+    if (open && showSearch && !coarse) searchRef.current?.focus();
     if (!open) setQuery("");
   }, [open, showSearch]);
 
