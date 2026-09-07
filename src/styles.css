@@ -476,3 +476,18 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
     font-size: 16px;
   }
 }
+
+/* ---------- フッター（URL表示・インストール案内） ---------- */
+.app-footer {
+  margin-top: 20px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.app-footer .app-url {
+  color: var(--steel-hi);
+  font-size: 12px;
+  word-break: break-all;
+  text-decoration: none;
+}
+.app-footer .app-url:hover { text-decoration: underline; }

@@ -1,9 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#14171c"/>
-  <path d="M256 88 L392 176 L392 336 L256 424 L120 336 L120 176 Z"
-        fill="none" stroke="#7fa8cf" stroke-width="18" stroke-linejoin="round"/>
-  <path d="M256 152 L336 204 L336 308 L256 360 L176 308 L176 204 Z"
-        fill="#232a35" stroke="#a9c6e2" stroke-width="10" stroke-linejoin="round"/>
-  <text x="256" y="300" font-family="serif" font-size="120" font-weight="bold"
-        fill="#d9a441" text-anchor="middle">鋼</text>
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="42%" r="60%">
+      <stop offset="0%" stop-color="#33475d"/><stop offset="100%" stop-color="#141920" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#212b38"/><stop offset="100%" stop-color="#0d1015"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dbe4ee"/><stop offset="48%" stop-color="#93a4b6"/><stop offset="100%" stop-color="#556577"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2b3542"/><stop offset="100%" stop-color="#1a222c"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f2f7fc"/><stop offset="100%" stop-color="#8fa2b4"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8f2fe"/><stop offset="55%" stop-color="#8fb2d8"/><stop offset="100%" stop-color="#5b82ad"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f4d98a"/><stop offset="100%" stop-color="#d9a441"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+  <circle cx="256" cy="238" r="182" fill="url(#glow)"/>
+  <polygon points="256,74 412,164 412,344 256,434 100,344 100,164" fill="url(#steel)" stroke="#2a333f" stroke-width="10" stroke-linejoin="round"/>
+  <polygon points="256,74 412,164 412,344 256,434 100,344 100,164" fill="none" stroke="url(#rim)" stroke-width="4" stroke-linejoin="round" opacity="0.9"/>
+  <polygon points="256,116 378,186 378,322 256,392 134,322 134,186" fill="url(#face)" stroke="#3a4552" stroke-width="6" stroke-linejoin="round"/>
+  <g fill="#9fb1c2" stroke="#2a333f" stroke-width="2">
+    <circle cx="256" cy="96" r="7"/><circle cx="392" cy="175" r="7"/><circle cx="392" cy="333" r="7"/>
+    <circle cx="256" cy="412" r="7"/><circle cx="120" cy="333" r="7"/><circle cx="120" cy="175" r="7"/>
+  </g>
+  <polygon points="220,196 292,196 316,258 256,360 196,258" fill="url(#gem)" stroke="#eef6ff" stroke-width="3" stroke-linejoin="round"/>
+  <g stroke="#eef6ff" stroke-width="2" opacity="0.55" fill="none" stroke-linejoin="round">
+    <line x1="196" y1="258" x2="316" y2="258"/><line x1="220" y1="196" x2="238" y2="258"/>
+    <line x1="292" y1="196" x2="274" y2="258"/><line x1="256" y1="196" x2="256" y2="360"/>
+    <line x1="196" y1="258" x2="256" y2="360"/><line x1="316" y1="258" x2="256" y2="360"/>
+  </g>
+  <polygon points="220,196 256,196 256,258 238,258" fill="#ffffff" opacity="0.28"/>
+  <path d="M256 150 l6 14 14 6 -14 6 -6 14 -6 -14 -14 -6 14 -6 z" fill="url(#gold)"/>
 </svg>
