@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Move } from "../types";
 import { TYPE_COLORS } from "../data/game";
+import { usePopupPlacement } from "./popupPlacement";
 
 interface Props {
   moves: Move[];
@@ -26,6 +27,7 @@ export function MoveSelect({
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const popStyle = usePopupPlacement(open, ref);
   const selected = moves.find((m) => m.name === value);
 
   useEffect(() => {
@@ -71,7 +73,7 @@ export function MoveSelect({
         <span className="mvsel-caret">▾</span>
       </button>
       {open && (
-        <div className="mvsel-pop" role="listbox">
+        <div className="mvsel-pop" role="listbox" style={popStyle}>
           {searchable && (
             <input
               ref={searchRef}

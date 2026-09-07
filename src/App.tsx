@@ -51,11 +51,12 @@ export default function App() {
           ))}
         </nav>
       </header>
+      {/* 各タブは常時マウントし表示切替のみ行う（タブ移動で入力状態が初期化されないように） */}
       <main>
-        {tab === "team" && <TeamTab />}
-        {tab === "dex" && <DexTab />}
-        {tab === "damage" && <DamageTab />}
-        {tab === "speed" && <SpeedTab />}
+        <div style={{ display: tab === "team" ? "block" : "none" }}><TeamTab /></div>
+        <div style={{ display: tab === "dex" ? "block" : "none" }}><DexTab /></div>
+        <div style={{ display: tab === "damage" ? "block" : "none" }}><DamageTab /></div>
+        <div style={{ display: tab === "speed" ? "block" : "none" }}><SpeedTab /></div>
       </main>
       <InstallFooter />
     </div>

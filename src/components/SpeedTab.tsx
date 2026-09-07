@@ -5,6 +5,8 @@ import { CONFIRMED } from "../data/confirmed";
 import { calcStat, rankMul, realStats } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
+import { SelectMenu } from "./SelectMenu";
+import { NumberMenu } from "./NumberMenu";
 
 type RefLine = "最速" | "準速" | "無振り";
 type Kind = "team" | "bench" | "ref";
@@ -119,9 +121,14 @@ export function SpeedTab() {
               </label>
               <label className="row tight small">
                 Sランク
-                <select value={rank[e.key] ?? 0} onChange={(ev) => setRank((p) => ({ ...p, [e.key]: Number(ev.target.value) }))} style={{ width: "auto" }}>
-                  {RANKS.map((r) => <option key={r} value={r}>{r > 0 ? `+${r}` : r}</option>)}
-                </select>
+                <NumberMenu
+                  style={{ width: 92 }}
+                  values={RANKS}
+                  value={rank[e.key] ?? 0}
+                  onChange={(v) => setRank((p) => ({ ...p, [e.key]: v }))}
+                  cols={5}
+                  format={(r) => (r > 0 ? `+${r}` : String(r))}
+                />
               </label>
             </div>
           );
@@ -132,11 +139,16 @@ export function SpeedTab() {
         <div className="row" style={{ gap: 12 }}>
           <label className="row tight small">
             内定の素早さライン
-            <select value={line} onChange={(e) => setLine(e.target.value as RefLine)} style={{ width: "auto" }}>
-              <option value="最速">最速(S↑/AP32)</option>
-              <option value="準速">準速(無補正/AP32)</option>
-              <option value="無振り">無振り(AP0)</option>
-            </select>
+            <SelectMenu
+              style={{ width: 180 }}
+              items={[
+                { value: "最速", label: "最速(S↑/AP32)" },
+                { value: "準速", label: "準速(無補正/AP32)" },
+                { value: "無振り", label: "無振り(AP0)" },
+              ]}
+              value={line}
+              onChange={(v) => setLine(v as RefLine)}
+            />
           </label>
           <label className="row tight small" style={{ cursor: "pointer" }}>
             <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} />
@@ -159,21 +171,21 @@ export function SpeedTab() {
           <span className="spd-tag bench">◆控え</span>
           は自分の構成（実数値）。それ以外は内定ポケモンの{line}ライン。
         </div>
+        {/* スマホでも横スクロール無しで読めるよう、条件/タイプは名前の下に重ねる2列構成 */}
         <table className="spd">
           <thead>
             <tr>
-              <th>実効S</th>
-              <th>ポケモン</th>
-              <th>条件 / タイプ</th>
+              <th className="num">実効S</th>
+              <th>ポケモン / 条件・タイプ</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.key} className={rowClass(r.kind)}>
                 <td className="num"><b className={r.kind !== "ref" ? "me" : ""}>{r.speed}</b></td>
-                <td className={r.kind !== "ref" ? "me" : ""}>{marker(r.kind)}{r.label}</td>
                 <td>
-                  <div className="row tight">
+                  <div className={r.kind !== "ref" ? "me" : ""}>{marker(r.kind)}{r.label}</div>
+                  <div className="row tight spd-meta">
                     <span className="small muted">{r.detail}</span>
                     {r.types && <TypeBadges types={r.types} />}
                   </div>
