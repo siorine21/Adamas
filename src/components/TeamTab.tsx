@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { MAX_STARRED } from "../data/game";
 import { DEX } from "../data/dex";
@@ -7,6 +7,27 @@ import { PRESET_TEAMS } from "../data/teams";
 import { exportJSON, importJSON } from "../storage";
 import { PokemonCard } from "./PokemonCard";
 import { SelectMenu } from "./SelectMenu";
+
+const EXPANDED_KEY = "adamas-koubou/team-expanded/v1";
+
+function loadExpanded(): Set<string> {
+  try {
+    const raw = localStorage.getItem(EXPANDED_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? new Set(arr.filter((v) => typeof v === "string")) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveExpanded(s: Set<string>) {
+  try {
+    localStorage.setItem(EXPANDED_KEY, JSON.stringify([...s]));
+  } catch {
+    /* 保存できなくても表示には影響しない */
+  }
+}
 
 export function TeamTab() {
   const {
@@ -19,6 +40,18 @@ export function TeamTab() {
   const [ioOpen, setIoOpen] = useState(false);
   const [ioText, setIoText] = useState("");
   const [ioMsg, setIoMsg] = useState<string | null>(null);
+  // 展開中のカード（key の集合）。既定は全部たたむ＝一覧性を優先。
+  const [expanded, setExpanded] = useState<Set<string>>(() => loadExpanded());
+
+  useEffect(() => { saveExpanded(expanded); }, [expanded]);
+
+  const toggleCard = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   // ★内で重複している持ち物の集合
   const dupItems = useMemo(() => {
@@ -173,18 +206,45 @@ export function TeamTab() {
         {!ioOpen && ioMsg && <div className="small amber" style={{ marginTop: 6 }}>{ioMsg}</div>}
       </div>
 
+      {/* 一括開閉 */}
+      {roster.length > 0 && (
+        <div className="row" style={{ marginTop: 12 }}>
+          <button className="btn small" onClick={() => setExpanded(new Set(roster.map((e) => e.key)))}>
+            すべて展開
+          </button>
+          <button className="btn small" onClick={() => setExpanded(new Set())} disabled={expanded.size === 0}>
+            すべてたたむ
+          </button>
+          <span className="small muted">カードの名前をタップで開閉できます。</span>
+        </div>
+      )}
+
       {/* ★手持ち */}
       <div className="section-title">★ 手持ち（最大6体）</div>
       {starred.length === 0 && <div className="muted small">まだ★手持ちがいません。カードの☆をタップして登録してください。</div>}
       {starred.map((e) => (
-        <PokemonCard key={e.key} entry={e} starDisabled={starDisabled} itemDuplicated={dupItems.has(e.item.trim())} />
+        <PokemonCard
+          key={e.key}
+          entry={e}
+          starDisabled={starDisabled}
+          itemDuplicated={dupItems.has(e.item.trim())}
+          collapsed={!expanded.has(e.key)}
+          onToggle={() => toggleCard(e.key)}
+        />
       ))}
 
       {/* ベンチ・検討枠 */}
       <div className="section-title" style={{ marginTop: 16 }}>ベンチ・検討枠</div>
       {bench.length === 0 && <div className="muted small">ベンチは空です。</div>}
       {bench.map((e) => (
-        <PokemonCard key={e.key} entry={e} starDisabled={starDisabled} itemDuplicated={false} />
+        <PokemonCard
+          key={e.key}
+          entry={e}
+          starDisabled={starDisabled}
+          itemDuplicated={false}
+          collapsed={!expanded.has(e.key)}
+          onToggle={() => toggleCard(e.key)}
+        />
       ))}
     </div>
   );

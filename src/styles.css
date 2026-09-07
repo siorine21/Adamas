@@ -559,3 +559,32 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 .ap-step:disabled { opacity: .3; cursor: not-allowed; }
 .ap-val { flex: 0 0 28px; text-align: right; font-weight: 700; color: var(--steel-hi); }
 .ap-val.cap { color: var(--amber); }
+
+/* ---------- カードの折りたたみ ---------- */
+.card.collapsed { padding: 8px 10px; }
+.card-hd { flex-wrap: nowrap; align-items: flex-start; gap: 6px; }
+.card-hd .star-btn, .card-hd .btn { flex: 0 0 auto; }
+.card-toggle {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.card-caret {
+  flex: 0 0 auto;
+  color: var(--steel);
+  font-size: 10px;
+  line-height: 1.6;
+  transition: transform .12s;
+}
+.card-caret.open { transform: rotate(90deg); }
+.card-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.card-sum { display: block; word-break: break-word; }
