@@ -49,7 +49,9 @@ export function MoveSelect({
   }, [open]);
 
   useEffect(() => {
-    if (open && searchable) searchRef.current?.focus();
+    // タッチ端末では自動フォーカスしない（ソフトキーボードで一覧が隠れるため）
+    const coarse = window.matchMedia?.("(pointer: coarse)").matches;
+    if (open && searchable && !coarse) searchRef.current?.focus();
     if (!open) setQuery("");
   }, [open, searchable]);
 
