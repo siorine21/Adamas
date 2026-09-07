@@ -89,8 +89,9 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 .tabbar button {
-  flex: 1 0 auto;
-  min-width: 92px;
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
   padding: 9px 8px;
   font-size: 13px;
   font-family: inherit;
@@ -213,8 +214,8 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  max-height: 300px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--panel2);
   border: 1px solid var(--steel);
   border-radius: 8px;
@@ -331,8 +332,13 @@ table.dex, table.spd {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
-  min-width: 560px;
 }
+/* 種族値が並ぶ図鑑は横スクロール前提で最小幅を確保 */
+table.dex { min-width: 560px; }
+/* 素早さ比較は2列構成なので画面幅に収める（折り返し可） */
+table.spd { min-width: 0; }
+table.spd th, table.spd td { white-space: normal; }
+table.spd th.num, table.spd td.num { white-space: nowrap; width: 1%; }
 table.dex th, table.dex td, table.spd th, table.spd td {
   padding: 6px 8px;
   border-bottom: 1px solid var(--line);
@@ -476,3 +482,58 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
     font-size: 16px;
   }
 }
+
+
+/* ---------- モバイル最適化（横幅オーバー対策） ---------- */
+/* 素早さ比較: 条件・タイプは名前の下段に */
+.spd-meta { margin-top: 2px; }
+.spd td { vertical-align: top; }
+
+@media (max-width: 560px) {
+  /* 3カラムの戦闘条件などは2カラムへ */
+  .grid3 { grid-template-columns: 1fr 1fr; }
+
+  /* 端の余白を詰めて表示幅を稼ぐ */
+  .app { padding: 0 8px 96px; }
+  .panel { padding: 10px; }
+  .card { padding: 10px; }
+
+  /* タブは4つを1行に収める */
+  .tabbar { gap: 4px; }
+  .tabbar button { font-size: 12px; padding: 8px 2px; }
+
+  /* 表をコンパクトにして横スクロール量を減らす */
+  table.dex th, table.dex td, table.spd th, table.spd td { padding: 4px 5px; font-size: 11px; }
+  table.dex { min-width: 470px; }
+  .tbadge { padding: 1px 5px; font-size: 10px; }
+  table.dex { font-size: 11px; }
+}
+
+/* 横スクロールできる表であることを示すヒント */
+.scroll-hint {
+  font-size: 10px;
+  color: var(--dim);
+  margin-bottom: 4px;
+}
+@media (min-width: 561px) { .scroll-hint { display: none; } }
+
+/* ---------- 数値グリッド選択（AP・ランク） ---------- */
+.numsel-btn { justify-content: space-between; }
+.numsel-val { font-variant-numeric: tabular-nums; }
+.numgrid-pop { padding: 6px; }
+.numgrid { display: grid; gap: 4px; }
+.numgrid-cell {
+  padding: 9px 0;
+  min-height: 38px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.numgrid-cell:hover { border-color: var(--steel); }
+.numgrid-cell.sel { background: #24384c; border-color: var(--steel); color: var(--steel-hi); font-weight: 700; }
+/* stat-grid 内では詰めて表示 */
+.stat-grid .mvsel-btn { padding: 3px 6px; font-size: 12px; }

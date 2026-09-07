@@ -110,6 +110,7 @@ export function DexTab() {
       </div>
 
       <div className="table-scroll panel">
+        <div className="scroll-hint">← → 横にスクロールすると種族値・合計が見られます</div>
         <table className="dex">
           <thead>
             <tr>

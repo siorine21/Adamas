@@ -7,6 +7,8 @@ import {
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
+import { SelectMenu } from "./SelectMenu";
+import { NumberMenu } from "./NumberMenu";
 
 interface Props {
   entry: RosterEntry;
@@ -74,25 +76,24 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
         {entry.forms.length > 1 ? (
           <label className="fld">
             <span>フォルム</span>
-            <select value={entry.activeForm} onChange={(e) => setForm(Number(e.target.value))}>
-              {entry.forms.map((f, i) => (
-                <option key={i} value={i}>{displayName(entry.name, f.form)}</option>
-              ))}
-            </select>
+            <SelectMenu
+              items={entry.forms.map((f, i) => ({ value: String(i), label: displayName(entry.name, f.form) }))}
+              value={String(entry.activeForm)}
+              onChange={(v) => setForm(Number(v))}
+            />
           </label>
         ) : (
           <label className="fld">
             <span>特性</span>
             {abilityOpts.length > 1 ? (
-              <select
+              <SelectMenu
+                items={abilityOpts.map((a) => ({ value: a, label: a }))}
                 value={form.ability}
-                onChange={(e) => updateEntry(entry.key, (en) => {
-                  const forms = en.forms.map((f, i) => i === en.activeForm ? { ...f, ability: e.target.value } : f);
+                onChange={(v) => updateEntry(entry.key, (en) => {
+                  const forms = en.forms.map((f, i) => i === en.activeForm ? { ...f, ability: v } : f);
                   return { ...en, forms };
                 })}
-              >
-                {abilityOpts.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
+              />
             ) : (
               <input type="text" value={form.ability} onChange={(e) => updateEntry(entry.key, (en) => {
                 const forms = en.forms.map((f, i) => i === en.activeForm ? { ...f, ability: e.target.value } : f);
@@ -113,9 +114,11 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
         </label>
         <label className="fld">
           <span>性格</span>
-          <select value={entry.nature} onChange={(e) => updateEntry(entry.key, { nature: e.target.value })}>
-            {Object.keys(NATURES).map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <SelectMenu
+            items={Object.keys(NATURES).map((n) => ({ value: n, label: n }))}
+            value={entry.nature}
+            onChange={(v) => updateEntry(entry.key, { nature: v })}
+          />
         </label>
       </div>
 
@@ -166,9 +169,7 @@ function StatRow({ k, base, ap, real, onAP }: { k: StatKey; base: number; ap: nu
     <>
       <div className="lbl">{k}<span className="small muted"> {STAT_LABEL[k]}</span></div>
       <div className="base">{base}</div>
-      <select value={ap} onChange={(e) => onAP(Number(e.target.value))}>
-        {AP_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
-      </select>
+      <NumberMenu values={AP_VALUES} value={ap} onChange={onAP} />
       <div className="real">{real}</div>
     </>
   );

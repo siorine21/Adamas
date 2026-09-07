@@ -6,6 +6,7 @@ import { emptyEntry, entryFromDex } from "../data/roster";
 import { PRESET_TEAMS } from "../data/teams";
 import { exportJSON, importJSON } from "../storage";
 import { PokemonCard } from "./PokemonCard";
+import { SelectMenu } from "./SelectMenu";
 
 export function TeamTab() {
   const {
@@ -81,11 +82,16 @@ export function TeamTab() {
       <div className="panel">
         <div className="section-title">チーム</div>
         <div className="row">
-          <select value={activeTeamId} onChange={(e) => setActiveTeam(e.target.value)} style={{ flex: "1 1 200px" }}>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}（{t.roster.filter((e) => e.starred).length}/{t.roster.length}体）</option>
-            ))}
-          </select>
+          <SelectMenu
+            style={{ flex: "1 1 200px", minWidth: 0 }}
+            items={teams.map((t) => ({
+              value: t.id,
+              label: t.name,
+              sub: `${t.roster.filter((e) => e.starred).length}/${t.roster.length}体`,
+            }))}
+            value={activeTeamId}
+            onChange={setActiveTeam}
+          />
           <button className="btn" onClick={() => createTeam()} title="空のチームを新規作成">＋新規</button>
           <button className="btn" onClick={duplicateTeam} title="このチームを複製">複製</button>
           <button
@@ -104,12 +110,13 @@ export function TeamTab() {
           </button>
         </div>
         <div className="row" style={{ marginTop: 8 }}>
-          <select value={presetId} onChange={(e) => setPresetId(e.target.value)} style={{ flex: "1 1 220px" }}>
-            <option value="">＋ プリセットからチーム追加…</option>
-            {PRESET_TEAMS.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} — {p.note}</option>
-            ))}
-          </select>
+          <SelectMenu
+            style={{ flex: "1 1 220px", minWidth: 0 }}
+            items={PRESET_TEAMS.map((p) => ({ value: p.id, label: p.name, sub: p.note }))}
+            value={presetId}
+            onChange={setPresetId}
+            placeholder="＋ プリセットからチーム追加…"
+          />
           <button className="btn primary" onClick={doAddPreset} disabled={!presetId}>追加</button>
         </div>
         <div className="small muted" style={{ marginTop: 6 }}>
@@ -120,12 +127,13 @@ export function TeamTab() {
       {/* 操作パネル */}
       <div className="panel">
         <div className="row">
-          <select value={addName} onChange={(e) => setAddName(e.target.value)} style={{ flex: "1 1 200px" }}>
-            <option value="">＋ 図鑑から追加…</option>
-            {DEX.map((d) => (
-              <option key={d.name} value={d.name}>{d.name}</option>
-            ))}
-          </select>
+          <SelectMenu
+            style={{ flex: "1 1 200px", minWidth: 0 }}
+            items={DEX.map((d) => ({ value: d.name, label: d.name }))}
+            value={addName}
+            onChange={setAddName}
+            placeholder="＋ 図鑑から追加…"
+          />
           <button className="btn primary" onClick={doAdd} disabled={!addName}>追加</button>
           <button className="btn" onClick={() => addEntry(emptyEntry())} title="レギュ変更で増えた新規はがねポケモン等を空欄で作成">
             ＋ 手動個体
