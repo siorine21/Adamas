@@ -12,6 +12,7 @@ import { TypeBadges, typeSelectStyle } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { MoveSelect } from "./MoveSelect";
+import { SelectMenu } from "./SelectMenu";
 
 type Dir = "toThreat" | "toSelf";
 
@@ -39,18 +40,28 @@ export function DamageTab() {
   );
   const [selfKey, setSelfKey] = useState<string>(() => selfList[0]?.key ?? "");
   const self = selfList.find((e) => e.key === selfKey) ?? selfList[0];
+  const selfItems = useMemo(
+    () => selfList.map((e) => ({
+      value: e.key,
+      label: `${e.starred ? "★ " : ""}${displayName(e.name, e.forms[e.activeForm].form)}${e.nickname ? `「${e.nickname}」` : ""}`,
+    })),
+    [selfList],
+  );
 
   // 仮想敵（内定ポケモンから選択・編集可能なコピー）
   const DEFAULT_THREAT = CONFIRMED.find((c) => c.name === "ガブリアス") ?? CONFIRMED[0];
-  const [threatFilter, setThreatFilter] = useState("");
   const [threat, setThreat] = useState<Threat & { nature: string; ap: StatBlock; item: string; ability: string; typeVerified: boolean }>(
     () => ({ name: DEFAULT_THREAT.name, base: { ...DEFAULT_THREAT.base }, types: [...DEFAULT_THREAT.types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: DEFAULT_THREAT.abilities.join("/"), typeVerified: DEFAULT_THREAT.typeVerified }),
   );
-  const threatOptions = useMemo(() => {
-    const q = threatFilter.trim();
-    const list = q ? CONFIRMED.filter((c) => c.name.includes(q)) : CONFIRMED;
-    return list.slice(0, 200);
-  }, [threatFilter]);
+  // 内定全体を検索付きドロップダウンで選ぶ（旧: 絞込み入力＋200件のネイティブselect）
+  const threatItems = useMemo(
+    () => CONFIRMED.map((t) => ({
+      value: t.name,
+      label: t.name,
+      sub: `${t.total}${t.typeVerified ? "" : " ⚠型未確認"}`,
+    })),
+    [],
+  );
   const pickThreat = (name: string) => {
     const t = CONFIRMED.find((x) => x.name === name);
     if (!t) return;
@@ -167,13 +178,11 @@ export function DamageTab() {
         {/* 自軍 */}
         <div className="panel">
           <div className="section-title">自軍{attackerIsSelf ? "（攻撃）" : "（防御）"}</div>
-          <select value={selfKey} onChange={(e) => { setSelfKey(e.target.value); setSelfMoveName(""); }}>
-            {selfList.map((e) => (
-              <option key={e.key} value={e.key}>
-                {e.starred ? "★ " : ""}{displayName(e.name, e.forms[e.activeForm].form)}{e.nickname ? `「${e.nickname}」` : ""}
-              </option>
-            ))}
-          </select>
+          <SelectMenu
+            items={selfItems}
+            value={self.key}
+            onChange={(v) => { setSelfKey(v); setSelfMoveName(""); }}
+          />
           <div className="row tight" style={{ marginTop: 6 }}>
             <TypeBadges types={selfForm.types} />
             <span className="small muted">{self.nature.replace(/（.*/, "")} / {self.item || "持ち物なし"}</span>
@@ -206,23 +215,13 @@ export function DamageTab() {
         {/* 仮想敵 */}
         <div className="panel">
           <div className="section-title">仮想敵{attackerIsSelf ? "（防御）" : "（攻撃）"}</div>
-          <input
-            type="text"
-            placeholder="内定ポケモンを名前で絞込み…"
-            value={threatFilter}
-            onChange={(e) => setThreatFilter(e.target.value)}
-            style={{ marginBottom: 4 }}
+          <SelectMenu
+            items={threatItems}
+            value={threat.name}
+            onChange={pickThreat}
+            searchable
+            searchPlaceholder="内定ポケモンを名前で絞込み…"
           />
-          <select value={threat.name} onChange={(e) => pickThreat(e.target.value)}>
-            {!threatOptions.some((t) => t.name === threat.name) && (
-              <option value={threat.name}>{threat.name}（選択中）</option>
-            )}
-            {threatOptions.map((t) => (
-              <option key={`${t.no}-${t.name}`} value={t.name}>
-                {t.name}（{t.total}）{t.typeVerified ? "" : " ⚠型未確認"}
-              </option>
-            ))}
-          </select>
           <div className="small muted">{CONFIRMED.length}体の内定ポケモンから選択（種族値・特性はシート準拠）</div>
           {!threat.typeVerified && (
             <div className="banner warn">この個体はチャンピオンズ新規メガ等でタイプが未公表です。素の型を仮採用しています（下で修正可）。</div>

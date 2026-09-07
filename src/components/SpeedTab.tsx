@@ -159,21 +159,21 @@ export function SpeedTab() {
           <span className="spd-tag bench">◆控え</span>
           は自分の構成（実数値）。それ以外は内定ポケモンの{line}ライン。
         </div>
+        {/* スマホでも横スクロール無しで読めるよう、条件/タイプは名前の下に重ねる2列構成 */}
         <table className="spd">
           <thead>
             <tr>
-              <th>実効S</th>
-              <th>ポケモン</th>
-              <th>条件 / タイプ</th>
+              <th className="num">実効S</th>
+              <th>ポケモン / 条件・タイプ</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.key} className={rowClass(r.kind)}>
                 <td className="num"><b className={r.kind !== "ref" ? "me" : ""}>{r.speed}</b></td>
-                <td className={r.kind !== "ref" ? "me" : ""}>{marker(r.kind)}{r.label}</td>
                 <td>
-                  <div className="row tight">
+                  <div className={r.kind !== "ref" ? "me" : ""}>{marker(r.kind)}{r.label}</div>
+                  <div className="row tight spd-meta">
                     <span className="small muted">{r.detail}</span>
                     {r.types && <TypeBadges types={r.types} />}
                   </div>
