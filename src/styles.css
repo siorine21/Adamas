@@ -516,3 +516,24 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
   margin-bottom: 4px;
 }
 @media (min-width: 561px) { .scroll-hint { display: none; } }
+
+/* ---------- 数値グリッド選択（AP・ランク） ---------- */
+.numsel-btn { justify-content: space-between; }
+.numsel-val { font-variant-numeric: tabular-nums; }
+.numgrid-pop { padding: 6px; }
+.numgrid { display: grid; gap: 4px; }
+.numgrid-cell {
+  padding: 9px 0;
+  min-height: 38px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.numgrid-cell:hover { border-color: var(--steel); }
+.numgrid-cell.sel { background: #24384c; border-color: var(--steel); color: var(--steel-hi); font-weight: 700; }
+/* stat-grid 内では詰めて表示 */
+.stat-grid .mvsel-btn { padding: 3px 6px; font-size: 12px; }

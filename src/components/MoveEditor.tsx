@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { Move } from "../types";
 import { LEARNSETS, MOVE_BY_NAME, MOVE_LIB } from "../data/moves";
-import { TYPES } from "../data/game";
-import { typeSelectStyle } from "./TypeBadge";
+import { TYPES, TYPE_COLORS } from "../data/game";
 import { MoveSelect } from "./MoveSelect";
+import { SelectMenu } from "./SelectMenu";
 
 /** その種族の技ドロップダウン候補（習得技のみ or 全ライブラリ）と検証状況 */
 export function moveOptionsFor(speciesName: string): {
@@ -31,7 +31,6 @@ interface Props {
 const CATS: Move["cat"][] = ["物理", "特殊", "変化"];
 
 export function MoveEditor({ move, options, onChange }: Props) {
-  const catClass = move?.cat === "物理" ? "phys" : move?.cat === "特殊" ? "spec" : "stat";
   // 候補が多い（全ライブラリ等）の時はポップアップ内に検索欄を出す
   const useSearch = options.length > 150;
   // 選択中の技が候補に無い（かつ空でない）＝手動入力扱い
@@ -82,15 +81,12 @@ export function MoveEditor({ move, options, onChange }: Props) {
             onChange={(e) => onChange({ ...move, name: e.target.value })}
           />
           <div className="move-edit">
-            <select
-              style={{ flex: "0 1 100px", ...typeSelectStyle(move.type) }}
+            <SelectMenu
+              style={{ flex: "0 1 130px" }}
+              items={TYPES.map((t) => ({ value: t, label: t, swatch: TYPE_COLORS[t] }))}
               value={move.type}
-              onChange={(e) => onChange({ ...move, type: e.target.value })}
-            >
-              {TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+              onChange={(v) => onChange({ ...move, type: v })}
+            />
             <input
               style={{ flex: "0 1 70px" }}
               type="number"
@@ -99,16 +95,12 @@ export function MoveEditor({ move, options, onChange }: Props) {
               title="威力"
               onChange={(e) => onChange({ ...move, power: Math.max(0, Number(e.target.value) || 0) })}
             />
-            <select
-              className={`chip ${catClass}`}
-              style={{ flex: "0 1 70px", width: "auto" }}
+            <SelectMenu
+              style={{ flex: "0 1 90px" }}
+              items={CATS.map((c) => ({ value: c, label: c }))}
               value={move.cat}
-              onChange={(e) => onChange({ ...move, cat: e.target.value as Move["cat"] })}
-            >
-              {CATS.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+              onChange={(v) => onChange({ ...move, cat: v as Move["cat"] })}
+            />
           </div>
           <div className="flags">
             <label>

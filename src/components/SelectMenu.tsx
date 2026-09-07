@@ -6,6 +6,7 @@ export interface MenuItem {
   label: string;
   sub?: string; // 右側に薄く出す補足（種族値合計など）
   note?: ReactNode; // ラベル横のバッジ等
+  swatch?: string; // 指定するとラベルを色付きバッジで表示（タイプ色など）
 }
 
 interface Props {
@@ -65,7 +66,9 @@ export function SelectMenu({
       <button type="button" className="mvsel-btn" disabled={disabled} onClick={() => setOpen((o) => !o)}>
         {selected ? (
           <span className="mvsel-row">
-            <span className="mvsel-name">{selected.label}</span>
+            {selected.swatch
+              ? <span className="tbadge" style={{ background: selected.swatch }}>{selected.label}</span>
+              : <span className="mvsel-name">{selected.label}</span>}
             {selected.note}
             {selected.sub && <span className="mvsel-meta">{selected.sub}</span>}
           </span>
@@ -96,7 +99,9 @@ export function SelectMenu({
               onClick={() => { onChange(i.value); setOpen(false); }}
             >
               <span className="mvsel-row">
-                <span className="mvsel-name">{i.label}</span>
+                {i.swatch
+                  ? <span className="tbadge" style={{ background: i.swatch }}>{i.label}</span>
+                  : <span className="mvsel-name">{i.label}</span>}
                 {i.note}
                 {i.sub && <span className="mvsel-meta">{i.sub}</span>}
               </span>

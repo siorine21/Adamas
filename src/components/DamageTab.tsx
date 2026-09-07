@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Move, StatBlock, Threat } from "../types";
 import { useStore } from "../store";
-import { AP_VALUES, NATURES, STAT_KEYS, STAT_LABEL, TYPES, realStats } from "../data/game";
+import { AP_VALUES, NATURES, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS, realStats } from "../data/game";
 import { CONFIRMED } from "../data/confirmed";
 import { MOVE_BY_NAME, MOVE_LIB, sortMovesByType } from "../data/moves";
 import {
   computeDamage, effLabel, hazardDamage, koAnalysis, typeEffectiveness,
   type Weather,
 } from "../calc";
-import { TypeBadges, typeSelectStyle } from "./TypeBadge";
+import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { MoveSelect } from "./MoveSelect";
 import { SelectMenu } from "./SelectMenu";
+import { NumberMenu } from "./NumberMenu";
 
 type Dir = "toThreat" | "toSelf";
 
@@ -228,12 +229,13 @@ export function DamageTab() {
           )}
           <div className="row tight" style={{ marginTop: 6 }}>
             {threat.types.map((t, i) => (
-              <select key={i} value={t} style={{ width: "auto", ...typeSelectStyle(t) }}
-                onChange={(e) => setThreat((p) => ({ ...p, types: p.types.map((x, j) => (j === i ? e.target.value : x)) }))}>
-                {TYPES.map((tp) => (
-                  <option key={tp} value={tp}>{tp}</option>
-                ))}
-              </select>
+              <SelectMenu
+                key={i}
+                style={{ flex: "0 1 130px" }}
+                items={TYPES.map((tp) => ({ value: tp, label: tp, swatch: TYPE_COLORS[tp] }))}
+                value={t}
+                onChange={(v) => setThreat((p) => ({ ...p, types: p.types.map((x, j) => (j === i ? v : x)) }))}
+              />
             ))}
             <button className="btn small" onClick={() => setThreat((p) => ({ ...p, types: p.types.length > 1 ? [p.types[0]] : [...p.types, "ノーマル"] }))}>
               {threat.types.length > 1 ? "単タイプ" : "＋タイプ"}
@@ -241,9 +243,11 @@ export function DamageTab() {
           </div>
           <label className="fld">
             <span>性格</span>
-            <select value={threat.nature} onChange={(e) => setThreat((p) => ({ ...p, nature: e.target.value }))}>
-              {Object.keys(NATURES).map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
+            <SelectMenu
+              items={Object.keys(NATURES).map((n) => ({ value: n, label: n }))}
+              value={threat.nature}
+              onChange={(v) => setThreat((p) => ({ ...p, nature: v }))}
+            />
           </label>
           <div className="stat-grid" style={{ marginTop: 4 }}>
             <div /><div className="head">種族</div><div className="head">AP</div><div className="head">実数</div>
@@ -269,49 +273,43 @@ export function DamageTab() {
         <div className="grid3">
           <label className="fld">
             <span>攻撃ランク</span>
-            <select value={atkRank} onChange={(e) => setAtkRank(Number(e.target.value))}>
-              {RANKS.map((r) => <option key={r} value={r}>{r > 0 ? `+${r}` : r}</option>)}
-            </select>
+            <NumberMenu values={RANKS} value={atkRank} onChange={setAtkRank} cols={5} format={(r) => (r > 0 ? `+${r}` : String(r))} />
           </label>
           <label className="fld">
             <span>防御ランク{move?.ignoreDefRank ? "（無視技）" : ""}</span>
-            <select value={defRank} disabled={!!move?.ignoreDefRank} onChange={(e) => setDefRank(Number(e.target.value))}>
-              {RANKS.map((r) => <option key={r} value={r}>{r > 0 ? `+${r}` : r}</option>)}
-            </select>
+            <NumberMenu values={RANKS} value={defRank} onChange={setDefRank} cols={5} format={(r) => (r > 0 ? `+${r}` : String(r))} />
           </label>
           <label className="fld">
             <span>天候</span>
-            <select value={weather} onChange={(e) => setWeather(e.target.value as Weather)}>
-              {WEATHERS.map((w) => <option key={w} value={w}>{w}</option>)}
-            </select>
+            <SelectMenu
+              items={WEATHERS.map((w) => ({ value: w, label: w }))}
+              value={weather}
+              onChange={(v) => setWeather(v as Weather)}
+            />
           </label>
           <label className="fld">
             <span>攻撃側 持ち物</span>
-            <select value={atkItem} onChange={(e) => setAtkItem(e.target.value)}>
-              {ATK_ITEMS.map((i) => <option key={i} value={i}>{i}</option>)}
-            </select>
+            <SelectMenu items={ATK_ITEMS.map((i) => ({ value: i, label: i }))} value={atkItem} onChange={setAtkItem} />
           </label>
           <label className="fld">
             <span>攻撃側 特性</span>
-            <select value={atkAbil} onChange={(e) => setAtkAbil(e.target.value)}>
-              {abilityOptionsWith(attackerIsSelf ? selfForm.ability : threat.ability, ATK_ABILITIES).map((a) => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
+            <SelectMenu
+              items={abilityOptionsWith(attackerIsSelf ? selfForm.ability : threat.ability, ATK_ABILITIES).map((a) => ({ value: a, label: a }))}
+              value={atkAbil}
+              onChange={setAtkAbil}
+            />
           </label>
           <label className="fld">
             <span>防御側 持ち物</span>
-            <select value={defItem} onChange={(e) => setDefItem(e.target.value)}>
-              {DEF_ITEMS.map((i) => <option key={i} value={i}>{i}</option>)}
-            </select>
+            <SelectMenu items={DEF_ITEMS.map((i) => ({ value: i, label: i }))} value={defItem} onChange={setDefItem} />
           </label>
           <label className="fld">
             <span>防御側 特性</span>
-            <select value={defAbil} onChange={(e) => setDefAbil(e.target.value)}>
-              {abilityOptionsWith(attackerIsSelf ? threat.ability : selfForm.ability, DEF_ABILITIES).map((a) => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
+            <SelectMenu
+              items={abilityOptionsWith(attackerIsSelf ? threat.ability : selfForm.ability, DEF_ABILITIES).map((a) => ({ value: a, label: a }))}
+              value={defAbil}
+              onChange={setDefAbil}
+            />
           </label>
         </div>
         <div className="checks" style={{ marginTop: 4 }}>
@@ -362,9 +360,7 @@ function ThreatStatRow({ k, base, ap, real, onBase, onAP }: {
     <>
       <div className="lbl">{k}<span className="small muted"> {STAT_LABEL[k]}</span></div>
       <input type="number" min={1} value={base} onChange={(e) => onBase(Math.max(1, Number(e.target.value) || 1))} />
-      <select value={ap} onChange={(e) => onAP(Number(e.target.value) || 0)}>
-        {AP_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
-      </select>
+      <NumberMenu values={AP_VALUES} value={ap} onChange={(v) => onAP(v)} />
       <div className="real">{real}</div>
     </>
   );
