@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Move, StatBlock, Threat } from "../types";
 import { useStore } from "../store";
-import { AP_VALUES, NATURES, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS, realStats } from "../data/game";
+import { AP_MAX_EACH, AP_MAX_TOTAL, NATURES, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS, realStats } from "../data/game";
 import { CONFIRMED } from "../data/confirmed";
 import { MOVE_BY_NAME, MOVE_LIB, sortMovesByType } from "../data/moves";
 import {
@@ -14,6 +14,7 @@ import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { MoveSelect } from "./MoveSelect";
 import { SelectMenu } from "./SelectMenu";
 import { NumberMenu } from "./NumberMenu";
+import { ApSlider } from "./ApSlider";
 
 type Dir = "toThreat" | "toSelf";
 
@@ -108,6 +109,19 @@ export function DamageTab() {
   if (!self || !selfForm) {
     return <div className="panel muted">先に「チーム管理」でポケモンを登録してください。</div>;
   }
+
+  // 仮想敵のAPも 各32／合計66 で制御する
+  const threatApTotal = STAT_KEYS.reduce((s, k) => s + threat.ap[k], 0);
+  const threatApRemaining = AP_MAX_TOTAL - threatApTotal;
+  const threatMaxFor = (k: keyof StatBlock) =>
+    Math.min(AP_MAX_EACH, threat.ap[k] + Math.max(0, threatApRemaining));
+  const setThreatAP = (k: keyof StatBlock, v: number) =>
+    setThreat((p) => {
+      const total = STAT_KEYS.reduce((s, kk) => s + p.ap[kk], 0);
+      const remaining = AP_MAX_TOTAL - total;
+      const max = Math.min(AP_MAX_EACH, p.ap[k] + Math.max(0, remaining));
+      return { ...p, ap: { ...p.ap, [k]: Math.max(0, Math.min(max, v || 0)) } };
+    });
 
   const selfReal = realStats(selfForm.base, self.ap, self.nature);
   const threatReal = realStats(threat.base, threat.ap, threat.nature);
@@ -249,15 +263,29 @@ export function DamageTab() {
               onChange={(v) => setThreat((p) => ({ ...p, nature: v }))}
             />
           </label>
-          <div className="stat-grid" style={{ marginTop: 4 }}>
-            <div /><div className="head">種族</div><div className="head">AP</div><div className="head">実数</div>
-            {STAT_KEYS.map((k) => (
-              <ThreatStatRow key={k} k={k} base={threat.base[k]} ap={threat.ap[k]} real={threatReal[k]}
-                onBase={(v) => setThreat((p) => ({ ...p, base: { ...p.base, [k]: v } }))}
-                onAP={(v) => setThreat((p) => ({ ...p, ap: { ...p.ap, [k]: Math.max(0, Math.min(32, v)) } }))}
-              />
-            ))}
+          <div className={`ap-budget ${threatApTotal > AP_MAX_TOTAL ? "over" : ""}`} style={{ marginTop: 8 }}>
+            <div className="ap-bar">
+              <div className="fill" style={{ width: `${Math.min(100, (threatApTotal / AP_MAX_TOTAL) * 100)}%` }} />
+            </div>
+            <span className="small nowrap">
+              AP <b className="tnum">{threatApTotal}</b> / {AP_MAX_TOTAL}
+              <span className="muted">　残り <b className="tnum">{Math.max(0, threatApRemaining)}</b></span>
+            </span>
           </div>
+          {STAT_KEYS.map((k) => (
+            <div className="ap-row" key={k}>
+              <div className="ap-head">
+                <span className="ap-k">{k}<span className="small muted"> {STAT_LABEL[k]}</span></span>
+                <label className="small muted ap-base">
+                  種族
+                  <input type="number" min={1} value={threat.base[k]}
+                    onChange={(e) => setThreat((p) => ({ ...p, base: { ...p.base, [k]: Math.max(1, Number(e.target.value) || 1) } }))} />
+                </label>
+                <span className="ap-real small">実数 <b>{threatReal[k]}</b></span>
+              </div>
+              <ApSlider value={threat.ap[k]} max={threatMaxFor(k)} onChange={(v) => setThreatAP(k, v)} />
+            </div>
+          ))}
           {!attackerIsSelf && (
             <div style={{ marginTop: 8 }}>
               <div className="small muted">仮想敵の攻撃技（全ライブラリ＋手動）</div>
@@ -349,20 +377,6 @@ function StatLine({ real }: { real: StatBlock }) {
     <div className="small tnum muted" style={{ marginTop: 4 }}>
       {STAT_KEYS.map((k) => `${k}${real[k]}`).join(" / ")}
     </div>
-  );
-}
-
-function ThreatStatRow({ k, base, ap, real, onBase, onAP }: {
-  k: keyof StatBlock; base: number; ap: number; real: number;
-  onBase: (v: number) => void; onAP: (v: number) => void;
-}) {
-  return (
-    <>
-      <div className="lbl">{k}<span className="small muted"> {STAT_LABEL[k]}</span></div>
-      <input type="number" min={1} value={base} onChange={(e) => onBase(Math.max(1, Number(e.target.value) || 1))} />
-      <NumberMenu values={AP_VALUES} value={ap} onChange={(v) => onAP(v)} />
-      <div className="real">{real}</div>
-    </>
   );
 }
 

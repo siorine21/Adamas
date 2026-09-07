@@ -1,14 +1,14 @@
 import type { Move, RosterEntry, StatKey } from "../types";
 import { useStore } from "../store";
 import {
-  AP_MAX_EACH, AP_MAX_TOTAL, AP_VALUES, MAX_MOVES, NATURES, realStats,
+  AP_MAX_EACH, AP_MAX_TOTAL, MAX_MOVES, NATURES, realStats,
   STAT_KEYS, STAT_LABEL,
 } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { SelectMenu } from "./SelectMenu";
-import { NumberMenu } from "./NumberMenu";
+import { ApSlider } from "./ApSlider";
 
 interface Props {
   entry: RosterEntry;
@@ -22,15 +22,20 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
   const real = realStats(form.base, entry.ap, entry.nature);
   const apTotal = STAT_KEYS.reduce((s, k) => s + entry.ap[k], 0);
   const apOver = apTotal > AP_MAX_TOTAL;
+  const apRemaining = AP_MAX_TOTAL - apTotal;
+  const maxFor = (k: StatKey) => Math.min(AP_MAX_EACH, entry.ap[k] + Math.max(0, apRemaining));
   const abilityOpts = form.ability.split("/").map((a) => a.trim()).filter(Boolean);
   const { options, verified, status, source } = moveOptionsFor(entry.name);
 
   const setForm = (idx: number) => updateEntry(entry.key, { activeForm: idx });
+  // 各32まで かつ 合計66まで。残りAPを超える入力は自動で頭打ちにする
   const setAP = (k: StatKey, v: number) =>
-    updateEntry(entry.key, (e) => ({
-      ...e,
-      ap: { ...e.ap, [k]: Math.max(0, Math.min(AP_MAX_EACH, v || 0)) },
-    }));
+    updateEntry(entry.key, (e) => {
+      const total = STAT_KEYS.reduce((s, kk) => s + e.ap[kk], 0);
+      const remaining = AP_MAX_TOTAL - total;
+      const max = Math.min(AP_MAX_EACH, e.ap[k] + Math.max(0, remaining));
+      return { ...e, ap: { ...e.ap, [k]: Math.max(0, Math.min(max, v || 0)) } };
+    });
   const setMove = (idx: number, m: Move | undefined) =>
     updateEntry(entry.key, (e) => {
       const moves = [...e.moves];
@@ -124,18 +129,25 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
 
       {/* 能力値 / AP */}
       <div className="section-title">能力値・AP配分（HABCDS）</div>
-      <div className="stat-grid">
-        <div />
-        <div className="head">種族値</div>
-        <div className="head">AP(0-32)</div>
-        <div className="head">実数値</div>
-        {STAT_KEYS.map((k) => (
-          <StatRow key={k} k={k} base={form.base[k]} ap={entry.ap[k]} real={real[k]} onAP={(v) => setAP(k, v)} />
-        ))}
+      <div className={`ap-budget ${apOver ? "over" : ""}`}>
+        <div className="ap-bar">
+          <div className="fill" style={{ width: `${Math.min(100, (apTotal / AP_MAX_TOTAL) * 100)}%` }} />
+        </div>
+        <span className="small nowrap">
+          AP <b className="tnum">{apTotal}</b> / {AP_MAX_TOTAL}
+          <span className="muted">　残り <b className="tnum">{Math.max(0, apRemaining)}</b></span>
+        </span>
       </div>
-      <div className={`ap-total ${apOver ? "over" : "muted"}`}>
-        AP合計 {apTotal} / {AP_MAX_TOTAL}{apOver ? "（上限超過！）" : ""}
-      </div>
+      {STAT_KEYS.map((k) => (
+        <div className="ap-row" key={k}>
+          <div className="ap-head">
+            <span className="ap-k">{k}<span className="small muted"> {STAT_LABEL[k]}</span></span>
+            <span className="small muted">種族 {form.base[k]}</span>
+            <span className="ap-real small">実数 <b>{real[k]}</b></span>
+          </div>
+          <ApSlider value={entry.ap[k]} max={maxFor(k)} onChange={(v) => setAP(k, v)} />
+        </div>
+      ))}
 
       {/* 技構成 */}
       <div className="section-title">技構成（最大4）</div>
@@ -164,13 +176,3 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
   );
 }
 
-function StatRow({ k, base, ap, real, onAP }: { k: StatKey; base: number; ap: number; real: number; onAP: (v: number) => void }) {
-  return (
-    <>
-      <div className="lbl">{k}<span className="small muted"> {STAT_LABEL[k]}</span></div>
-      <div className="base">{base}</div>
-      <NumberMenu values={AP_VALUES} value={ap} onChange={onAP} />
-      <div className="real">{real}</div>
-    </>
-  );
-}
