@@ -11,3 +11,12 @@ createRoot(document.getElementById("root")!).render(
     </StoreProvider>
   </StrictMode>,
 );
+
+// PWA: Service Worker 登録（ホーム画面追加/インストールを有効化）
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
+      /* 登録失敗は無視（アプリ本体はそのまま動作） */
+    });
+  });
+}
