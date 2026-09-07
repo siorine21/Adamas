@@ -14,9 +14,11 @@ interface Props {
   entry: RosterEntry;
   starDisabled: boolean; // ★上限で新規に付けられない
   itemDuplicated: boolean; // ★内で持ち物重複
+  collapsed: boolean; // 折りたたみ中は概要のみ表示
+  onToggle: () => void;
 }
 
-export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
+export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, onToggle }: Props) {
   const { updateEntry, removeEntry } = useStore();
   const form = entry.forms[entry.activeForm] ?? entry.forms[0];
   const real = realStats(form.base, entry.ap, entry.nature);
@@ -47,9 +49,9 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
     updateEntry(entry.key, (e) => (e.moves.length >= MAX_MOVES ? e : { ...e, moves: [...e.moves, { name: "", type: "ノーマル", power: 0, cat: "変化" as const }] }));
 
   return (
-    <div className={`card ${itemDuplicated ? "warn-item" : ""}`}>
-      {/* ヘッダー行 */}
-      <div className="row" style={{ alignItems: "flex-start" }}>
+    <div className={`card ${itemDuplicated ? "warn-item" : ""} ${collapsed ? "collapsed" : ""}`}>
+      {/* ヘッダー行（名前部分をタップで開閉） */}
+      <div className="row card-hd">
         <button
           className="star-btn"
           title={entry.starred ? "★手持ちから外す" : starDisabled ? "★は最大6体まで" : "★手持ちに入れる"}
@@ -59,19 +61,46 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
         >
           {entry.starred ? "★" : "☆"}
         </button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="row tight" style={{ alignItems: "baseline" }}>
-            <strong style={{ color: "var(--steel-hi)" }}>{displayName(entry.name, form.form)}</strong>
-            {entry.nickname && <span className="small muted">「{entry.nickname}」</span>}
-            <TypeBadges types={form.types} />
-          </div>
-          <div className="small muted">特性: {form.ability}</div>
-        </div>
+        <button
+          type="button"
+          className="card-toggle"
+          aria-expanded={!collapsed}
+          title={collapsed ? "開く" : "たたむ"}
+          onClick={onToggle}
+        >
+          <span className={`card-caret ${collapsed ? "" : "open"}`}>▶</span>
+          <span className="card-head">
+            <span className="row tight" style={{ alignItems: "baseline" }}>
+              <strong style={{ color: "var(--steel-hi)" }}>{displayName(entry.name, form.form)}</strong>
+              {entry.nickname && <span className="small muted">「{entry.nickname}」</span>}
+              <TypeBadges types={form.types} />
+            </span>
+            {collapsed ? (
+              <>
+                <span className="small muted card-sum">
+                  {entry.nature.replace(/（.*/, "")} / {entry.item || "持ち物なし"} ・ AP {apTotal}/{AP_MAX_TOTAL}
+                </span>
+                <span className="small muted tnum card-sum">
+                  {STAT_KEYS.map((k) => `${k}${real[k]}`).join(" ")}
+                </span>
+                {entry.moves.length > 0 && (
+                  <span className="small muted card-sum">
+                    {entry.moves.map((m) => m.name || "（未設定）").join("・")}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="small muted card-sum">特性: {form.ability}</span>
+            )}
+          </span>
+        </button>
         <button className="btn small danger" title="削除" onClick={() => removeEntry(entry.key)}>削除</button>
       </div>
 
       {itemDuplicated && <div className="banner warn">★手持ち内で持ち物が重複しています（同一アイテム所持は不可）</div>}
 
+      {collapsed ? null : (
+      <>
       {/* 基本設定 */}
       <div className="grid2" style={{ marginTop: 8 }}>
         <label className="fld">
@@ -172,6 +201,8 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated }: Props) {
         <span>メモ</span>
         <textarea rows={2} value={entry.note} onChange={(e) => updateEntry(entry.key, { note: e.target.value })} />
       </label>
+      </>
+      )}
     </div>
   );
 }
