@@ -246,9 +246,16 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
   color: var(--ink);
 }
 .mvsel-empty { padding: 8px 6px; font-size: 12px; }
-.mvsel-row { display: flex; align-items: center; gap: 8px; }
-.mvsel-name { color: var(--ink); font-size: 13px; }
-.mvsel-meta { margin-left: auto; color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; }
+.mvsel-row { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.mvsel-name {
+  color: var(--ink); font-size: 13px;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 威力・命中・PP・分類。行が詰まっても折り返さず、技名側を省略する */
+.mvsel-meta {
+  margin-left: auto; flex: 0 0 auto; white-space: nowrap;
+  color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums;
+}
 
 /* ---------- type badges ---------- */
 .tbadge {
@@ -284,6 +291,12 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
 }
 .move-row .move-main { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
 .move-row .move-edit { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+/* 手動入力技の数値欄（威力・命中・PP）。ラベル付きで幅を抑える */
+.move-row .move-edit .mini {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--dim);
+}
+.move-row .move-edit .mini input { width: 58px; padding: 5px 6px; }
 .move-row .flags {
   display: flex;
   gap: 8px;
