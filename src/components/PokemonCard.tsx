@@ -5,7 +5,7 @@ import {
   STAT_KEYS, STAT_LABEL,
 } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
-import { displayName } from "../data/roster";
+import { displayName, findDex } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { SelectMenu } from "./SelectMenu";
 import { ApSlider } from "./ApSlider";
@@ -26,10 +26,25 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
   const apOver = apTotal > AP_MAX_TOTAL;
   const apRemaining = AP_MAX_TOTAL - apTotal;
   const maxFor = (k: StatKey) => Math.min(AP_MAX_EACH, entry.ap[k] + Math.max(0, apRemaining));
-  const abilityOpts = form.ability.split("/").map((a) => a.trim()).filter(Boolean);
+  // 特性の候補は図鑑（マスタ）から取る。個体側の ability は選ぶと1つに確定するので、
+  // 個体側だけを見ていると2回目以降にドロップダウンが出せなくなる。
+  const dexForms = findDex(entry.name)?.forms;
+  const dexAbility = (dexForms?.find((f) => f.form === form.form) ?? dexForms?.[entry.activeForm])?.ability;
+  const abilityOpts = (() => {
+    const list = (dexAbility ?? form.ability).split("/").map((a) => a.trim()).filter(Boolean);
+    const cur = form.ability.trim();
+    // 手動で入れた特性・図鑑に無い特性も候補として残す
+    if (cur && !cur.includes("/") && !list.includes(cur)) list.push(cur);
+    return list;
+  })();
   const { options, verified, status, source } = moveOptionsFor(entry.name);
 
   const setForm = (idx: number) => updateEntry(entry.key, { activeForm: idx });
+  const setAbility = (v: string) =>
+    updateEntry(entry.key, (en) => ({
+      ...en,
+      forms: en.forms.map((f, i) => (i === en.activeForm ? { ...f, ability: v } : f)),
+    }));
   // 各32まで かつ 合計66まで。残りAPを超える入力は自動で頭打ちにする
   const setAP = (k: StatKey, v: number) =>
     updateEntry(entry.key, (e) => {
@@ -90,7 +105,11 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
                 )}
               </>
             ) : (
-              <span className="small muted card-sum">特性: {form.ability}</span>
+              <span className="small muted card-sum">
+                特性: {form.ability.includes("/")
+                  ? <span className="amber">未選択</span>
+                  : form.ability || "—"}
+              </span>
             )}
           </span>
         </button>
@@ -107,7 +126,7 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
           <span>ニックネーム</span>
           <input type="text" value={entry.nickname} onChange={(e) => updateEntry(entry.key, { nickname: e.target.value })} />
         </label>
-        {entry.forms.length > 1 ? (
+        {entry.forms.length > 1 && (
           <label className="fld">
             <span>フォルム</span>
             <SelectMenu
@@ -116,26 +135,20 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
               onChange={(v) => setForm(Number(v))}
             />
           </label>
-        ) : (
-          <label className="fld">
-            <span>特性</span>
-            {abilityOpts.length > 1 ? (
-              <SelectMenu
-                items={abilityOpts.map((a) => ({ value: a, label: a }))}
-                value={form.ability}
-                onChange={(v) => updateEntry(entry.key, (en) => {
-                  const forms = en.forms.map((f, i) => i === en.activeForm ? { ...f, ability: v } : f);
-                  return { ...en, forms };
-                })}
-              />
-            ) : (
-              <input type="text" value={form.ability} onChange={(e) => updateEntry(entry.key, (en) => {
-                const forms = en.forms.map((f, i) => i === en.activeForm ? { ...f, ability: e.target.value } : f);
-                return { ...en, forms };
-              })} />
-            )}
-          </label>
         )}
+        <label className="fld">
+          <span>特性</span>
+          {abilityOpts.length > 1 ? (
+            <SelectMenu
+              items={abilityOpts.map((a) => ({ value: a, label: a }))}
+              value={form.ability}
+              placeholder="特性を選択…"
+              onChange={setAbility}
+            />
+          ) : (
+            <input type="text" value={form.ability} onChange={(e) => setAbility(e.target.value)} />
+          )}
+        </label>
         <label className="fld">
           <span>持ち物</span>
           <input

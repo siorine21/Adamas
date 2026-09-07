@@ -75,7 +75,15 @@ export function MoveSelect({
         <span className="mvsel-caret">▾</span>
       </button>
       {open && (
-        <div className="mvsel-pop" role="listbox" style={popStyle}>
+        <div
+          className="mvsel-pop"
+          role="listbox"
+          style={popStyle}
+          // このメニューは <label> の中に置かれることがある。ラベル内のクリックは
+          // ラベルの対象コントロール（＝開閉ボタン）へ転送され、選んだ直後に
+          // メニューが開き直してしまうため、既定動作を止めておく。
+          onClick={(e) => e.preventDefault()}
+        >
           {searchable && (
             <input
               ref={searchRef}
