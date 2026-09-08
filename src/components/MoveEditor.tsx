@@ -27,11 +27,13 @@ interface Props {
   move: Move | undefined;
   options: Move[];
   onChange: (m: Move | undefined) => void;
+  /** 同じ技が他の枠にもある（手動入力で重複した場合の警告表示用） */
+  duplicated?: boolean;
 }
 
 const CATS: Move["cat"][] = ["物理", "特殊", "変化"];
 
-export function MoveEditor({ move, options, onChange }: Props) {
+export function MoveEditor({ move, options, onChange, duplicated }: Props) {
   // 候補が多い（全ライブラリ等）の時はポップアップ内に検索欄を出す
   const useSearch = options.length > 150;
   // 選択中の技が候補に無い（かつ空でない）＝手動入力扱い
@@ -54,7 +56,7 @@ export function MoveEditor({ move, options, onChange }: Props) {
   };
 
   return (
-    <div className="move-row">
+    <div className={`move-row ${duplicated ? "dup" : ""}`}>
       {/* ダメージ計算と同じ全幅のタイプ色付きドロップダウン（削除は「空にする」で行う） */}
       <MoveSelect
         moves={options}
