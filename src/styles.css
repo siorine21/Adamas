@@ -561,7 +561,16 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 .ap-base input[type="number"] { width: 62px; padding: 2px 6px; font-size: 12px; }
 
 .ap-ctl { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
-.ap-slider { flex: 1 1 auto; min-width: 0; accent-color: var(--steel); height: 26px; }
+/* touch-action: pan-y … 縦方向のスワイプはページのスクロールに渡し、
+   スライダーは横ドラッグだけを拾う（スクロール中に値が変わるのを防ぐ） */
+.ap-slider {
+  flex: 1 1 auto; min-width: 0; accent-color: var(--steel);
+  height: 26px; touch-action: pan-y;
+}
+.ap-slider:disabled { accent-color: var(--dim); opacity: .5; cursor: not-allowed; }
+.ap-ctl.locked { opacity: .75; }
+.lock-btn { flex: 0 0 auto; padding: 3px 8px; font-size: 11px; }
+.lock-btn.on { border-color: var(--amber); color: var(--amber); }
 .ap-step {
   flex: 0 0 34px; width: 34px; height: 34px;
   background: var(--panel2); color: var(--ink);

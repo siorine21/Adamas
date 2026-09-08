@@ -45,6 +45,7 @@ export interface RosterEntry {
   item: string; // 持ち物（自由入力）
   nature: string; // NATURESのキーのいずれか
   ap: StatBlock; // 各0-32、合計上限66
+  apLocked?: boolean; // AP配分をロック（スクロール時の誤操作防止。未設定＝ロックなし）
   moves: Move[]; // 最大4
   note: string; // メモ欄
 }

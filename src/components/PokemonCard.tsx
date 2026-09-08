@@ -188,6 +188,16 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
           AP <b className="tnum">{apTotal}</b> / {AP_MAX_TOTAL}
           <span className="muted">　残り <b className="tnum">{Math.max(0, apRemaining)}</b></span>
         </span>
+        {/* スクロール中にスライダーへ触れて配分が変わるのを防ぐロック */}
+        <button
+          type="button"
+          className={`btn small lock-btn ${entry.apLocked ? "on" : ""}`}
+          aria-pressed={!!entry.apLocked}
+          title={entry.apLocked ? "ロックを解除して編集する" : "AP配分をロックして誤操作を防ぐ"}
+          onClick={() => updateEntry(entry.key, { apLocked: !entry.apLocked })}
+        >
+          {entry.apLocked ? "🔒 ロック中" : "🔓 ロック"}
+        </button>
       </div>
       {STAT_KEYS.map((k) => (
         <div className="ap-row" key={k}>
@@ -196,7 +206,7 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
             <span className="small muted">種族 {form.base[k]}</span>
             <span className="ap-real small">実数 <b>{real[k]}</b></span>
           </div>
-          <ApSlider value={entry.ap[k]} max={maxFor(k)} onChange={(v) => setAP(k, v)} />
+          <ApSlider value={entry.ap[k]} max={maxFor(k)} locked={entry.apLocked} onChange={(v) => setAP(k, v)} />
         </div>
       ))}
 
