@@ -2,7 +2,9 @@
    - ホーム画面追加（PWAインストール）を有効化するための最小構成。
    - ナビゲーションはネットワーク優先（新デプロイをすぐ反映）、失敗時にキャッシュへフォールバック。
    - ハッシュ付きアセット等はキャッシュ優先（オフライン動作）。 */
-const CACHE = "adamas-koubou-v1";
+// アイコン等のハッシュ無しファイルはキャッシュ優先なので、差し替えたら必ずこの版を上げる
+// （activate で旧キャッシュを削除し、新しいファイルを取り直させる）
+const CACHE = "adamas-koubou-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();

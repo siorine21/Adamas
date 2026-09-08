@@ -1,42 +1,50 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- アダマス工房のアイコン。
+       「アダマス（ἀδάμας）＝ダイヤモンド／鋼」に由来するので、ブリリアントカットの
+       ダイヤを真上から見た形（テーブル面＋クラウンのファセット）を据えている。
+       tools/gen-icons で各サイズのPNGを生成するため、content マーカーは動かさないこと。 -->
   <defs>
-    <radialGradient id="glow" cx="50%" cy="42%" r="60%">
-      <stop offset="0%" stop-color="#33475d"/><stop offset="100%" stop-color="#141920" stop-opacity="0"/>
-    </radialGradient>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#212b38"/><stop offset="100%" stop-color="#0d1015"/>
     </linearGradient>
-    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#dbe4ee"/><stop offset="48%" stop-color="#93a4b6"/><stop offset="100%" stop-color="#556577"/>
+    <radialGradient id="glow" cx="50%" cy="45%" r="58%">
+      <stop offset="0%" stop-color="#40608a"/><stop offset="100%" stop-color="#141920" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="f1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#b8d3ec"/>
     </linearGradient>
-    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#2b3542"/><stop offset="100%" stop-color="#1a222c"/>
+    <linearGradient id="f2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#9ec0e0"/><stop offset="100%" stop-color="#5b81a9"/>
     </linearGradient>
-    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f2f7fc"/><stop offset="100%" stop-color="#8fa2b4"/>
+    <linearGradient id="f3" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#33506f"/><stop offset="100%" stop-color="#6f95bb"/>
     </linearGradient>
-    <linearGradient id="gem" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#e8f2fe"/><stop offset="55%" stop-color="#8fb2d8"/><stop offset="100%" stop-color="#5b82ad"/>
+    <linearGradient id="tbl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#d9ecff"/>
     </linearGradient>
     <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#f4d98a"/><stop offset="100%" stop-color="#d9a441"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="100" fill="url(#bg)"/>
-  <circle cx="256" cy="238" r="182" fill="url(#glow)"/>
-  <polygon points="256,74 412,164 412,344 256,434 100,344 100,164" fill="url(#steel)" stroke="#2a333f" stroke-width="10" stroke-linejoin="round"/>
-  <polygon points="256,74 412,164 412,344 256,434 100,344 100,164" fill="none" stroke="url(#rim)" stroke-width="4" stroke-linejoin="round" opacity="0.9"/>
-  <polygon points="256,116 378,186 378,322 256,392 134,322 134,186" fill="url(#face)" stroke="#3a4552" stroke-width="6" stroke-linejoin="round"/>
-  <g fill="#9fb1c2" stroke="#2a333f" stroke-width="2">
-    <circle cx="256" cy="96" r="7"/><circle cx="392" cy="175" r="7"/><circle cx="392" cy="333" r="7"/>
-    <circle cx="256" cy="412" r="7"/><circle cx="120" cy="333" r="7"/><circle cx="120" cy="175" r="7"/>
+  <!-- content:start -->
+  <circle cx="256" cy="256" r="200" fill="url(#glow)"/>
+  <g stroke="#0d1218" stroke-width="7" stroke-linejoin="round">
+    <polygon points="256,66 390,121 445,256 390,391 256,446 122,391 67,256 122,121" fill="url(#f2)"/>
+    <polygon points="256,66 390,121 322,186 256,152" fill="url(#f1)"/>
+    <polygon points="390,121 445,256 356,256 322,186" fill="url(#f3)"/>
+    <polygon points="445,256 390,391 322,326 356,256" fill="url(#f2)"/>
+    <polygon points="390,391 256,446 256,360 322,326" fill="url(#f3)"/>
+    <polygon points="256,446 122,391 190,326 256,360" fill="url(#f1)"/>
+    <polygon points="122,391 67,256 156,256 190,326" fill="url(#f2)"/>
+    <polygon points="67,256 122,121 190,186 156,256" fill="url(#f3)"/>
+    <polygon points="122,121 256,66 256,152 190,186" fill="url(#f2)"/>
+    <polygon points="256,152 322,186 356,256 322,326 256,360 190,326 156,256 190,186" fill="url(#tbl)"/>
   </g>
-  <polygon points="220,196 292,196 316,258 256,360 196,258" fill="url(#gem)" stroke="#eef6ff" stroke-width="3" stroke-linejoin="round"/>
-  <g stroke="#eef6ff" stroke-width="2" opacity="0.55" fill="none" stroke-linejoin="round">
-    <line x1="196" y1="258" x2="316" y2="258"/><line x1="220" y1="196" x2="238" y2="258"/>
-    <line x1="292" y1="196" x2="274" y2="258"/><line x1="256" y1="196" x2="256" y2="360"/>
-    <line x1="196" y1="258" x2="256" y2="360"/><line x1="316" y1="258" x2="256" y2="360"/>
+  <g stroke="#7fa8cf" stroke-width="3.5" opacity="0.8" fill="none" stroke-linejoin="round">
+    <polygon points="256,152 356,256 256,360 156,256"/>
   </g>
-  <polygon points="220,196 256,196 256,258 238,258" fill="#ffffff" opacity="0.28"/>
-  <path d="M256 150 l6 14 14 6 -14 6 -6 14 -6 -14 -14 -6 14 -6 z" fill="url(#gold)"/>
+  <path d="M139 112 l11 26 26 11 -26 11 -11 26 -11 -26 -26 -11 26 -11 z" fill="#ffffff" opacity="0.95"/>
+  <path d="M404 336 l7 17 17 7 -17 7 -7 17 -7 -17 -17 -7 17 -7 z" fill="url(#gold)"/>
+  <!-- content:end -->
 </svg>
