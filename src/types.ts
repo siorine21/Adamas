@@ -18,11 +18,16 @@ export interface PokemonForm {
 
 export type MoveCategory = "物理" | "特殊" | "変化";
 
+/** [命中率, PP]。命中率0は必中（命中判定なし）、PPはポイントアップ未使用の基本値。 */
+export type MoveMeta = [acc: number, pp: number];
+
 export interface Move {
   name: string;
   type: string;
   power: number; // 0の場合は変化技扱い
   cat: MoveCategory;
+  acc?: number; // 命中率（0=必中、未定義=不明／手動入力技）
+  pp?: number; // PP（基本値、未定義=不明／手動入力技）
   contact?: boolean; // 接触技か（かたいツメ等の判定用）
   useDef?: boolean; // 自分のBでダメージ計算（ボディプレス）
   targetB?: boolean; // 特殊技だが相手のBに与える（サイコショック系）

@@ -3,7 +3,7 @@ import type { Move, StatBlock, Threat } from "../types";
 import { useStore } from "../store";
 import { AP_MAX_EACH, AP_MAX_TOTAL, NATURES, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS, realStats } from "../data/game";
 import { CONFIRMED } from "../data/confirmed";
-import { MOVE_BY_NAME, MOVE_LIB, sortMovesByType } from "../data/moves";
+import { MOVE_BY_NAME, MOVE_LIB, accLabel, moveWithMeta, sortMovesByType } from "../data/moves";
 import {
   computeDamage, effLabel, hazardDamage, koAnalysis, typeEffectiveness,
   type Weather,
@@ -385,6 +385,7 @@ function ResultView({ move, ko, eff, rolls, defHP, atkStat, defStat }: {
   rolls: number[]; defHP: number; atkStat: number; defStat: number;
 }) {
   const stampClass = ko.verdict === "確定1発" ? "ko1" : ko.verdict === "確定2発" ? "ko2" : "";
+  const full = moveWithMeta(move); // 命中率・PPを補完した技情報
   const remainMinPct = Math.max(0, 100 - ko.maxPct); // 最大ダメ時の残り
   return (
     <div>
@@ -409,7 +410,7 @@ function ResultView({ move, ko, eff, rolls, defHP, atkStat, defStat }: {
 
       <div className="small muted">
         使用実数値: {move.useDef ? "防御B" : move.cat === "物理" ? "攻撃A" : "特攻C"} <b className="tnum">{atkStat}</b> → 相手{move.cat === "物理" || move.targetB ? "防御B" : "特防D"} <b className="tnum">{defStat}</b>
-        （威力 {move.power} / {move.type} / {move.cat}）
+        （威力{move.power} / {move.type} / {move.cat} / {accLabel(full.acc)} / PP{full.pp ?? "—"}）
       </div>
 
       <div className="small muted" style={{ marginTop: 6 }}>16乱数（85〜100%）:</div>

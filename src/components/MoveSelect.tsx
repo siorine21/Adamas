@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Move } from "../types";
 import { TYPE_COLORS } from "../data/game";
+import { accLabel, moveWithMeta } from "../data/moves";
 import { usePopupPlacement } from "./popupPlacement";
 
 interface Props {
@@ -125,11 +126,15 @@ export function MoveSelect({
 
 function MoveRow({ m }: { m: Move }) {
   const color = TYPE_COLORS[m.type] ?? "#666";
+  // 保存済みの技には命中率・PPが無い場合があるのでライブラリから補う
+  const full = moveWithMeta(m);
   return (
     <span className="mvsel-row">
       <span className="tbadge" style={{ background: color }}>{m.type}</span>
       <span className="mvsel-name">{m.name}</span>
-      <span className="mvsel-meta">{m.power > 0 ? m.power : "—"}・{m.cat}</span>
+      <span className="mvsel-meta">
+        威力{full.power > 0 ? full.power : "—"}・{accLabel(full.acc)}・PP{full.pp ?? "—"}・{full.cat}
+      </span>
     </span>
   );
 }

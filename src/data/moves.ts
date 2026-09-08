@@ -1,5 +1,6 @@
 import type { Learnset, Move, MoveCategory } from "../types";
 import { TYPES } from "./game";
+import { MOVE_META } from "./moveMeta";
 
 const M = (
   name: string,
@@ -34,7 +35,7 @@ export function sortMovesByType(moves: Move[]): Move[] {
    ・useDef=自分のBで計算 / targetB=相手のBに与える / ignoreDefRank=相手のランク無視
      はアプリ独自挙動のため技名で個別付与。
    ・覚えるかどうか（習得可否）はLEARNSETSで別管理。 */
-export const MOVE_LIB: Move[] = [
+const BASE_MOVE_LIB: Move[] = [
   M("だいばくはつ", "ノーマル", 250, "物理"),
   M("じばく", "ノーマル", 200, "物理"),
   M("ギガインパクト", "ノーマル", 150, "物理", {contact:true}),
@@ -582,7 +583,7 @@ export const MOVE_LIB: Move[] = [
   M("フェザーダンス", "ひこう", 0, "変化"),
   M("サイコファング", "エスパー", 85, "物理", {contact:true}),
   M("しねんのずつき", "エスパー", 80, "物理", {contact:true}),
-  M("サイコブレイド ", "エスパー", 80, "物理"),
+  M("サイコブレイド", "エスパー", 80, "物理"),
   M("サイコカッター", "エスパー", 70, "物理"),
   M("バリアーラッシュ", "エスパー", 70, "物理"),
   M("ハートスタンプ", "エスパー", 60, "物理", {contact:true}),
@@ -870,8 +871,27 @@ export const MOVE_LIB: Move[] = [
   M("ミストフィールド", "フェアリー", 0, "変化"),
 ];
 
+/** 技ライブラリ（命中率・PPを MOVE_META から合成したもの）。 */
+export const MOVE_LIB: Move[] = BASE_MOVE_LIB.map((m) => {
+  const meta = MOVE_META[m.name];
+  return meta ? { ...m, acc: meta[0], pp: meta[1] } : m;
+});
+
 export const MOVE_BY_NAME: Record<string, Move> =
   Object.fromEntries(MOVE_LIB.map((m) => [m.name, m]));
+
+/** 表示用の命中率ラベル。0は「必中」、未収録（手動入力技）は「命中—」。 */
+export function accLabel(acc: number | undefined): string {
+  if (acc === undefined) return "命中—";
+  return acc === 0 ? "必中" : `命中${acc}`;
+}
+
+/** 保存済みの技（命中率・PPを持たない旧データ）にライブラリの値を補う。 */
+export function moveWithMeta(m: Move): Move {
+  if (m.acc !== undefined && m.pp !== undefined) return m;
+  const lib = MOVE_BY_NAME[m.name];
+  return lib ? { ...m, acc: m.acc ?? lib.acc, pp: m.pp ?? lib.pp } : m;
+}
 
 /* ============================================================
    種族別習得技データベース（ポケモンチャンピオンズ準拠）
