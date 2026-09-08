@@ -601,3 +601,30 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 .card-caret.open { transform: rotate(90deg); }
 .card-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .card-sum { display: block; word-break: break-word; }
+
+/* ---------- 弱点チェック表 ---------- */
+.wk-head {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; padding: 0; margin-bottom: 2px;
+  background: none; border: none; color: inherit; font: inherit;
+  text-align: left; cursor: pointer;
+}
+.wk-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+.wk-no {
+  display: inline-block; min-width: 16px; text-align: center;
+  color: var(--steel-hi); font-variant-numeric: tabular-nums;
+}
+table.wk { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.wk th, table.wk td {
+  padding: 4px 5px; border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+table.wk th { color: var(--dim); font-weight: 500; text-align: left; }
+table.wk td.num, table.wk th.num {
+  text-align: center; font-variant-numeric: tabular-nums; width: 1%;
+}
+table.wk td.wk-x4 { color: #fff; background: rgba(224, 87, 79, .55); font-weight: 700; }
+table.wk td.wk-x2 { color: var(--red); background: rgba(224, 87, 79, .18); font-weight: 600; }
+table.wk td.wk-n { color: var(--dim); }
+table.wk td.wk-h { color: var(--green); background: rgba(109, 181, 109, .12); }
+table.wk td.wk-q { color: var(--green); background: rgba(109, 181, 109, .24); font-weight: 600; }
+table.wk td.wk-imm { color: var(--steel-hi); background: rgba(127, 168, 207, .22); font-weight: 700; }
