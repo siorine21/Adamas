@@ -8,6 +8,7 @@ import { exportJSON, importJSON } from "../storage";
 import { PokemonCard } from "./PokemonCard";
 import { SelectMenu } from "./SelectMenu";
 import { WeaknessTable } from "./WeaknessTable";
+import { CoverageTable } from "./CoverageTable";
 
 const EXPANDED_KEY = "adamas-koubou/team-expanded/v1";
 
@@ -207,8 +208,9 @@ export function TeamTab() {
         {!ioOpen && ioMsg && <div className="small amber" style={{ marginTop: 6 }}>{ioMsg}</div>}
       </div>
 
-      {/* チーム全体の弱点チェック */}
+      {/* チーム全体の弱点チェック・攻撃範囲チェック */}
       <WeaknessTable />
+      <CoverageTable />
 
       {/* 一括開閉 */}
       {roster.length > 0 && (
