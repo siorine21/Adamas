@@ -628,3 +628,12 @@ table.wk td.wk-n { color: var(--dim); }
 table.wk td.wk-h { color: var(--green); background: rgba(109, 181, 109, .12); }
 table.wk td.wk-q { color: var(--green); background: rgba(109, 181, 109, .24); font-weight: 600; }
 table.wk td.wk-imm { color: var(--steel-hi); background: rgba(127, 168, 207, .22); font-weight: 700; }
+
+/* ---------- 攻撃範囲チェック表（弱点表と色の意味が逆＝抜群が緑） ---------- */
+table.cv td.cv-x4 { color: #fff; background: rgba(109, 181, 109, .55); font-weight: 700; }
+table.cv td.cv-x2 { color: var(--green); background: rgba(109, 181, 109, .18); font-weight: 600; }
+table.cv td.cv-n { color: var(--dim); }
+table.cv td.cv-h { color: var(--red); background: rgba(224, 87, 79, .14); }
+table.cv td.cv-q { color: var(--red); background: rgba(224, 87, 79, .26); font-weight: 600; }
+table.cv td.cv-imm { color: var(--red); background: rgba(224, 87, 79, .4); font-weight: 700; }
+table.cv td.cv-none { color: var(--dim); }
