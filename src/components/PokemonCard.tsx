@@ -9,6 +9,7 @@ import { displayName, findDex } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { SelectMenu } from "./SelectMenu";
 import { ApSlider } from "./ApSlider";
+import { LockButton } from "./LockButton";
 
 interface Props {
   entry: RosterEntry;
@@ -189,15 +190,10 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
           <span className="muted">　残り <b className="tnum">{Math.max(0, apRemaining)}</b></span>
         </span>
         {/* スクロール中にスライダーへ触れて配分が変わるのを防ぐロック */}
-        <button
-          type="button"
-          className={`btn small lock-btn ${entry.apLocked ? "on" : ""}`}
-          aria-pressed={!!entry.apLocked}
-          title={entry.apLocked ? "ロックを解除して編集する" : "AP配分をロックして誤操作を防ぐ"}
-          onClick={() => updateEntry(entry.key, { apLocked: !entry.apLocked })}
-        >
-          {entry.apLocked ? "🔒 ロック中" : "🔓 ロック"}
-        </button>
+        <LockButton
+          locked={!!entry.apLocked}
+          onToggle={() => updateEntry(entry.key, { apLocked: !entry.apLocked })}
+        />
       </div>
       {STAT_KEYS.map((k) => (
         <div className="ap-row" key={k}>

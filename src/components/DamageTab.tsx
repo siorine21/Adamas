@@ -17,6 +17,7 @@ import { SelectMenu } from "./SelectMenu";
 import { NumberMenu } from "./NumberMenu";
 import { ApSlider } from "./ApSlider";
 import { NumberInput } from "./NumberInput";
+import { LockButton } from "./LockButton";
 
 type Dir = "toThreat" | "toSelf";
 
@@ -308,15 +309,7 @@ export function DamageTab() {
               AP <b className="tnum">{threatApTotal}</b> / {AP_MAX_TOTAL}
               <span className="muted">　残り <b className="tnum">{Math.max(0, threatApRemaining)}</b></span>
             </span>
-            <button
-              type="button"
-              className={`btn small lock-btn ${threatApLocked ? "on" : ""}`}
-              aria-pressed={threatApLocked}
-              title={threatApLocked ? "ロックを解除して編集する" : "AP配分をロックして誤操作を防ぐ"}
-              onClick={() => setThreatApLocked(!threatApLocked)}
-            >
-              {threatApLocked ? "🔒 ロック中" : "🔓 ロック"}
-            </button>
+            <LockButton locked={threatApLocked} onToggle={() => setThreatApLocked(!threatApLocked)} />
           </div>
           {STAT_KEYS.map((k) => (
             <div className="ap-row" key={k}>

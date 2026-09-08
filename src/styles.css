@@ -569,8 +569,17 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 }
 .ap-slider:disabled { accent-color: var(--dim); opacity: .5; cursor: not-allowed; }
 .ap-ctl.locked { opacity: .75; }
-.lock-btn { flex: 0 0 auto; padding: 3px 8px; font-size: 11px; }
-.lock-btn.on { border-color: var(--amber); color: var(--amber); }
+/* AP配分のロック。アイコンだけで状態を示す（解錠=薄いグレーの輪郭 / 施錠=アンバーの塗り） */
+.lock-btn {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 0;
+  background: var(--panel2); color: var(--dim);
+  border: 1px solid var(--line); border-radius: 8px;
+  cursor: pointer; transition: color .15s, border-color .15s;
+}
+.lock-btn:hover { border-color: var(--steel); color: var(--steel-hi); }
+.lock-btn.on { color: var(--amber); border-color: var(--amber); }
 .ap-step {
   flex: 0 0 34px; width: 34px; height: 34px;
   background: var(--panel2); color: var(--ink);
