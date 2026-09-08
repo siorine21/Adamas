@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "./store";
+import { usePersistedState } from "./uiState";
 import { TeamTab } from "./components/TeamTab";
 import { DexTab } from "./components/DexTab";
 import { DamageTab } from "./components/DamageTab";
@@ -30,7 +31,11 @@ function SaveBadge() {
 }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("team");
+  // 開いていたタブを覚えておく（リロード・ホーム画面から再起動しても同じ画面に戻る）
+  const [tab, setTab] = usePersistedState<Tab>(
+    "tab", "team",
+    (v) => typeof v === "string" && TABS.some((t) => t.id === v),
+  );
   return (
     <div className="app">
       <header className="app-header">

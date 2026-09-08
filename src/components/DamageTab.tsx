@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Move, StatBlock, Threat } from "../types";
 import { useStore } from "../store";
+import { usePersistedState } from "../uiState";
 import { AP_MAX_EACH, AP_MAX_TOTAL, NATURES, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS, realStats } from "../data/game";
 import { CONFIRMED } from "../data/confirmed";
 import { MOVE_BY_NAME, MOVE_LIB, accLabel, moveWithMeta, sortMovesByType } from "../data/moves";
@@ -25,6 +26,25 @@ const DEF_ABILITIES = ["（補正なし）", "フィルター／ハードロッ�
 const WEATHERS: Weather[] = ["なし", "にほんばれ", "あまごい"];
 const RANKS = [6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6];
 
+/** 保存済みの仮想敵データが今の形かどうか（古い保存値は既定値に戻す） */
+function isThreatState(v: unknown): boolean {
+  if (!v || typeof v !== "object") return false;
+  const t = v as Record<string, unknown>;
+  const stats = t.base as Record<string, unknown> | undefined;
+  const ap = t.ap as Record<string, unknown> | undefined;
+  if (typeof t.name !== "string" || !Array.isArray(t.types)) return false;
+  if (!stats || !ap) return false;
+  return STAT_KEYS.every((k) => typeof stats[k] === "number" && typeof ap[k] === "number");
+}
+
+/** 保存済みの技データが今の形かどうか */
+function isMove(v: unknown): boolean {
+  if (!v || typeof v !== "object") return false;
+  const m = v as Record<string, unknown>;
+  return typeof m.name === "string" && typeof m.type === "string"
+    && typeof m.power === "number" && typeof m.cat === "string";
+}
+
 function abilityOptionsWith(base: string, extras: string[]): string[] {
   const own = base.split("/").map((s) => s.trim()).filter(Boolean);
   const out = ["（補正なし）", ...own];
@@ -34,13 +54,16 @@ function abilityOptionsWith(base: string, extras: string[]): string[] {
 
 export function DamageTab() {
   const { roster } = useStore();
-  const [dir, setDir] = useState<Dir>("toThreat");
+  // 画面の入力は localStorage に保存し、リロード後も同じ条件から再開できるようにする
+  const [dir, setDir] = usePersistedState<Dir>(
+    "dmg.dir", "toThreat", (v) => v === "toThreat" || v === "toSelf");
 
   const selfList = useMemo(
     () => [...roster].sort((a, b) => (a.starred === b.starred ? 0 : a.starred ? -1 : 1)),
     [roster],
   );
-  const [selfKey, setSelfKey] = useState<string>(() => selfList[0]?.key ?? "");
+  const [selfKey, setSelfKey] = usePersistedState<string>(
+    "dmg.selfKey", () => selfList[0]?.key ?? "", (v) => typeof v === "string");
   const self = selfList.find((e) => e.key === selfKey) ?? selfList[0];
   const selfItems = useMemo(
     () => selfList.map((e) => ({
@@ -52,8 +75,10 @@ export function DamageTab() {
 
   // 仮想敵（内定ポケモンから選択・編集可能なコピー）
   const DEFAULT_THREAT = CONFIRMED.find((c) => c.name === "ガブリアス") ?? CONFIRMED[0];
-  const [threat, setThreat] = useState<Threat & { nature: string; ap: StatBlock; item: string; ability: string; typeVerified: boolean }>(
+  const [threat, setThreat] = usePersistedState<Threat & { nature: string; ap: StatBlock; item: string; ability: string; typeVerified: boolean }>(
+    "dmg.threat",
     () => ({ name: DEFAULT_THREAT.name, base: { ...DEFAULT_THREAT.base }, types: [...DEFAULT_THREAT.types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: DEFAULT_THREAT.abilities.join("/"), typeVerified: DEFAULT_THREAT.typeVerified }),
+    isThreatState,
   );
   // 内定全体を検索付きドロップダウンで選ぶ（旧: 絞込み入力＋200件のネイティブselect）
   const threatItems = useMemo(
@@ -81,30 +106,43 @@ export function DamageTab() {
     for (const m of learn) if (!merged.some((x) => x.name === m.name)) merged.push(m);
     return sortMovesByType(merged); // 統合後にタイプ順で並べ直す（設定済み技が先頭に来るのを防ぐ）
   }, [self]);
-  const [selfMoveName, setSelfMoveName] = useState<string>("");
+  const [selfMoveName, setSelfMoveName] = usePersistedState<string>(
+    "dmg.selfMove", "", (v) => typeof v === "string");
   const selfMove = selfDamaging.find((m) => m.name === selfMoveName) ?? selfDamaging[0];
   // 威力変動技（ライブラリ威力0）は威力を手入力。技を切り替えたら設定済み威力で初期化。
   const selfVarPower = !!selfMove && selfMove.cat !== "変化"
     && (MOVE_BY_NAME[selfMove.name]?.power ?? selfMove.power) === 0;
-  const [selfPow, setSelfPow] = useState(0);
+  const [selfPow, setSelfPow] = usePersistedState<number>(
+    "dmg.selfPow", 0, (v) => typeof v === "number");
+  // 技を切り替えたときだけ威力を初期化する（初回描画では保存済みの入力値を残す）
+  const prevMoveName = useRef<string | null>(null);
   useEffect(() => {
-    setSelfPow(selfMove && selfMove.power > 0 ? selfMove.power : 0);
+    const name = selfMove?.name ?? "";
+    if (prevMoveName.current !== null && prevMoveName.current !== name) {
+      setSelfPow(selfMove && selfMove.power > 0 ? selfMove.power : 0);
+    }
+    prevMoveName.current = name;
   }, [selfMove?.name]);
   const selfMoveEff = selfMove && selfVarPower ? { ...selfMove, power: selfPow } : selfMove;
-  const [threatMove, setThreatMove] = useState<Move | undefined>(() => ({ ...MOVE_LIB[0] }));
+  const [threatMove, setThreatMove] = usePersistedState<Move | undefined>(
+    "dmg.threatMove", () => ({ ...MOVE_LIB[0] }), isMove);
 
   // 戦闘条件
-  const [atkRank, setAtkRank] = useState(0);
-  const [defRank, setDefRank] = useState(0);
-  const [weather, setWeather] = useState<Weather>("なし");
-  const [crit, setCrit] = useState(false);
-  const [burn, setBurn] = useState(false);
-  const [wall, setWall] = useState(false);
-  const [defHPFull, setDefHPFull] = useState(true);
-  const [atkItem, setAtkItem] = useState("（なし）");
-  const [defItem, setDefItem] = useState("（なし）");
-  const [atkAbil, setAtkAbil] = useState("（補正なし）");
-  const [defAbil, setDefAbil] = useState("（補正なし）");
+  const isNum = (v: unknown) => typeof v === "number";
+  const isBool = (v: unknown) => typeof v === "boolean";
+  const isStr = (v: unknown) => typeof v === "string";
+  const [atkRank, setAtkRank] = usePersistedState("dmg.atkRank", 0, isNum);
+  const [defRank, setDefRank] = usePersistedState("dmg.defRank", 0, isNum);
+  const [weather, setWeather] = usePersistedState<Weather>(
+    "dmg.weather", "なし", (v) => WEATHERS.includes(v as Weather));
+  const [crit, setCrit] = usePersistedState("dmg.crit", false, isBool);
+  const [burn, setBurn] = usePersistedState("dmg.burn", false, isBool);
+  const [wall, setWall] = usePersistedState("dmg.wall", false, isBool);
+  const [defHPFull, setDefHPFull] = usePersistedState("dmg.defHPFull", true, isBool);
+  const [atkItem, setAtkItem] = usePersistedState("dmg.atkItem", "（なし）", isStr);
+  const [defItem, setDefItem] = usePersistedState("dmg.defItem", "（なし）", isStr);
+  const [atkAbil, setAtkAbil] = usePersistedState("dmg.atkAbil", "（補正なし）", isStr);
+  const [defAbil, setDefAbil] = usePersistedState("dmg.defAbil", "（補正なし）", isStr);
 
   if (!self || !selfForm) {
     return <div className="panel muted">先に「チーム管理」でポケモンを登録してください。</div>;

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { RosterEntry } from "../types";
 import { useStore } from "../store";
+import { usePersistedState } from "../uiState";
 import { CONFIRMED } from "../data/confirmed";
 import { calcStat, rankMul, realStats } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
@@ -30,12 +31,15 @@ function refSpeed(baseS: number, line: RefLine): number {
 
 export function SpeedTab() {
   const { roster } = useStore();
-  // 個体ごとの スカーフ / ランク設定
-  const [scarf, setScarf] = useState<Record<string, boolean>>({});
-  const [rank, setRank] = useState<Record<string, number>>({});
+  // 個体ごとの スカーフ / ランク設定（リロードしても残す）
+  const isObj = (v: unknown) => !!v && typeof v === "object" && !Array.isArray(v);
+  const [scarf, setScarf] = usePersistedState<Record<string, boolean>>("spd.scarf", {}, isObj);
+  const [rank, setRank] = usePersistedState<Record<string, number>>("spd.rank", {}, isObj);
   // 内定リファレンスの素早さライン
-  const [line, setLine] = useState<RefLine>("最速");
-  const [onlyMine, setOnlyMine] = useState(false);
+  const [line, setLine] = usePersistedState<RefLine>(
+    "spd.line", "最速", (v) => v === "最速" || v === "準速" || v === "無振り");
+  const [onlyMine, setOnlyMine] = usePersistedState("spd.onlyMine", false, (v) => typeof v === "boolean");
+  // 絞込みは保存しない（開いた時に何も出ない状態になるのを避ける）
   const [q, setQ] = useState("");
 
   // 手持ち(★)→控えの順に全個体
