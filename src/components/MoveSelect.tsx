@@ -15,6 +15,8 @@ interface Props {
   onClear?: () => void;
   manualLabel?: string; // 末尾に「手動入力」行を出す
   onManual?: () => void;
+  extraLabel?: string; // 末尾に「候補を広げる」行を出す（習得表→全技など）
+  onExtra?: () => void;
   manualActive?: boolean; // 手動入力モード表示
 }
 
@@ -22,7 +24,7 @@ interface Props {
  *  ネイティブ <select> は option に背景色が付けられない（特にiOS）ため自前で描画する。 */
 export function MoveSelect({
   moves, value, onChange, placeholder, style, searchable,
-  clearLabel, onClear, manualLabel, onManual, manualActive,
+  clearLabel, onClear, manualLabel, onManual, manualActive, extraLabel, onExtra,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -113,6 +115,11 @@ export function MoveSelect({
             </button>
           ))}
           {filtered.length === 0 && <div className="mvsel-empty muted">該当なし</div>}
+          {extraLabel && onExtra && !query && (
+            <button type="button" className="mvsel-opt special" onClick={() => { onExtra(); }}>
+              ＋ {extraLabel}
+            </button>
+          )}
           {manualLabel && onManual && !query && (
             <button type="button" className="mvsel-opt special" onClick={() => { onManual(); close(); }}>
               ✏️ {manualLabel}

@@ -289,6 +289,7 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
   margin: 5px 0;
   background: var(--bg);
 }
+.move-row.dup { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
 .move-row .move-main { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
 .move-row .move-edit { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
 /* 手動入力技の数値欄（威力・命中・PP）。ラベル付きで幅を抑える */

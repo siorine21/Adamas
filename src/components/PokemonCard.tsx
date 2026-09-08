@@ -39,6 +39,13 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
     return list;
   })();
   const { options, verified, status, source } = moveOptionsFor(entry.name);
+  // 同じ技を2つ以上入れられないように、他の枠で使っている技名を持っておく
+  const moveNameCount = entry.moves.reduce<Record<string, number>>((acc, m) => {
+    const n = m.name.trim();
+    if (n) acc[n] = (acc[n] ?? 0) + 1;
+    return acc;
+  }, {});
+  const dupMoves = Object.keys(moveNameCount).filter((n) => moveNameCount[n] > 1);
 
   const setForm = (idx: number) => updateEntry(entry.key, { activeForm: idx });
   const setAbility = (v: string) =>
@@ -217,9 +224,25 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
       {verified && status === "full" && (
         <div className="banner info">習得技（全収録）: {source}</div>
       )}
-      {entry.moves.map((m, i) => (
-        <MoveEditor key={i} move={m} options={options} onChange={(nm) => setMove(i, nm)} />
-      ))}
+      {dupMoves.length > 0 && (
+        <div className="banner warn">
+          同じ技が重複しています（{dupMoves.join("・")}）。1体につき同じ技は1つまでです。
+        </div>
+      )}
+      {entry.moves.map((m, i) => {
+        // 他の枠で選んでいる技は候補から外す（自分の枠の技は残す）
+        const used = new Set(entry.moves.filter((_, j) => j !== i).map((x) => x.name.trim()).filter(Boolean));
+        return (
+          <MoveEditor
+            key={i}
+            move={m}
+            options={options}
+            exclude={[...used]}
+            duplicated={moveNameCount[m.name.trim()] > 1}
+            onChange={(nm) => setMove(i, nm)}
+          />
+        );
+      })}
       {entry.moves.length < MAX_MOVES && (
         <button className="btn small" onClick={addMove}>＋ 技を追加</button>
       )}
