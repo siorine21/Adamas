@@ -132,6 +132,10 @@ export function MoveEditor({ move, options, onChange }: Props) {
               B参照
             </label>
             <label>
+              <input type="checkbox" checked={!!move.useTargetAtk} onChange={(e) => onChange({ ...move, useTargetAtk: e.target.checked })} />
+              相手A参照
+            </label>
+            <label>
               <input type="checkbox" checked={!!move.targetB} onChange={(e) => onChange({ ...move, targetB: e.target.checked })} />
               対B
             </label>
