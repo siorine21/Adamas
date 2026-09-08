@@ -5,19 +5,21 @@ interface Props {
   /** この能力に振れる上限（＝min(32, 現在値＋残りAP)）。超える操作はここで止まる */
   max: number;
   onChange: (v: number) => void;
+  /** ロック中は操作を受け付けない（スクロール時の誤操作防止） */
+  locked?: boolean;
 }
 
 /** AP配分の入力。ポップアップを開かずその場でドラッグ／±で調整でき、
  *  合計66を超える値は max で頭打ちになる。 */
-export function ApSlider({ value, max, onChange }: Props) {
-  const atCap = value >= max && max < AP_MAX_EACH;
+export function ApSlider({ value, max, onChange, locked }: Props) {
+  const atCap = !locked && value >= max && max < AP_MAX_EACH;
   return (
-    <div className="ap-ctl">
+    <div className={`ap-ctl ${locked ? "locked" : ""}`}>
       <button
         type="button"
         className="ap-step"
         aria-label="1減らす"
-        disabled={value <= 0}
+        disabled={locked || value <= 0}
         onClick={() => onChange(value - 1)}
       >
         −
@@ -30,6 +32,7 @@ export function ApSlider({ value, max, onChange }: Props) {
         step={1}
         value={value}
         aria-label="AP"
+        disabled={locked}
         // 上限を超えてドラッグしても max で止める（残りAPが無ければ動かない）
         onChange={(e) => onChange(Math.min(max, Number(e.target.value)))}
       />
@@ -37,7 +40,7 @@ export function ApSlider({ value, max, onChange }: Props) {
         type="button"
         className="ap-step"
         aria-label="1増やす"
-        disabled={value >= max}
+        disabled={locked || value >= max}
         onClick={() => onChange(value + 1)}
       >
         ＋

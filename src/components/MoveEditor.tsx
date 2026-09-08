@@ -4,6 +4,7 @@ import { LEARNSETS, MOVE_BY_NAME, MOVE_LIB } from "../data/moves";
 import { TYPES, TYPE_COLORS } from "../data/game";
 import { MoveSelect } from "./MoveSelect";
 import { SelectMenu } from "./SelectMenu";
+import { NumberInput } from "./NumberInput";
 
 /** その種族の技ドロップダウン候補（習得技のみ or 全ライブラリ）と検証状況 */
 export function moveOptionsFor(speciesName: string): {
@@ -89,11 +90,9 @@ export function MoveEditor({ move, options, onChange }: Props) {
             />
             <label className="mini">
               威力
-              <input
-                type="number"
-                min={0}
+              <NumberInput
                 value={move.power}
-                onChange={(e) => onChange({ ...move, power: Math.max(0, Number(e.target.value) || 0) })}
+                onChange={(v) => onChange({ ...move, power: v })}
               />
             </label>
             <SelectMenu
@@ -104,21 +103,21 @@ export function MoveEditor({ move, options, onChange }: Props) {
             />
             <label className="mini" title="0で必中、空欄は不明">
               命中
-              <input
-                type="number"
-                min={0}
+              <NumberInput
+                value={move.acc ?? 0}
                 max={100}
-                value={move.acc ?? ""}
-                onChange={(e) => onChange({ ...move, acc: e.target.value === "" ? undefined : Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+                allowEmpty
+                onChangeEmpty={() => onChange({ ...move, acc: undefined })}
+                onChange={(v) => onChange({ ...move, acc: v })}
               />
             </label>
             <label className="mini" title="空欄は不明">
               PP
-              <input
-                type="number"
-                min={0}
-                value={move.pp ?? ""}
-                onChange={(e) => onChange({ ...move, pp: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value) || 0) })}
+              <NumberInput
+                value={move.pp ?? 0}
+                allowEmpty
+                onChangeEmpty={() => onChange({ ...move, pp: undefined })}
+                onChange={(v) => onChange({ ...move, pp: v })}
               />
             </label>
           </div>
@@ -151,13 +150,11 @@ export function MoveEditor({ move, options, onChange }: Props) {
       {isVariablePower && (
         <div className="move-edit">
           <span className="small muted" style={{ flex: "1 1 auto" }}>威力変動技 — 威力を入力</span>
-          <input
+          <NumberInput
             style={{ flex: "0 1 80px" }}
-            type="number"
-            min={0}
             value={move.power}
             title="威力"
-            onChange={(e) => onChange({ ...move, power: Math.max(0, Number(e.target.value) || 0) })}
+            onChange={(v) => onChange({ ...move, power: v })}
           />
         </div>
       )}

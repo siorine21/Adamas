@@ -16,6 +16,7 @@ import { MoveSelect } from "./MoveSelect";
 import { SelectMenu } from "./SelectMenu";
 import { NumberMenu } from "./NumberMenu";
 import { ApSlider } from "./ApSlider";
+import { NumberInput } from "./NumberInput";
 
 type Dir = "toThreat" | "toSelf";
 
@@ -143,6 +144,8 @@ export function DamageTab() {
   const [defItem, setDefItem] = usePersistedState("dmg.defItem", "（なし）", isStr);
   const [atkAbil, setAtkAbil] = usePersistedState("dmg.atkAbil", "（補正なし）", isStr);
   const [defAbil, setDefAbil] = usePersistedState("dmg.defAbil", "（補正なし）", isStr);
+  // 仮想敵のAPもスクロール中の誤操作を防げるようロックできるようにする
+  const [threatApLocked, setThreatApLocked] = usePersistedState("dmg.threatApLock", false, isBool);
 
   if (!self || !selfForm) {
     return <div className="panel muted">先に「チーム管理」でポケモンを登録してください。</div>;
@@ -254,13 +257,7 @@ export function DamageTab() {
               {selfVarPower && (
                 <div className="row tight" style={{ marginTop: 6 }}>
                   <span className="small muted">威力変動技 — 威力を入力:</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={selfPow}
-                    style={{ width: 90 }}
-                    onChange={(e) => setSelfPow(Math.max(0, Number(e.target.value) || 0))}
-                  />
+                  <NumberInput value={selfPow} style={{ width: 90 }} onChange={setSelfPow} />
                 </div>
               )}
             </label>
@@ -311,6 +308,15 @@ export function DamageTab() {
               AP <b className="tnum">{threatApTotal}</b> / {AP_MAX_TOTAL}
               <span className="muted">　残り <b className="tnum">{Math.max(0, threatApRemaining)}</b></span>
             </span>
+            <button
+              type="button"
+              className={`btn small lock-btn ${threatApLocked ? "on" : ""}`}
+              aria-pressed={threatApLocked}
+              title={threatApLocked ? "ロックを解除して編集する" : "AP配分をロックして誤操作を防ぐ"}
+              onClick={() => setThreatApLocked(!threatApLocked)}
+            >
+              {threatApLocked ? "🔒 ロック中" : "🔓 ロック"}
+            </button>
           </div>
           {STAT_KEYS.map((k) => (
             <div className="ap-row" key={k}>
@@ -318,12 +324,15 @@ export function DamageTab() {
                 <span className="ap-k">{k}<span className="small muted"> {STAT_LABEL[k]}</span></span>
                 <label className="small muted ap-base">
                   種族
-                  <input type="number" min={1} value={threat.base[k]}
-                    onChange={(e) => setThreat((p) => ({ ...p, base: { ...p.base, [k]: Math.max(1, Number(e.target.value) || 1) } }))} />
+                  <NumberInput
+                    value={threat.base[k]}
+                    min={1}
+                    onChange={(v) => setThreat((p) => ({ ...p, base: { ...p.base, [k]: v } }))}
+                  />
                 </label>
                 <span className="ap-real small">実数 <b>{threatReal[k]}</b></span>
               </div>
-              <ApSlider value={threat.ap[k]} max={threatMaxFor(k)} onChange={(v) => setThreatAP(k, v)} />
+              <ApSlider value={threat.ap[k]} max={threatMaxFor(k)} locked={threatApLocked} onChange={(v) => setThreatAP(k, v)} />
             </div>
           ))}
           {!attackerIsSelf && (
