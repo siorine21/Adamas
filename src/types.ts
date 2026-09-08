@@ -30,6 +30,7 @@ export interface Move {
   pp?: number; // PP（基本値、未定義=不明／手動入力技）
   contact?: boolean; // 接触技か（かたいツメ等の判定用）
   useDef?: boolean; // 自分のBでダメージ計算（ボディプレス）
+  useTargetAtk?: boolean; // 相手のAでダメージ計算（イカサマ）
   targetB?: boolean; // 特殊技だが相手のBに与える（サイコショック系）
   ignoreDefRank?: boolean; // 相手の能力ランク変化を無視（せいなるつるぎ）
 }

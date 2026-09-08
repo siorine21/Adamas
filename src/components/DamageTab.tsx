@@ -182,8 +182,10 @@ export function DamageTab() {
 
   if (move) {
     const cat = move.cat === "特殊" ? "特殊" : "物理";
-    // 攻撃側能力値: ボディプレス系は自分のB
-    atkStatUsed = move.useDef ? atkReal.B : cat === "物理" ? atkReal.A : atkReal.C;
+    // 攻撃側能力値: ボディプレスは自分のB、イカサマは相手のA
+    atkStatUsed = move.useDef ? atkReal.B
+      : move.useTargetAtk ? defReal.A
+      : cat === "物理" ? atkReal.A : atkReal.C;
     // 防御側能力値: 物理 or 対B技(サイコショック系)は相手B、それ以外はD
     defStatUsed = cat === "物理" || move.targetB ? defReal.B : defReal.D;
     eff = typeEffectiveness(move.type, defTypes);
@@ -338,7 +340,7 @@ export function DamageTab() {
         <div className="section-title">戦闘条件</div>
         <div className="grid3">
           <label className="fld">
-            <span>攻撃ランク</span>
+            <span>攻撃ランク{move?.useTargetAtk ? "（イカサマ＝相手のAランク）" : ""}</span>
             <NumberMenu values={RANKS} value={atkRank} onChange={setAtkRank} cols={5} format={(r) => (r > 0 ? `+${r}` : String(r))} />
           </label>
           <label className="fld">
@@ -447,7 +449,7 @@ function ResultView({ move, ko, eff, rolls, defHP, atkStat, defStat }: {
       </div>
 
       <div className="small muted">
-        使用実数値: {move.useDef ? "防御B" : move.cat === "物理" ? "攻撃A" : "特攻C"} <b className="tnum">{atkStat}</b> → 相手{move.cat === "物理" || move.targetB ? "防御B" : "特防D"} <b className="tnum">{defStat}</b>
+        使用実数値: {move.useDef ? "防御B" : move.useTargetAtk ? "相手の攻撃A" : move.cat === "物理" ? "攻撃A" : "特攻C"} <b className="tnum">{atkStat}</b> → 相手{move.cat === "物理" || move.targetB ? "防御B" : "特防D"} <b className="tnum">{defStat}</b>
         （威力{move.power} / {move.type} / {move.cat} / {accLabel(full.acc)} / PP{full.pp ?? "—"}）
       </div>
 
