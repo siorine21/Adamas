@@ -113,7 +113,16 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
             )}
           </span>
         </button>
-        <button className="btn small danger" title="削除" onClick={() => removeEntry(entry.key)}>削除</button>
+        <button
+          className="btn small danger"
+          title="削除"
+          onClick={() => {
+            // AP・技まで組んだ個体が誤タップ1回で消えないよう確認する
+            if (confirm(`「${displayName(entry.name, form.form)}」を削除します。よろしいですか？`)) removeEntry(entry.key);
+          }}
+        >
+          削除
+        </button>
       </div>
 
       {itemDuplicated && <div className="banner warn">★手持ち内で持ち物が重複しています（同一アイテム所持は不可）</div>}

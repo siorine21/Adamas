@@ -40,9 +40,13 @@ interface StoreCtx {
 const Ctx = createContext<StoreCtx | null>(null);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const restored = useRef(false); // 保存済みデータから復元したか（新規は初期プリセット）
   const [state, setState] = useState<TeamsState>(() => {
     const loaded = loadTeams();
-    if (loaded) return loaded;
+    if (loaded) {
+      restored.current = true;
+      return loaded;
+    }
     const t: Team = { id: makeTeamId(), name: "アダマス編成", roster: buildPresetRoster() };
     return { teams: [t], activeTeamId: t.id };
   });
@@ -55,7 +59,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (firstRun.current) {
       firstRun.current = false;
-      return;
+      // 初期プリセットを作った直後は保存する。保存しないと再読み込みのたびに個体キーが
+      // 変わり、キー基準のUI状態（カードの開閉・スカーフ・Sランク等）を復元できない。
+      if (restored.current) return;
     }
     setSaveState("saving");
     window.clearTimeout(timer.current);
