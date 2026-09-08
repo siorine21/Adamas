@@ -29,15 +29,26 @@ interface Props {
   onChange: (m: Move | undefined) => void;
   /** 同じ技が他の枠にもある（手動入力で重複した場合の警告表示用） */
   duplicated?: boolean;
+  /** 他の枠で使っている技名（候補から除外する） */
+  exclude?: string[];
 }
 
 const CATS: Move["cat"][] = ["物理", "特殊", "変化"];
 
-export function MoveEditor({ move, options, onChange, duplicated }: Props) {
+export function MoveEditor({ move, options, onChange, duplicated, exclude }: Props) {
+  // 習得表が実機と食い違うことがあるので、全技ライブラリからも選べるようにする
+  const [showAll, setShowAll] = useState(false);
+  const inLearnset = !!move && options.some((o) => o.name === move.name);
+  const inLib = !!move && !!MOVE_BY_NAME[move.name];
+  // 習得表に無いがライブラリにはある技（実機に合わせて選んだ技）
+  const offList = !!move && move.name !== "" && !inLearnset && inLib;
+  const used = new Set(exclude ?? []);
+  const pool = (showAll || offList ? MOVE_LIB : options)
+    .filter((o) => o.name === move?.name || !used.has(o.name));
   // 候補が多い（全ライブラリ等）の時はポップアップ内に検索欄を出す
-  const useSearch = options.length > 150;
-  // 選択中の技が候補に無い（かつ空でない）＝手動入力扱い
-  const isCustom = !!move && move.name !== "" && !options.some((o) => o.name === move.name);
+  const useSearch = pool.length > 150;
+  // ライブラリにも無い名前＝完全な手動入力
+  const isCustom = !!move && move.name !== "" && !inLib;
   const [manual, setManual] = useState(false);
   const showName = manual || isCustom;
   // 手動入力（リスト外の技）のときだけ、タイプ/威力/分類などの編集欄を出す。
@@ -50,7 +61,7 @@ export function MoveEditor({ move, options, onChange, duplicated }: Props) {
 
   const commitName = (v: string) => {
     if (!v) return onChange(undefined);
-    const picked = options.find((o) => o.name === v) ?? MOVE_BY_NAME[v];
+    const picked = pool.find((o) => o.name === v) ?? MOVE_BY_NAME[v];
     if (picked) return onChange({ ...picked });
     onChange(move ? { ...move, name: v } : { name: v, type: "ノーマル", power: 0, cat: "変化" });
   };
@@ -59,11 +70,13 @@ export function MoveEditor({ move, options, onChange, duplicated }: Props) {
     <div className={`move-row ${duplicated ? "dup" : ""}`}>
       {/* ダメージ計算と同じ全幅のタイプ色付きドロップダウン（削除は「空にする」で行う） */}
       <MoveSelect
-        moves={options}
+        moves={pool}
         value={showName ? "" : move?.name ?? ""}
         searchable={useSearch}
         placeholder="覚える技から選択 / 空"
         clearLabel="— 空にする —"
+        extraLabel={showAll || offList ? undefined : `習得表に無い技も選ぶ（全${MOVE_LIB.length}技）`}
+        onExtra={() => setShowAll(true)}
         manualLabel="手動入力（リスト外の技）"
         manualActive={showName}
         onChange={(v) => { setManual(false); commitName(v); }}
@@ -73,6 +86,11 @@ export function MoveEditor({ move, options, onChange, duplicated }: Props) {
           if (!move) onChange({ name: "", type: "ノーマル", power: 0, cat: "変化" });
         }}
       />
+      {offList && !showName && (
+        <div className="small amber">
+          習得表には無い技です（実機に合わせて選択中）。
+        </div>
+      )}
 
       {/* 手動入力（リスト外の技）のときだけ詳細編集欄を表示 */}
       {editOpen && (

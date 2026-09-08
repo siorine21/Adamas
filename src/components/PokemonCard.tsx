@@ -236,7 +236,8 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
           <MoveEditor
             key={i}
             move={m}
-            options={options.filter((o) => !used.has(o.name))}
+            options={options}
+            exclude={[...used]}
             duplicated={moveNameCount[m.name.trim()] > 1}
             onChange={(nm) => setMove(i, nm)}
           />
