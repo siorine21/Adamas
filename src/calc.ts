@@ -44,6 +44,8 @@ export interface DamageParams {
   atkMovesLast: boolean;
   /** とうそうしん: 同性 / 異性 / なし */
   rivalry: "なし" | "同性" | "異性";
+  /** 相手が まもる／みきり を使っている（貫通特性以外は無効） */
+  protect: boolean;
   /** 実装外の補正（チャンピオンズ独自の特性など）を手で掛ける */
   extraMul: number;
 }
@@ -74,7 +76,7 @@ export function computeDamage(p: DamageParams): DamageResult | null {
     power, moveName, atkStat, defStat, atkRank, defRank, moveType, atkTypes, defTypes,
     category, item, defItem, crit, weather, field, burn, wall, contact,
     atkAbility, defAbility, defHPFull, helpingHand, spread,
-    atkStatused, defStatused, atkPinch, atkMovesLast, rivalry, extraMul,
+    atkStatused, defStatused, atkPinch, atkMovesLast, rivalry, protect, extraMul,
   } = p;
   if (!power || power <= 0) return null;
 
@@ -85,6 +87,12 @@ export function computeDamage(p: DamageParams): DamageResult | null {
 
   const reason = immunityByAbility(dAbil, moveType, moveName);
   if (reason) return { rolls: [], eff: 0, immune: true, immuneReason: reason };
+
+  // まもる／みきり。ふかしのこぶし（＝かんつうドリル）の接触技だけが貫通する
+  const piercesProtect = atkAbility === "ふかしのこぶし" || atkAbility === "かんつうドリル";
+  if (protect && !(piercesProtect && contact)) {
+    return { rolls: [], eff: 0, immune: true, immuneReason: "まもる" };
+  }
 
   let aRank = atkRank, dRank = defRank;
   if (crit) { aRank = Math.max(0, aRank); dRank = Math.min(0, dRank); }
