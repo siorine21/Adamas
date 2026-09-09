@@ -140,7 +140,7 @@ function MoveRow({ m }: { m: Move }) {
       <span className="tbadge" style={{ background: color }}>{m.type}</span>
       <span className="mvsel-name">{m.name}</span>
       <span className="mvsel-meta">
-        威力{full.power > 0 ? full.power : "—"}・{accLabel(full.acc)}・PP{full.pp ?? "—"}・{full.cat}
+        威力{full.power > 0 ? full.power : "—"}・{accLabel(full.acc)}・PP{full.pp ?? "—"}・{full.cat}{full.critUp ? "・急所+1" : ""}
       </span>
     </span>
   );

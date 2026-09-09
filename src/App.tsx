@@ -41,7 +41,7 @@ export default function App() {
       <header className="app-header">
         <div className="app-title">
           <h1>アダマス工房</h1>
-          <span className="sub">はがね統一チーム構成支援 ／ レギュM-B・Lv50</span>
+          <span className="sub">はがね統一チーム構成支援 ／ レギュM-C・Lv50</span>
           <SaveBadge />
         </div>
         <nav className="tabbar">

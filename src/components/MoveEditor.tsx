@@ -1,26 +1,30 @@
 import { useState } from "react";
 import type { Move } from "../types";
-import { LEARNSETS, MOVE_BY_NAME, MOVE_LIB } from "../data/moves";
+import { BANNED_MOVES, LEARNSETS, MOVE_BY_NAME, MOVE_LIB } from "../data/moves";
 import { TYPES, TYPE_COLORS } from "../data/game";
 import { MoveSelect } from "./MoveSelect";
 import { SelectMenu } from "./SelectMenu";
 import { NumberInput } from "./NumberInput";
 
-/** その種族の技ドロップダウン候補（習得技のみ or 全ライブラリ）と検証状況 */
+/** その種族の技ドロップダウン候補（習得技のみ or 全ライブラリ）と検証状況。
+ *  レギュレーションで使用禁止になった技は候補から外し、banned で理由表示に使う。 */
 export function moveOptionsFor(speciesName: string): {
   options: Move[];
   verified: boolean;
   status?: "full" | "partial";
   source?: string;
+  banned: string[];
 } {
+  const banned = BANNED_MOVES[speciesName] ?? [];
   const ls = LEARNSETS[speciesName];
   if (ls) {
     const options = ls.moves
+      .filter((n) => !banned.includes(n))
       .map((n) => MOVE_BY_NAME[n])
       .filter((m): m is Move => Boolean(m));
-    return { options, verified: true, status: ls.status, source: ls.source };
+    return { options, verified: true, status: ls.status, source: ls.source, banned };
   }
-  return { options: MOVE_LIB, verified: false };
+  return { options: MOVE_LIB, verified: false, banned };
 }
 
 interface Props {

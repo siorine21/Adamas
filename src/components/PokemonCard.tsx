@@ -38,7 +38,9 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
     if (cur && !cur.includes("/") && !list.includes(cur)) list.push(cur);
     return list;
   })();
-  const { options, verified, status, source } = moveOptionsFor(entry.name);
+  const { options, verified, status, source, banned } = moveOptionsFor(entry.name);
+  // レギュレーションで禁止された技を選んでいたら残ってしまうので、選択中も見る
+  const bannedPicked = entry.moves.filter((m) => banned.includes(m.name.trim())).map((m) => m.name);
   // 同じ技を2つ以上入れられないように、他の枠で使っている技名を持っておく
   const moveNameCount = entry.moves.reduce<Record<string, number>>((acc, m) => {
     const n = m.name.trim();
@@ -223,6 +225,12 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
       )}
       {verified && status === "full" && (
         <div className="banner info">習得技（全収録）: {source}</div>
+      )}
+      {banned.length > 0 && (
+        <div className={`banner ${bannedPicked.length > 0 ? "warn" : "info"}`}>
+          レギュレーションで使用禁止: {banned.join("・")}
+          {bannedPicked.length > 0 && `（${bannedPicked.join("・")}が入っています。外してください）`}
+        </div>
       )}
       {dupMoves.length > 0 && (
         <div className="banner warn">

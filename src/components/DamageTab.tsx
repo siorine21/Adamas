@@ -23,8 +23,12 @@ type Dir = "toThreat" | "toSelf";
 
 const ATK_ITEMS = [
   "（なし）", "こだわりハチマキ", "こだわりメガネ", "いのちのたま", "たつじんのおび", "タイプ強化アイテム",
+  "ノーマルジュエル", // レギュM-Cで解禁
 ];
-const DEF_ITEMS = ["（なし）", "とつげきチョッキ", "しんかのきせき"];
+const DEF_ITEMS = [
+  "（なし）", "とつげきチョッキ", "しんかのきせき",
+  "ふうせん", // レギュM-Cで解禁（じめん技を無効化）
+];
 /* 内定317体が持つ特性のうち、ダメージに影響するもの（tools で棚卸し済み） */
 const ATK_ABILITIES = [
   "（補正なし）", "てきおうりょく", "かたいツメ", "ちからもち", "ヨガパワー", "はりきり", "ちからずく",
@@ -38,6 +42,7 @@ const DEF_ABILITIES = [
   "（補正なし）", "フィルター／ハードロック／プリズムアーマー", "マルチスケイル",
   "ファーコート", "こおりのりんぷん", "もふもふ", "たいねつ", "あついしぼう", "ふしぎなうろこ",
   "ふゆう", "もらいび", "ちくでん", "ちょすい", "そうしょく", "ぼうおん", "ぼうだん",
+  "はどうのぼうご", // レギュM-Cで追加（メガルカリオZ・接触技を半減）
 ];
 const WEATHERS: Weather[] = ["なし", "にほんばれ", "あまごい", "すなあらし", "ゆき"];
 const FIELDS: Field[] = ["なし", "エレキフィールド", "グラスフィールド", "サイコフィールド", "ミストフィールド"];
@@ -584,7 +589,7 @@ function ResultView({ move, ko, eff, rolls, defHP, atkStat, defStat }: {
 
       <div className="small muted">
         使用実数値: {move.useDef ? "防御B" : move.useTargetAtk ? "相手の攻撃A" : move.cat === "物理" ? "攻撃A" : "特攻C"} <b className="tnum">{atkStat}</b> → 相手{move.cat === "物理" || move.targetB ? "防御B" : "特防D"} <b className="tnum">{defStat}</b>
-        （威力{move.power} / {move.type} / {move.cat} / {accLabel(full.acc)} / PP{full.pp ?? "—"}）
+        （威力{move.power} / {move.type} / {move.cat} / {accLabel(full.acc)} / PP{full.pp ?? "—"}{full.critUp ? " / 急所+1" : ""}）
       </div>
 
       <div className="small muted" style={{ marginTop: 6 }}>16乱数（85〜100%）:</div>

@@ -41,6 +41,7 @@ const IDENT = {
   "ヒスイヌメルゴン": ["goodra-hisui"],
   "クレッフィ": ["klefki"],
   "アーマーガア": ["corviknight"],
+  "ニャイキング": ["perrserker"],
   "デカヌチャン": ["tinkaton"],
   "ミミズズ": ["orthworm"],
   "ドドゲザン": ["kingambit"],

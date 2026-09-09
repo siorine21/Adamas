@@ -85,6 +85,11 @@ export function computeDamage(p: DamageParams): DamageResult | null {
   const breaks = atkAbility === "かたやぶり";
   const dAbil = breaks ? "" : defAbility;
 
+  // ふうせん（レギュM-Cで解禁）。持ち物なので かたやぶり では無視されない
+  if (defItem === "ふうせん" && moveType === "じめん") {
+    return { rolls: [], eff: 0, immune: true, immuneReason: "ふうせん" };
+  }
+
   const reason = immunityByAbility(dAbil, moveType, moveName);
   if (reason) return { rolls: [], eff: 0, immune: true, immuneReason: reason };
 
@@ -175,11 +180,13 @@ export function computeDamage(p: DamageParams): DamageResult | null {
     if (item === "いのちのたま") d = pokeRound(d * 5324 / 4096);
     if (item === "たつじんのおび" && eff > 1) d = pokeRound(d * 1.2);
     if (item === "タイプ強化アイテム") d = pokeRound(d * 1.2);
+    if (item === "ノーマルジュエル" && moveType === "ノーマル") d = pokeRound(d * 1.3);
     if (dAbil === "フィルター／ハードロック／プリズムアーマー" && eff > 1) d = pokeRound(d * 0.75);
     if (dAbil === "マルチスケイル" && defHPFull) d = pokeRound(d * 0.5);
     if (dAbil === "ファーコート" && category === "物理") d = pokeRound(d * 0.5);
     if (dAbil === "こおりのりんぷん" && category === "特殊") d = pokeRound(d * 0.5);
     if (dAbil === "もふもふ" && contact) d = pokeRound(d * 0.5);
+    if (dAbil === "はどうのぼうご" && contact) d = pokeRound(d * 0.5);
     if (dAbil === "もふもふ" && moveType === "ほのお") d = pokeRound(d * 2);
     if (dAbil === "たいねつ" && moveType === "ほのお") d = pokeRound(d * 0.5);
     if (dAbil === "あついしぼう" && (moveType === "ほのお" || moveType === "こおり")) d = pokeRound(d * 0.5);

@@ -23,22 +23,31 @@ const OVERRIDE = {
   "ギルガルド": "https://appmedia.jp/pokemonchampions/79877570",  // 一覧リンクが育成論記事を指すため図鑑ページを直指定
 };
 
+/** 覚えるワザ表を1つずつ取る。ページによっては進化前など別ポケモンの表も載るので、
+ *  表ごとに分けて返し、呼び出し側（とログ）で混入に気づけるようにする。 */
 async function wazaOf(page, url) {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForTimeout(5000);
   return await page.evaluate(() => {
-    const set = new Set();
+    const tables = [];
     for (const tbl of document.querySelectorAll("table")) {
       const head = tbl.querySelector("tr")?.innerText || "";
       if (!(head.includes("わざ名") && head.includes("威力"))) continue; // 覚えるワザ表のみ
+      const set = new Set();
       for (const row of tbl.querySelectorAll("tr")) {
         const c = row.querySelector("td");
         if (!c) continue;
         const nm = (c.textContent || "").trim();
         if (nm && nm.length <= 12 && /[ぁ-んァ-ヶ一-龠]/.test(nm)) set.add(nm);
       }
+      // 表の直前の見出しも拾う（「ニャースが覚えるワザ」等の判別用）
+      let caption = "";
+      for (let el = tbl.previousElementSibling; el && !caption; el = el.previousElementSibling) {
+        if (/^H[1-6]$/.test(el.tagName)) caption = (el.textContent || "").trim();
+      }
+      if (set.size > 0) tables.push({ caption, moves: [...set] });
     }
-    return [...set];
+    return tables;
   });
 }
 
@@ -60,8 +69,11 @@ async function wazaOf(page, url) {
     for (const t of TARGETS) {
       if (!url[t]) { result[t] = []; log.push(`${t}: URL未解決`); continue; }
       try {
-        result[t] = await wazaOf(page, url[t]);
-        log.push(`${t}: ${result[t].length}技`);
+        const tables = await wazaOf(page, url[t]);
+        // 表が複数ある＝進化前などが混ざっている可能性。ログで分かるようにする
+        result[t] = [...new Set(tables.flatMap((x) => x.moves))];
+        log.push(`${t}: ${result[t].length}技（表${tables.length}）`
+          + tables.map((x) => ` [${x.caption || "見出し不明"}:${x.moves.length}]`).join(""));
       } catch (e) { result[t] = []; log.push(`${t}: ERROR ${e.message}`); }
       await page.waitForTimeout(1500);
     }
