@@ -1,7 +1,7 @@
 name: Scrape Champ Learnsets
 
-# 手動起動のみ。AppMedia からチャンピオンズの覚えるワザを取得し、
-# 更新差分を bot/champ-learnsets ブランチに出す（レビューしてから main へ）。
+# 手動起動のみ。開発環境からは攻略サイトへ直接アクセスできないため、
+# ランナーから取得して結果をブランチに出す（レビューしてから main へ）。
 on:
   workflow_dispatch:
 
@@ -9,29 +9,24 @@ permissions:
   contents: write
 
 jobs:
-  scrape:
+  fetch-pages:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
       - name: Install Playwright (ad-hoc, not saved to package.json)
         run: |
           npm i --no-save playwright@1.49
           npx playwright install --with-deps chromium
-      - name: Scrape + regenerate LEARNSETS
-        run: |
-          node tools/scrape-learnsets/scrape.cjs
-          node tools/scrape-learnsets/gen-learnsets.mjs
-      - name: Verify build
-        run: npm run build
+      - name: Fetch pages
+        run: node tools/fetch-pages/fetch.cjs
       - name: Push result branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -B bot/champ-learnsets
-          git add tools/scrape-learnsets/champ_moves.json tools/scrape-learnsets/scrape_log.txt src/data/moves.ts
-          git commit -q -m "chore: refresh Champions learnsets from AppMedia" || echo "no changes"
-          git push -f origin bot/champ-learnsets
+          git checkout -B bot/regulation-mc
+          git add -f tools/fetch-pages/out
+          git commit -q -m "chore: fetch regulation pages" || echo "no changes"
+          git push -f origin bot/regulation-mc
