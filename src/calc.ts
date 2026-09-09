@@ -1,9 +1,16 @@
 import { CHART, pokeRound, rankMul } from "./data/game";
+import { MOVE_FLAGS } from "./data/moveFlags";
+import { RECOIL_MOVES, SLICING_MOVES } from "./data/moves";
 
-export type Weather = "なし" | "にほんばれ" | "あまごい";
+export type Weather = "なし" | "にほんばれ" | "あまごい" | "すなあらし" | "ゆき";
+export type Field = "なし" | "エレキフィールド" | "グラスフィールド" | "サイコフィールド" | "ミストフィールド";
+
+/** グラスフィールドで半減される地面技（地面を揺らす技） */
+const GROUND_QUAKE = new Set(["じしん", "じならし", "マグニチュード"]);
 
 export interface DamageParams {
   power: number;
+  moveName: string;
   atkStat: number;
   defStat: number;
   atkRank: number;
@@ -16,35 +23,89 @@ export interface DamageParams {
   defItem: string;
   crit: boolean;
   weather: Weather;
+  field: Field;
   burn: boolean;
   wall: boolean;
   contact: boolean;
   atkAbility: string;
   defAbility: string;
   defHPFull: boolean;
+  /** てだすけ（味方の支援）で1.5倍 */
+  helpingHand: boolean;
+  /** ダブルで複数体を同時に攻撃する技（0.75倍） */
+  spread: boolean;
+  /** 攻撃側が状態異常（こんじょう・ふしぎなうろこの条件） */
+  atkStatused: boolean;
+  /** 防御側が状態異常（ふしぎなうろこの条件） */
+  defStatused: boolean;
+  /** 攻撃側のHPが1/3以下（しんりょく・もうか・げきりゅう・むしのしらせの条件） */
+  atkPinch: boolean;
+  /** 攻撃側が後攻（アナライズの条件） */
+  atkMovesLast: boolean;
+  /** とうそうしん: 同性 / 異性 / なし */
+  rivalry: "なし" | "同性" | "異性";
+  /** 実装外の補正（チャンピオンズ独自の特性など）を手で掛ける */
+  extraMul: number;
 }
 
 export interface DamageResult {
   rolls: number[];
   eff: number;
   immune?: boolean;
+  /** 無効になった理由（特性など）。表示に使う */
+  immuneReason?: string;
+}
+
+/** 防御側の特性による無効化。かたやぶりなら無視される */
+function immunityByAbility(defAbility: string, moveType: string, moveName: string): string | null {
+  const flags = MOVE_FLAGS[moveName] ?? "";
+  if (defAbility === "ふゆう" && moveType === "じめん") return "ふゆう";
+  if (defAbility === "もらいび" && moveType === "ほのお") return "もらいび";
+  if (defAbility === "ちくでん" && moveType === "でんき") return "ちくでん";
+  if (defAbility === "ちょすい" && moveType === "みず") return "ちょすい";
+  if (defAbility === "そうしょく" && moveType === "くさ") return "そうしょく";
+  if (defAbility === "ぼうおん" && flags.includes("sound")) return "ぼうおん";
+  if (defAbility === "ぼうだん" && flags.includes("ball")) return "ぼうだん";
+  return null;
 }
 
 export function computeDamage(p: DamageParams): DamageResult | null {
   const {
-    power, atkStat, defStat, atkRank, defRank, moveType, atkTypes, defTypes,
-    category, item, defItem, crit, weather, burn, wall, contact,
-    atkAbility, defAbility, defHPFull,
+    power, moveName, atkStat, defStat, atkRank, defRank, moveType, atkTypes, defTypes,
+    category, item, defItem, crit, weather, field, burn, wall, contact,
+    atkAbility, defAbility, defHPFull, helpingHand, spread,
+    atkStatused, defStatused, atkPinch, atkMovesLast, rivalry, extraMul,
   } = p;
   if (!power || power <= 0) return null;
+
+  const flags = MOVE_FLAGS[moveName] ?? "";
+  // かたやぶり: 防御側の特性（無効化・軽減）を無視する
+  const breaks = atkAbility === "かたやぶり";
+  const dAbil = breaks ? "" : defAbility;
+
+  const reason = immunityByAbility(dAbil, moveType, moveName);
+  if (reason) return { rolls: [], eff: 0, immune: true, immuneReason: reason };
 
   let aRank = atkRank, dRank = defRank;
   if (crit) { aRank = Math.max(0, aRank); dRank = Math.min(0, dRank); }
   let A = rankMul(atkStat, aRank);
   let D = rankMul(defStat, dRank);
+
+  // 攻撃側の実数値補正
+  if (atkAbility === "ちからもち" || atkAbility === "ヨガパワー") A = Math.floor(A * 2);
+  if (atkAbility === "はりきり" && category === "物理") A = Math.floor(A * 1.5);
+  if (atkAbility === "こんじょう" && atkStatused) A = Math.floor(A * 1.5);
+  if (atkAbility === "サンパワー" && category === "特殊" && weather === "にほんばれ") A = Math.floor(A * 1.5);
   if (item === "こだわりハチマキ" && category === "物理") A = Math.floor(A * 1.5);
   if (item === "こだわりメガネ" && category === "特殊") A = Math.floor(A * 1.5);
+
+  // 防御側の実数値補正
   if (defItem === "とつげきチョッキ" && category === "特殊") D = Math.floor(D * 1.5);
+  if (defItem === "しんかのきせき") D = Math.floor(D * 1.5);
+  if (dAbil === "ふしぎなうろこ" && defStatused && category === "物理") D = Math.floor(D * 1.5);
+  // 天候による防御補正（すなあらし=いわのD1.5 / ゆき=こおりのB1.5）
+  if (weather === "すなあらし" && defTypes.includes("いわ") && category === "特殊") D = Math.floor(D * 1.5);
+  if (weather === "ゆき" && defTypes.includes("こおり") && category === "物理") D = Math.floor(D * 1.5);
 
   let eff = 1;
   for (const t of defTypes) {
@@ -53,7 +114,27 @@ export function computeDamage(p: DamageParams): DamageResult | null {
   }
   if (eff === 0) return { rolls: [], eff, immune: true };
 
-  let base = Math.floor(Math.floor(Math.floor(22 * power * A / D) / 50)) + 2;
+  // 威力補正（技の威力そのものにかかるもの）
+  let pow = power;
+  if (atkAbility === "てつのこぶし" && flags.includes("punch")) pow = pokeRound(pow * 1.2);
+  if (atkAbility === "メガランチャー" && flags.includes("pulse")) pow = pokeRound(pow * 1.5);
+  if (atkAbility === "がんじょうあご" && flags.includes("bite")) pow = pokeRound(pow * 1.5);
+  if (atkAbility === "きれあじ" && SLICING_MOVES.has(moveName)) pow = pokeRound(pow * 1.5);
+  if (atkAbility === "すてみ" && RECOIL_MOVES.has(moveName)) pow = pokeRound(pow * 1.2);
+  if (atkAbility === "すなのちから" && weather === "すなあらし"
+      && ["いわ", "じめん", "はがね"].includes(moveType)) pow = pokeRound(pow * 1.3);
+  if (atkAbility === "アナライズ" && atkMovesLast) pow = pokeRound(pow * 1.3);
+  if (atkAbility === "とうそうしん" && rivalry === "同性") pow = pokeRound(pow * 1.25);
+  if (atkAbility === "とうそうしん" && rivalry === "異性") pow = pokeRound(pow * 0.75);
+  if (helpingHand) pow = pokeRound(pow * 1.5);
+  // フィールド（設置側・被弾側ともに地上にいる前提）
+  if (field === "エレキフィールド" && moveType === "でんき") pow = pokeRound(pow * 1.3);
+  if (field === "サイコフィールド" && moveType === "エスパー") pow = pokeRound(pow * 1.3);
+  if (field === "グラスフィールド" && moveType === "くさ") pow = pokeRound(pow * 1.3);
+  if (field === "グラスフィールド" && GROUND_QUAKE.has(moveName)) pow = pokeRound(pow * 0.5);
+  if (field === "ミストフィールド" && moveType === "ドラゴン") pow = pokeRound(pow * 0.5);
+
+  let base = Math.floor(Math.floor(Math.floor(22 * pow * A / D) / 50)) + 2;
   if (weather === "にほんばれ") {
     if (moveType === "ほのお") base = Math.floor(base * 1.5);
     if (moveType === "みず") base = Math.floor(base * 0.5);
@@ -66,20 +147,36 @@ export function computeDamage(p: DamageParams): DamageResult | null {
   const stab = atkTypes.includes(moveType)
     ? (atkAbility === "てきおうりょく" ? 2.0 : 1.5)
     : 1.0;
+  // ピンチ特性（自分のHPが1/3以下で該当タイプ1.5倍）
+  const PINCH: Record<string, string> = {
+    "しんりょく": "くさ", "もうか": "ほのお", "げきりゅう": "みず", "むしのしらせ": "むし",
+  };
+  const pinchType = PINCH[atkAbility];
+
   const rolls: number[] = [];
   for (let r = 85; r <= 100; r++) {
     let d = Math.floor(base * r / 100);
     if (stab > 1) d = pokeRound(d * stab);
     d = Math.floor(d * eff);
-    if (burn && category === "物理") d = Math.floor(d * 0.5);
-    if (wall && !crit) d = pokeRound(d * 0.5);
+    if (burn && category === "物理" && atkAbility !== "こんじょう") d = Math.floor(d * 0.5);
+    if (wall && !crit) d = pokeRound(d * (spread ? 2732 / 4096 : 0.5));
+    if (pinchType && atkPinch && moveType === pinchType) d = pokeRound(d * 1.5);
     if (atkAbility === "かたいツメ" && contact) d = pokeRound(d * 1.3);
-    if (atkAbility === "ちからもち") d = pokeRound(d * 2.0);
     if (atkAbility === "ちからずく") d = pokeRound(d * 1.3);
+    if (atkAbility === "スナイパー" && crit) d = pokeRound(d * 1.5);
     if (item === "いのちのたま") d = pokeRound(d * 5324 / 4096);
     if (item === "たつじんのおび" && eff > 1) d = pokeRound(d * 1.2);
-    if (defAbility === "フィルター／ハードロック／プリズムアーマー" && eff > 1) d = pokeRound(d * 0.75);
-    if (defAbility === "マルチスケイル" && defHPFull) d = pokeRound(d * 0.5);
+    if (item === "タイプ強化アイテム") d = pokeRound(d * 1.2);
+    if (dAbil === "フィルター／ハードロック／プリズムアーマー" && eff > 1) d = pokeRound(d * 0.75);
+    if (dAbil === "マルチスケイル" && defHPFull) d = pokeRound(d * 0.5);
+    if (dAbil === "ファーコート" && category === "物理") d = pokeRound(d * 0.5);
+    if (dAbil === "こおりのりんぷん" && category === "特殊") d = pokeRound(d * 0.5);
+    if (dAbil === "もふもふ" && contact) d = pokeRound(d * 0.5);
+    if (dAbil === "もふもふ" && moveType === "ほのお") d = pokeRound(d * 2);
+    if (dAbil === "たいねつ" && moveType === "ほのお") d = pokeRound(d * 0.5);
+    if (dAbil === "あついしぼう" && (moveType === "ほのお" || moveType === "こおり")) d = pokeRound(d * 0.5);
+    if (spread) d = pokeRound(d * 0.75);
+    if (extraMul !== 1) d = pokeRound(d * extraMul);
     if (d < 1) d = 1;
     rolls.push(d);
   }

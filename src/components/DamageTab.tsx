@@ -7,7 +7,7 @@ import { CONFIRMED } from "../data/confirmed";
 import { MOVE_BY_NAME, MOVE_LIB, accLabel, moveWithMeta, sortMovesByType } from "../data/moves";
 import {
   computeDamage, effLabel, hazardDamage, koAnalysis, typeEffectiveness,
-  type Weather,
+  type Field, type Weather,
 } from "../calc";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
@@ -21,11 +21,25 @@ import { LockButton } from "./LockButton";
 
 type Dir = "toThreat" | "toSelf";
 
-const ATK_ITEMS = ["（なし）", "こだわりハチマキ", "こだわりメガネ", "いのちのたま", "たつじんのおび"];
-const DEF_ITEMS = ["（なし）", "とつげきチョッキ"];
-const ATK_ABILITIES = ["（補正なし）", "てきおうりょく", "かたいツメ", "ちからもち", "ちからずく"];
-const DEF_ABILITIES = ["（補正なし）", "フィルター／ハードロック／プリズムアーマー", "マルチスケイル"];
-const WEATHERS: Weather[] = ["なし", "にほんばれ", "あまごい"];
+const ATK_ITEMS = [
+  "（なし）", "こだわりハチマキ", "こだわりメガネ", "いのちのたま", "たつじんのおび", "タイプ強化アイテム",
+];
+const DEF_ITEMS = ["（なし）", "とつげきチョッキ", "しんかのきせき"];
+/* 内定317体が持つ特性のうち、ダメージに影響するもの（tools で棚卸し済み） */
+const ATK_ABILITIES = [
+  "（補正なし）", "てきおうりょく", "かたいツメ", "ちからもち", "ヨガパワー", "はりきり", "ちからずく",
+  "てつのこぶし", "メガランチャー", "がんじょうあご", "きれあじ", "すてみ", "スナイパー",
+  "こんじょう", "サンパワー", "すなのちから", "アナライズ", "とうそうしん",
+  "しんりょく", "もうか", "げきりゅう", "むしのしらせ", "かたやぶり",
+];
+const DEF_ABILITIES = [
+  "（補正なし）", "フィルター／ハードロック／プリズムアーマー", "マルチスケイル",
+  "ファーコート", "こおりのりんぷん", "もふもふ", "たいねつ", "あついしぼう", "ふしぎなうろこ",
+  "ふゆう", "もらいび", "ちくでん", "ちょすい", "そうしょく", "ぼうおん", "ぼうだん",
+];
+const WEATHERS: Weather[] = ["なし", "にほんばれ", "あまごい", "すなあらし", "ゆき"];
+const FIELDS: Field[] = ["なし", "エレキフィールド", "グラスフィールド", "サイコフィールド", "ミストフィールド"];
+const RIVALRY = ["なし", "同性", "異性"] as const;
 
 /** 保存済みの仮想敵データが今の形かどうか（古い保存値は既定値に戻す） */
 function isThreatState(v: unknown): boolean {
@@ -144,6 +158,17 @@ export function DamageTab() {
   const [defItem, setDefItem] = usePersistedState("dmg.defItem", "（なし）", isStr);
   const [atkAbil, setAtkAbil] = usePersistedState("dmg.atkAbil", "（補正なし）", isStr);
   const [defAbil, setDefAbil] = usePersistedState("dmg.defAbil", "（補正なし）", isStr);
+  const [field, setField] = usePersistedState<Field>(
+    "dmg.field", "なし", (v) => FIELDS.includes(v as Field));
+  const [helpingHand, setHelpingHand] = usePersistedState("dmg.help", false, isBool);
+  const [spread, setSpread] = usePersistedState("dmg.spread", false, isBool);
+  const [atkStatused, setAtkStatused] = usePersistedState("dmg.atkStatused", false, isBool);
+  const [defStatused, setDefStatused] = usePersistedState("dmg.defStatused", false, isBool);
+  const [atkPinch, setAtkPinch] = usePersistedState("dmg.atkPinch", false, isBool);
+  const [atkMovesLast, setAtkMovesLast] = usePersistedState("dmg.atkLast", false, isBool);
+  const [rivalry, setRivalry] = usePersistedState<"なし" | "同性" | "異性">(
+    "dmg.rivalry", "なし", (v) => RIVALRY.includes(v as "なし"));
+  const [extraMul, setExtraMul] = usePersistedState("dmg.extraMul", 100, isNum); // %で保持
   // 仮想敵のAPもスクロール中の誤操作を防げるようロックできるようにする
   const [threatApLocked, setThreatApLocked] = usePersistedState("dmg.threatApLock", false, isBool);
 
@@ -194,6 +219,7 @@ export function DamageTab() {
     eff = typeEffectiveness(move.type, defTypes);
     result = computeDamage({
       power: move.power,
+      moveName: move.name,
       atkStat: atkStatUsed,
       defStat: defStatUsed,
       atkRank,
@@ -206,12 +232,21 @@ export function DamageTab() {
       defItem: defItem === "（なし）" ? "" : defItem,
       crit,
       weather,
+      field,
       burn,
       wall,
       contact: !!move.contact,
       atkAbility: atkAbil === "（補正なし）" ? "" : atkAbil,
       defAbility: defAbil === "（補正なし）" ? "" : defAbil,
       defHPFull,
+      helpingHand,
+      spread,
+      atkStatused,
+      defStatused,
+      atkPinch,
+      atkMovesLast,
+      rivalry,
+      extraMul: extraMul / 100,
     });
     if (result && !result.immune) ko = koAnalysis(result.rolls, defHP);
   }
@@ -339,6 +374,8 @@ export function DamageTab() {
       {/* 戦闘条件 */}
       <div className="panel">
         <div className="section-title">戦闘条件</div>
+
+        <div className="cond-group">場・ランク</div>
         <div className="grid3">
           <label className="fld wide">
             <span>
@@ -369,11 +406,23 @@ export function DamageTab() {
             />
           </label>
           <label className="fld">
-            <span>攻撃側 持ち物</span>
+            <span>フィールド</span>
+            <SelectMenu
+              items={FIELDS.map((f) => ({ value: f, label: f }))}
+              value={field}
+              onChange={(v) => setField(v as Field)}
+            />
+          </label>
+        </div>
+
+        <div className="cond-group">攻撃側</div>
+        <div className="grid3">
+          <label className="fld">
+            <span>持ち物</span>
             <SelectMenu items={ATK_ITEMS.map((i) => ({ value: i, label: i }))} value={atkItem} onChange={setAtkItem} />
           </label>
           <label className="fld">
-            <span>攻撃側 特性</span>
+            <span>特性</span>
             <SelectMenu
               items={abilityOptionsWith(attackerIsSelf ? selfForm.ability : threat.ability, ATK_ABILITIES).map((a) => ({ value: a, label: a }))}
               value={atkAbil}
@@ -381,11 +430,40 @@ export function DamageTab() {
             />
           </label>
           <label className="fld">
-            <span>防御側 持ち物</span>
+            <span>とうそうしん（性別）</span>
+            <SelectMenu
+              items={RIVALRY.map((r) => ({ value: r, label: r === "なし" ? "対象外" : r }))}
+              value={rivalry}
+              onChange={(v) => setRivalry(v as "なし")}
+            />
+          </label>
+        </div>
+        <div className="checks">
+          <label><input type="checkbox" checked={crit} onChange={(e) => setCrit(e.target.checked)} />急所</label>
+          <label><input type="checkbox" checked={helpingHand} onChange={(e) => setHelpingHand(e.target.checked)} />てだすけ(×1.5)</label>
+          <label><input type="checkbox" checked={burn} onChange={(e) => setBurn(e.target.checked)} />やけど(物理半減)</label>
+          <label title="こんじょう・からげんき系の条件">
+            <input type="checkbox" checked={atkStatused} onChange={(e) => setAtkStatused(e.target.checked)} />
+            状態異常(こんじょう)
+          </label>
+          <label title="しんりょく・もうか・げきりゅう・むしのしらせの条件">
+            <input type="checkbox" checked={atkPinch} onChange={(e) => setAtkPinch(e.target.checked)} />
+            HP1/3以下(ピンチ特性)
+          </label>
+          <label title="アナライズの条件">
+            <input type="checkbox" checked={atkMovesLast} onChange={(e) => setAtkMovesLast(e.target.checked)} />
+            後攻(アナライズ)
+          </label>
+        </div>
+
+        <div className="cond-group">防御側</div>
+        <div className="grid3">
+          <label className="fld">
+            <span>持ち物</span>
             <SelectMenu items={DEF_ITEMS.map((i) => ({ value: i, label: i }))} value={defItem} onChange={setDefItem} />
           </label>
           <label className="fld">
-            <span>防御側 特性</span>
+            <span>特性</span>
             <SelectMenu
               items={abilityOptionsWith(attackerIsSelf ? threat.ability : selfForm.ability, DEF_ABILITIES).map((a) => ({ value: a, label: a }))}
               value={defAbil}
@@ -393,11 +471,33 @@ export function DamageTab() {
             />
           </label>
         </div>
-        <div className="checks" style={{ marginTop: 4 }}>
-          <label><input type="checkbox" checked={crit} onChange={(e) => setCrit(e.target.checked)} />急所</label>
-          <label><input type="checkbox" checked={burn} onChange={(e) => setBurn(e.target.checked)} />やけど(物理半減)</label>
+        <div className="checks">
           <label><input type="checkbox" checked={wall} onChange={(e) => setWall(e.target.checked)} />壁(リフレク/ひかりのかべ)</label>
-          <label><input type="checkbox" checked={defHPFull} onChange={(e) => setDefHPFull(e.target.checked)} />防御側HP満タン(マルチスケイル)</label>
+          <label><input type="checkbox" checked={defHPFull} onChange={(e) => setDefHPFull(e.target.checked)} />HP満タン(マルチスケイル)</label>
+          <label title="ふしぎなうろこの条件">
+            <input type="checkbox" checked={defStatused} onChange={(e) => setDefStatused(e.target.checked)} />
+            状態異常(ふしぎなうろこ)
+          </label>
+        </div>
+
+        <div className="cond-group">その他</div>
+        <div className="checks">
+          <label title="ダブルで2体以上に当てる技は0.75倍。壁の軽減も 1/2 → 2732/4096 に変わる">
+            <input type="checkbox" checked={spread} onChange={(e) => setSpread(e.target.checked)} />
+            複数体に攻撃(×0.75)
+          </label>
+          <label className="row tight" title="未対応の条件やチャンピオンズ独自の特性を手で掛ける">
+            補正
+            <NumberInput value={extraMul} min={1} max={400} onChange={setExtraMul} style={{ width: 68 }} />
+            %
+          </label>
+        </div>
+        {atkAbil === "かたやぶり" && (
+          <div className="banner info">かたやぶり: 防御側の特性（軽減・無効化）を無視して計算しています。</div>
+        )}
+        <div className="small muted">
+          壁の軽減はシングル基準（1/2）。「複数体に攻撃」を選んだときだけ、ダブルの値（2732/4096）で計算します。
+          未対応の条件・独自特性は「補正%」で掛けてください。
         </div>
       </div>
 
@@ -407,7 +507,9 @@ export function DamageTab() {
         {!move ? (
           <div className="muted">技を選択してください。</div>
         ) : result?.immune ? (
-          <div className="stamp">こうかがない（無効）</div>
+          <div className="stamp">
+            {result.immuneReason ? `${result.immuneReason}で無効` : "こうかがない（無効）"}
+          </div>
         ) : result && ko ? (
           <ResultView move={move} ko={ko} eff={eff} rolls={result.rolls} defHP={defHP}
             atkStat={atkStatUsed} defStat={defStatUsed} />

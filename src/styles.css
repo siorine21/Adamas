@@ -439,7 +439,17 @@ table.dex tbody tr:hover, table.spd tbody tr:hover { background: rgba(127, 168, 
   .grid2 { grid-template-columns: 1fr; }
 }
 
-.checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+/* 戦闘条件のグループ見出し（場・攻撃側・防御側・その他） */
+.cond-group {
+  font-size: 11px;
+  color: var(--steel);
+  letter-spacing: 0.06em;
+  margin: 10px 0 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line);
+}
+.checks { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0; }
+.checks .row.tight { gap: 4px; font-size: 12px; color: var(--dim); }
 .checks label { display: inline-flex; gap: 5px; align-items: center; font-size: 12px; cursor: pointer; }
 
 .banner {

@@ -887,6 +887,22 @@ export const MOVE_LIB: Move[] = BASE_MOVE_LIB.map((m) => {
 export const MOVE_BY_NAME: Record<string, Move> =
   Object.fromEntries(MOVE_LIB.map((m) => [m.name, m]));
 
+/* ---------- 特性の条件に使う技の分類（PokeAPIにフラグが無いため手動管理） ----------
+   きれあじ（切る技を1.5倍）／すてみ（反動技を1.2倍）の判定に使う。
+   MOVE_LIB に収録している技のうち該当するものだけを列挙している。 */
+export const SLICING_MOVES = new Set([
+  "いあいぎり", "きりさく", "れんぞくぎり", "かまいたち", "エアカッター", "エアスラッシュ",
+  "サイコカッター", "シザークロス", "つじぎり", "リーフブレード", "ソーラーブレード",
+  "せいなるつるぎ", "しんぴのつるぎ", "クロスポイズン", "サイコブレイド", "ドラゴンアロー",
+  "はっぱカッター", "ハサミギロチン", "ブレイククロー", "ミストバースト",
+]);
+
+export const RECOIL_MOVES = new Set([
+  "とっしん", "すてみタックル", "ワイルドボルト", "フレアドライブ", "ブレイブバード",
+  "もろはのずつき", "とびひざげり", "とびげり", "ウッドハンマー", "じごくぐるま",
+  "アフロブレイク",
+]);
+
 /** 表示用の命中率ラベル。0は「必中」、未収録（手動入力技）は「命中—」。 */
 export function accLabel(acc: number | undefined): string {
   if (acc === undefined) return "命中—";
