@@ -31,6 +31,8 @@ const ATK_ABILITIES = [
   "てつのこぶし", "メガランチャー", "がんじょうあご", "きれあじ", "すてみ", "スナイパー",
   "こんじょう", "サンパワー", "すなのちから", "アナライズ", "とうそうしん",
   "しんりょく", "もうか", "げきりゅう", "むしのしらせ", "かたやぶり",
+  // まもるを貫通する特性（かんつうドリル＝ふかしのこぶしと同効果）
+  "ふかしのこぶし", "かんつうドリル",
 ];
 const DEF_ABILITIES = [
   "（補正なし）", "フィルター／ハードロック／プリズムアーマー", "マルチスケイル",
@@ -168,6 +170,7 @@ export function DamageTab() {
   const [atkMovesLast, setAtkMovesLast] = usePersistedState("dmg.atkLast", false, isBool);
   const [rivalry, setRivalry] = usePersistedState<"なし" | "同性" | "異性">(
     "dmg.rivalry", "なし", (v) => RIVALRY.includes(v as "なし"));
+  const [protect, setProtect] = usePersistedState("dmg.protect", false, isBool);
   const [extraMul, setExtraMul] = usePersistedState("dmg.extraMul", 100, isNum); // %で保持
   // 仮想敵のAPもスクロール中の誤操作を防げるようロックできるようにする
   const [threatApLocked, setThreatApLocked] = usePersistedState("dmg.threatApLock", false, isBool);
@@ -246,6 +249,7 @@ export function DamageTab() {
       atkPinch,
       atkMovesLast,
       rivalry,
+      protect,
       extraMul: extraMul / 100,
     });
     if (result && !result.immune) ko = koAnalysis(result.rolls, defHP);
@@ -312,6 +316,12 @@ export function DamageTab() {
           <div className="small muted">{CONFIRMED.length}体の内定ポケモンから選択（種族値・特性はシート準拠）</div>
           {!threat.typeVerified && (
             <div className="banner warn">この個体はチャンピオンズ新規メガ等でタイプが未公表です。素の型を仮採用しています（下で修正可）。</div>
+          )}
+          {threat.ability.includes("マイティチェンジ") && (
+            <div className="banner info">
+              マイティチェンジ: 一度引っ込めて出し直すとマイティフォルムになります（種族値が大きく上がる）。
+              強化後を想定するなら「イルカマン(マイティ)」を選んでください。
+            </div>
           )}
           <div className="row tight" style={{ marginTop: 6 }}>
             {threat.types.map((t, i) => (
@@ -478,6 +488,10 @@ export function DamageTab() {
             <input type="checkbox" checked={defStatused} onChange={(e) => setDefStatused(e.target.checked)} />
             状態異常(ふしぎなうろこ)
           </label>
+          <label title="ふかしのこぶし・かんつうドリルの接触技だけが貫通します">
+            <input type="checkbox" checked={protect} onChange={(e) => setProtect(e.target.checked)} />
+            まもる／みきり
+          </label>
         </div>
 
         <div className="cond-group">その他</div>
@@ -494,6 +508,11 @@ export function DamageTab() {
         </div>
         {atkAbil === "かたやぶり" && (
           <div className="banner info">かたやぶり: 防御側の特性（軽減・無効化）を無視して計算しています。</div>
+        )}
+        {(atkAbil === "ふかしのこぶし" || atkAbil === "かんつうドリル") && (
+          <div className="banner info">
+            {atkAbil}: まもる／みきりを貫通します（接触技のみ。ダメージ倍率は変わりません）。
+          </div>
         )}
         <div className="small muted">
           壁の軽減はシングル基準（1/2）。「複数体に攻撃」を選んだときだけ、ダブルの値（2732/4096）で計算します。
