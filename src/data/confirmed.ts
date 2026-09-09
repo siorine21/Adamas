@@ -303,7 +303,7 @@ export const CONFIRMED: ConfirmedMon[] = [
   { no: 765, name: "ヤレユータン", types: ["ノーマル", "エスパー"], base: B(90, 60, 80, 90, 110, 60), abilities: ["せいしんりょく", "テレパシー", "きょうせい"], total: 490, typeVerified: true },
   { no: 766, name: "ナゲツケサル", types: ["かくとう"], base: B(100, 120, 90, 40, 60, 80), abilities: ["レシーバー", "まけんき"], total: 490, typeVerified: true },
   { no: 768, name: "グソクムシャ", types: ["むし", "みず"], base: B(75, 125, 140, 60, 90, 40), abilities: ["ききかいひ"], total: 530, typeVerified: true },
-  { no: 768, name: "メガグソクムシャ", types: ["むし", "みず"], base: B(75, 150, 175, 70, 120, 40), abilities: ["かたいツメ"], total: 630, typeVerified: false },
+  { no: 768, name: "メガグソクムシャ", types: ["むし", "はがね"], base: B(75, 150, 175, 70, 120, 40), abilities: ["かたいツメ"], total: 630, typeVerified: true },
   { no: 778, name: "ミミッキュ", types: ["ゴースト", "フェアリー"], base: B(55, 90, 80, 50, 105, 96), abilities: ["ばけのかわ"], total: 476, typeVerified: true },
   { no: 780, name: "ジジーロン", types: ["ノーマル", "ドラゴン"], base: B(78, 60, 85, 135, 91, 36), abilities: ["ぎゃくじょう", "そうしょく", "ノーてんき"], total: 485, typeVerified: true },
   { no: 780, name: "メガジジーロン", types: ["ノーマル", "ドラゴン"], base: B(78, 85, 110, 160, 116, 36), abilities: ["ぎゃくじょう"], total: 585, typeVerified: false },

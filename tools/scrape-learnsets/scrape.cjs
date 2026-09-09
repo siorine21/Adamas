@@ -1,5 +1,5 @@
 /*
- * ポケモンチャンピオンズ はがね23系統の「覚えるワザ」を AppMedia から取得するツール。
+ * ポケモンチャンピオンズ はがね24系統の「覚えるワザ」を AppMedia から取得するツール。
  * AppMedia のポケモン個別ページ（公開・robots許可・Cloudflare無し）を Playwright で
  * 描画し、覚えるワザ表の技名を抽出して champ_moves.json に出力する。
  *
@@ -11,7 +11,7 @@
  * 実行: GitHub Actions（.github/workflows/scrape-learnsets.yml）で手動起動。
  *   ローカルなら: npm i -D playwright && npx playwright install chromium && node tools/scrape-learnsets/scrape.cjs
  *
- * 礼儀: 低頻度・少量（23ページ）・ページ間に待機。robots.txt は /pokemonchampions/ を許可。
+ * 礼儀: 低頻度・少量（24ページ）・ページ間に待機。robots.txt は /pokemonchampions/ を許可。
  * 注意: AppMedia の HTML 構造が変わると要調整。取得後は必ず内容を目視確認すること。
  */
 const { chromium } = require("playwright");
@@ -21,11 +21,13 @@ const LIST = "https://appmedia.jp/pokemonchampions/79917367"; // はがねタイ
 const TARGETS = ["フォレトス","ハガネール","ハッサム","エアームド","クチート","ボスゴドラ","チリーン",
  "メタグロス","エンペルト","トリデプス","ルカリオ","ドリュウズ","ガラルマッギョ","ギルガルド",
  "ヒスイヌメルゴン","クレッフィ","アーマーガア","デカヌチャン","ミミズズ","ドドゲザン","サーフゴー","ブリジュラス",
- "ニャイキング"]; // ニャイキングはレギュM-Cで追加
+ "グソクムシャ","ニャイキング"]; // グソクムシャ（メガではがね）・ニャイキングはレギュM-Cで追加
 // はがね一覧に正しい図鑑リンクが無い/誤リンクの系統は個別ページURLを直接指定
 const OVERRIDE = {
   "チリーン": "https://appmedia.jp/pokemonchampions/79876817",    // 一覧にはメガチリーンしか無い
   "ギルガルド": "https://appmedia.jp/pokemonchampions/79877570",  // 一覧リンクが育成論記事を指すため図鑑ページを直指定
+  // グソクムシャは素がむし/みずなので、はがね一覧には載らない（メガではがねになる）
+  "グソクムシャ": "https://appmedia.jp/pokemonchampions/79877792",
 };
 
 /** 覚えるワザ表を1つずつ取る。ページによっては進化前など別ポケモンの表も載るので、

@@ -27,6 +27,8 @@ const URLS = [
   ["gamepedia-megaz", "https://gamepedia.jp/pokemonchampions/archives/649"],
   ["gamewith-megalucarioz", "https://gamewith.jp/pokemon-champions/574463"],
   ["appmedia-megaz", "https://appmedia.jp/pokemonchampions/80358028"],
+  // メガシンカ全体のタイプ・種族値・特性一覧（新規メガのタイプ確認用）
+  ["gamewith-megalist", "https://gamewith.jp/pokemon-champions/546494"],
 ];
 
 const OUT = "tools/fetch-pages/out";
