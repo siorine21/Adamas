@@ -433,6 +433,8 @@ table.dex tbody tr:hover, table.spd tbody tr:hover { background: rgba(127, 168, 
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* スライダーを置く欄は1行を丸ごと使う（AP配分と同じ操作幅を確保する） */
+.grid2 > .fld.wide, .grid3 > .fld.wide { grid-column: 1 / -1; }
 @media (max-width: 560px) {
   .grid2 { grid-template-columns: 1fr; }
 }
@@ -508,25 +510,6 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 }
 @media (min-width: 561px) { .scroll-hint { display: none; } }
 
-/* ---------- 数値グリッド選択（AP・ランク） ---------- */
-.numsel-btn { justify-content: space-between; }
-.numsel-val { font-variant-numeric: tabular-nums; }
-.numgrid-pop { padding: 6px; }
-.numgrid { display: grid; gap: 4px; }
-.numgrid-cell {
-  padding: 9px 0;
-  min-height: 38px;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  background: var(--bg);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  cursor: pointer;
-}
-.numgrid-cell:hover { border-color: var(--steel); }
-.numgrid-cell.sel { background: #24384c; border-color: var(--steel); color: var(--steel-hi); font-weight: 700; }
-
 /* ---------- フッター（URL表示・インストール案内） ---------- */
 .app-footer {
   margin-top: 20px;
@@ -581,6 +564,10 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 }
 .lock-btn:hover { border-color: var(--steel); color: var(--steel-hi); }
 .lock-btn.on { color: var(--amber); border-color: var(--amber); }
+
+/* 素早さ比較のSランク行。スライダーが潰れないよう幅を確保する */
+.spd-rank { flex: 1 1 220px; min-width: 200px; }
+.spd-rank .ap-ctl { flex: 1 1 auto; margin-top: 0; }
 .ap-step {
   flex: 0 0 34px; width: 34px; height: 34px;
   background: var(--panel2); color: var(--ink);

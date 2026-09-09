@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { Move, StatBlock, Threat } from "../types";
 import { useStore } from "../store";
 import { usePersistedState } from "../uiState";
-import { AP_MAX_EACH, AP_MAX_TOTAL, NATURES, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS, realStats } from "../data/game";
+import { AP_MAX_EACH, AP_MAX_TOTAL, NATURES, RANK_MAX, RANK_MIN, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS, rankLabel, rankMulLabel, realStats } from "../data/game";
 import { CONFIRMED } from "../data/confirmed";
 import { MOVE_BY_NAME, MOVE_LIB, accLabel, moveWithMeta, sortMovesByType } from "../data/moves";
 import {
@@ -14,8 +14,8 @@ import { displayName } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { MoveSelect } from "./MoveSelect";
 import { SelectMenu } from "./SelectMenu";
-import { NumberMenu } from "./NumberMenu";
 import { ApSlider } from "./ApSlider";
+import { StepSlider } from "./StepSlider";
 import { NumberInput } from "./NumberInput";
 import { LockButton } from "./LockButton";
 
@@ -26,7 +26,6 @@ const DEF_ITEMS = ["（なし）", "とつげきチョッキ"];
 const ATK_ABILITIES = ["（補正なし）", "てきおうりょく", "かたいツメ", "ちからもち", "ちからずく"];
 const DEF_ABILITIES = ["（補正なし）", "フィルター／ハードロック／プリズムアーマー", "マルチスケイル"];
 const WEATHERS: Weather[] = ["なし", "にほんばれ", "あまごい"];
-const RANKS = [6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6];
 
 /** 保存済みの仮想敵データが今の形かどうか（古い保存値は既定値に戻す） */
 function isThreatState(v: unknown): boolean {
@@ -341,13 +340,25 @@ export function DamageTab() {
       <div className="panel">
         <div className="section-title">戦闘条件</div>
         <div className="grid3">
-          <label className="fld">
-            <span>攻撃ランク{move?.useTargetAtk ? "（イカサマ＝相手のAランク）" : ""}</span>
-            <NumberMenu values={RANKS} value={atkRank} onChange={setAtkRank} cols={5} format={(r) => (r > 0 ? `+${r}` : String(r))} />
+          <label className="fld wide">
+            <span>
+              攻撃ランク <b className="tnum">{rankMulLabel(atkRank)}</b>
+              {move?.useTargetAtk ? "（イカサマ＝相手のAランク）" : ""}
+            </span>
+            <StepSlider
+              value={atkRank} min={RANK_MIN} max={RANK_MAX} onChange={setAtkRank}
+              format={rankLabel} ariaLabel="攻撃ランク" valueWidth={34}
+            />
           </label>
-          <label className="fld">
-            <span>防御ランク{move?.ignoreDefRank ? "（無視技）" : ""}</span>
-            <NumberMenu values={RANKS} value={defRank} onChange={setDefRank} cols={5} format={(r) => (r > 0 ? `+${r}` : String(r))} />
+          <label className="fld wide">
+            <span>
+              防御ランク <b className="tnum">{rankMulLabel(move?.ignoreDefRank ? 0 : defRank)}</b>
+              {move?.ignoreDefRank ? "（無視技のため無効）" : ""}
+            </span>
+            <StepSlider
+              value={defRank} min={RANK_MIN} max={RANK_MAX} onChange={setDefRank}
+              format={rankLabel} ariaLabel="防御ランク" valueWidth={34}
+            />
           </label>
           <label className="fld">
             <span>天候</span>
