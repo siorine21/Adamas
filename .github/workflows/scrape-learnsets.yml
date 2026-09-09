@@ -22,11 +22,13 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Fetch pages
         run: node tools/fetch-pages/fetch.cjs
+      - name: Scrape learnsets
+        run: node tools/scrape-learnsets/scrape.cjs
       - name: Push result branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B bot/regulation-mc
-          git add -f tools/fetch-pages/out
+          git add -f tools/fetch-pages/out tools/scrape-learnsets/champ_moves.json tools/scrape-learnsets/scrape_log.txt
           git commit -q -m "chore: fetch regulation pages" || echo "no changes"
           git push -f origin bot/regulation-mc

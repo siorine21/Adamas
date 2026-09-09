@@ -24,6 +24,9 @@ const URLS = [
   ["appmedia-mc", "https://appmedia.jp/pokemonchampions/80358028"],
   ["game8-add", "https://game8.jp/pokemon-champions/778547"],
   ["gamewith-items", "https://gamewith.jp/pokemon-champions/546415"],
+  ["gamepedia-megaz", "https://gamepedia.jp/pokemonchampions/archives/649"],
+  ["gamewith-megalucarioz", "https://gamewith.jp/pokemon-champions/574463"],
+  ["appmedia-megaz", "https://appmedia.jp/pokemonchampions/80358028"],
 ];
 
 const OUT = "tools/fetch-pages/out";
