@@ -1,0 +1,10 @@
+official-mc: 641文字
+yakkun-mc: 175文字
+gamepedia-mc: 4747文字
+gamewith-mc: 7449文字
+appmedia-mc: 17614文字
+game8-add: 10049文字
+gamewith-items: 26654文字
+gamepedia-megaz: 4767文字
+gamewith-megalucarioz: 9075文字
+appmedia-megaz: 17487文字
