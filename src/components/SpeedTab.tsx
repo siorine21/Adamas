@@ -3,11 +3,11 @@ import type { RosterEntry } from "../types";
 import { useStore } from "../store";
 import { usePersistedState } from "../uiState";
 import { CONFIRMED } from "../data/confirmed";
-import { calcStat, rankMul, realStats } from "../data/game";
+import { RANK_MAX, RANK_MIN, calcStat, rankLabel, rankMul, realStats } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { SelectMenu } from "./SelectMenu";
-import { NumberMenu } from "./NumberMenu";
+import { StepSlider } from "./StepSlider";
 
 type RefLine = "最速" | "準速" | "無振り";
 type Kind = "team" | "bench" | "ref";
@@ -20,8 +20,6 @@ interface SpeedRow {
   speed: number;
   kind: Kind;
 }
-
-const RANKS = [6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6];
 
 function refSpeed(baseS: number, line: RefLine): number {
   if (line === "最速") return calcStat(baseS, 32, 1.1);
@@ -123,17 +121,18 @@ export function SpeedTab() {
                 <input type="checkbox" checked={!!scarf[e.key]} onChange={(ev) => setScarf((p) => ({ ...p, [e.key]: ev.target.checked }))} />
                 こだわりスカーフ
               </label>
-              <label className="row tight small">
-                Sランク
-                <NumberMenu
-                  style={{ width: 92 }}
-                  values={RANKS}
+              <div className="row tight small spd-rank">
+                <span>Sランク</span>
+                <StepSlider
                   value={rank[e.key] ?? 0}
+                  min={RANK_MIN}
+                  max={RANK_MAX}
                   onChange={(v) => setRank((p) => ({ ...p, [e.key]: v }))}
-                  cols={5}
-                  format={(r) => (r > 0 ? `+${r}` : String(r))}
+                  format={rankLabel}
+                  ariaLabel={`${e.name} のSランク`}
+                  valueWidth={34}
                 />
-              </label>
+              </div>
             </div>
           );
         })}

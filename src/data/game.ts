@@ -55,6 +55,14 @@ export const NATURES: Record<string, Nature> = {
   "なまいき（D↑S↓）": { up: "D", down: "S" },
 };
 
+/** 能力ランクの範囲（-6〜+6）と表示用の整形。ダメージ計算・素早さ比較で共通に使う */
+export const RANK_MIN = -6;
+export const RANK_MAX = 6;
+export const rankLabel = (r: number): string => (r > 0 ? `+${r}` : String(r));
+/** ランクの倍率表示（+2なら「×2.0」）。ランクの意味を数値で添えるのに使う */
+export const rankMulLabel = (r: number): string =>
+  `×${(r >= 0 ? (2 + r) / 2 : 2 / (2 - r)).toFixed(2).replace(/0$/, "")}`;
+
 export const STAT_KEYS: StatKey[] = ["H", "A", "B", "C", "D", "S"];
 export const STAT_LABEL: Record<StatKey, string> = {
   H: "HP", A: "攻撃", B: "防御", C: "特攻", D: "特防", S: "素早さ",
