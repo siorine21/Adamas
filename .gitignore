@@ -6,3 +6,7 @@ dist-ssr
 *.log
 .vite
 tsconfig.tsbuildinfo
+
+# 取得ツールの出力（bot/* ブランチにだけ載せる）
+tools/fetch-pages/out/
+tools/scrape-learnsets/scrape_log.txt

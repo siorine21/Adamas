@@ -1,7 +1,11 @@
-name: Scrape Champ Learnsets
+name: Scrape Champ Data
 
-# 手動起動のみ。開発環境からは攻略サイトへ直接アクセスできないため、
-# ランナーから取得して結果をブランチに出す（レビューしてから main へ）。
+# 手動起動のみ。開発環境（Claude Code）からは攻略サイト・公式お知らせへ直接アクセス
+# できないため、ランナーから取得して結果を bot/* ブランチに出す（レビューしてから main へ）。
+#
+#   learnsets  … AppMedia の個別ページから「チャンピオンズで覚える技」を取得し
+#                LEARNSETS を再生成 → bot/champ-learnsets
+#   pages      … レギュレーション情報のページ本文を取得 → bot/regulation-pages
 on:
   workflow_dispatch:
 
@@ -9,7 +13,34 @@ permissions:
   contents: write
 
 jobs:
-  fetch-pages:
+  learnsets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Install Playwright (ad-hoc, not saved to package.json)
+        run: |
+          npm i --no-save playwright@1.49
+          npx playwright install --with-deps chromium
+      - name: Scrape + regenerate LEARNSETS
+        run: |
+          node tools/scrape-learnsets/scrape.cjs
+          node tools/scrape-learnsets/gen-learnsets.mjs
+      - name: Verify build
+        run: npm run build
+      - name: Push result branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B bot/champ-learnsets
+          git add -f tools/scrape-learnsets/champ_moves.json tools/scrape-learnsets/scrape_log.txt src/data/moves.ts
+          git commit -q -m "chore: refresh Champions learnsets from AppMedia" || echo "no changes"
+          git push -f origin bot/champ-learnsets
+
+  pages:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,15 +51,13 @@ jobs:
         run: |
           npm i --no-save playwright@1.49
           npx playwright install --with-deps chromium
-      - name: Fetch pages
+      - name: Fetch regulation pages
         run: node tools/fetch-pages/fetch.cjs
-      - name: Scrape learnsets
-        run: node tools/scrape-learnsets/scrape.cjs
       - name: Push result branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -B bot/regulation-mc
-          git add -f tools/fetch-pages/out tools/scrape-learnsets/champ_moves.json tools/scrape-learnsets/scrape_log.txt
+          git checkout -B bot/regulation-pages
+          git add -f tools/fetch-pages/out
           git commit -q -m "chore: fetch regulation pages" || echo "no changes"
-          git push -f origin bot/regulation-mc
+          git push -f origin bot/regulation-pages

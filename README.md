@@ -23,7 +23,7 @@
   実機・Wikiの記載を確認して実装している。
 - **レギュレーション情報**（追加ポケモン・追加持ち物・バランス調整）: 公式お知らせ
   （news.pokemon-home.com）と AppMedia／攻略大百科／GameWith。`tools/fetch-pages` で
-  GitHub Actions のランナーから本文を取得し、`bot/regulation-mc` ブランチに出して突き合わせる。
+  GitHub Actions のランナーから本文を取得し、`bot/regulation-pages` ブランチに出して突き合わせる。
 - **新レギュで解禁された本編既存ポケモン**: `tools/gen-confirmed` が PokeAPI から
   種族値・タイプ・特性を生成する（チャンピオンズ独自のメガシンカだけ手入力）。
 - 本編と値が違うチャンピオンズ独自の技は `tools/audit-moves` の `CHAMP_OVERRIDES` に登録する
