@@ -1,6 +1,6 @@
 # チャンピオンズ習得技 取得ツール
 
-ポケモンチャンピオンズの、はがね23系統が「覚えるワザ」を AppMedia の各ポケモン個別ページから取得し、
+ポケモンチャンピオンズの、はがね24系統が「覚えるワザ」を AppMedia の各ポケモン個別ページから取得し、
 アプリの習得技データ（`src/data/moves.ts` の `LEARNSETS`）を更新するためのツールです。
 
 ## なぜこの方式か
@@ -27,10 +27,10 @@ node tools/scrape-learnsets/gen-learnsets.mjs # moves.ts の LEARNSETS を再生
 ## 構成
 - `scrape.cjs` … AppMedia を描画して覚えるワザを取得 → `champ_moves.json`
 - `gen-learnsets.mjs` … `champ_moves.json` から `LEARNSETS` を再生成（MOVE_LIB に存在する技のみ）
-- `champ_moves.json` … 取得済みデータのスナップショット（23系統・2026/9時点）
+- `champ_moves.json` … 取得済みデータのスナップショット（24系統・2026/9時点）
 
 ## 注意・マナー
-- 低頻度・少量（23ページ・ページ間に待機）で運用すること。robots.txt を尊重。
+- 低頻度・少量（24ページ・ページ間に待機）で運用すること。robots.txt を尊重。
 - AppMedia のHTML構造が変わると `scrape.cjs` の抽出条件（「わざ名」「威力」を含む表）を要調整。
 - 取得結果は**必ず目視確認**すること（サイト側の記載ミスや構造変化を検知するため）。
 - Cloudflare 等のbot判定を設けているサイト（yakkun 等）は対象にしない（アクセス制御の回避はしない）。
