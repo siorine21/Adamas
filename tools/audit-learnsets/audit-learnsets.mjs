@@ -40,6 +40,7 @@ const IDENT = {
   "ギルガルド": ["aegislash-shield", "aegislash-blade"],
   "ヒスイヌメルゴン": ["goodra-hisui"],
   "クレッフィ": ["klefki"],
+  "グソクムシャ": ["golisopod"], // メガでむし/はがねになる（メガはPokeAPIに無い）
   "アーマーガア": ["corviknight"],
   "ニャイキング": ["perrserker"],
   "デカヌチャン": ["tinkaton"],
