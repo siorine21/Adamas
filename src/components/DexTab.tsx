@@ -5,13 +5,13 @@ import { DEX } from "../data/dex";
 import { MAX_STARRED, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS } from "../data/game";
 import { typeEffectiveness } from "../calc";
 import { displayName, entryFromDex } from "../data/roster";
-import { TypeBadges } from "./TypeBadge";
 import { usePersistedState } from "../uiState";
 
 /** 1フォルム */
 interface Form {
   form: string;
   label: string; // 表示名（メガ○○ など）
+  short: string; // フォルム切替チップの表示（通常 / メガ / メガZ など）
   types: string[];
   stats: Record<StatKey, number>;
   total: number;
@@ -49,6 +49,7 @@ const SPECIES: Species[] = DEX.map((d) => ({
     return {
       form: f.form,
       label: displayName(d.name, f.form),
+      short: f.form,
       types: f.types,
       stats: f.base,
       total: STAT_KEYS.reduce((s, k) => s + f.base[k], 0),
@@ -67,6 +68,10 @@ const USED_TYPES = TYPES.filter((t) => ALL_FORMS.some((f) => f.types.includes(t)
 const valueOf = (f: Form, k: SortKey): number =>
   k === "total" ? f.total : k === "name" ? 0 : f.stats[k];
 
+const isStrRecord = (v: unknown) =>
+  !!v && typeof v === "object" && !Array.isArray(v)
+  && Object.values(v as object).every((x) => typeof x === "string");
+
 export function DexTab() {
   const { addEntry, roster, starredCount } = useStore();
   const [q, setQ] = useState(""); // 検索語は一時的なものなので保存しない
@@ -77,9 +82,12 @@ export function DexTab() {
     "dex.sortKey", "total", (v) => SORT_KEYS.includes(v as SortKey));
   const [asc, setAsc] = usePersistedState("dex.asc", false, (v) => typeof v === "boolean");
   const [compact, setCompact] = usePersistedState("dex.compact", false, (v) => typeof v === "boolean");
-  // 開いている系統（フォルム内訳と弱点を出す）
+  // 弱点を開いている系統
   const [open, setOpen] = usePersistedState<string[]>(
     "dex.open", [], (v) => Array.isArray(v) && v.every((x) => typeof x === "string"));
+  // 手動で選んだフォルム（系統名 → フォルム名）。未選択なら並び替えに合わせて自動で選ぶ
+  const [picked, setPicked] = usePersistedState<Record<string, string>>(
+    "dex.form", {}, isStrRecord);
 
   const starDisabled = starredCount >= MAX_STARRED;
 
@@ -93,30 +101,31 @@ export function DexTab() {
     return s;
   }, [roster]);
 
-  /** 検索・絞込みを通したうえで、系統ごとに「並び替えの基準になるフォルム」を決める */
+  /** 検索・絞込みを通したうえで、系統ごとに表示するフォルムを決めて並べ替える。
+   *  表示フォルム＝手動で選んだもの。未選択なら、能力順ならその能力が最も高いフォルム。
+   *  並び替えは「表示しているフォルムの値」で行うので、見えている数字と順位が一致する。 */
   const list = useMemo(() => {
     const qq = q.trim();
-    const out: { sp: Species; forms: Form[]; lead: Form; sortVal: number }[] = [];
+    const out: { sp: Species; forms: Form[]; sel: Form; sortVal: number }[] = [];
     for (const sp of SPECIES) {
       if (megaOnly && !sp.megaOnly) continue;
       let forms = sp.forms;
       if (typeFilter.length > 0) forms = forms.filter((f) => typeFilter.every((t) => f.types.includes(t)));
-      if (qq) {
-        const hitName = sp.name.includes(qq);
-        if (!hitName) forms = forms.filter((f) => f.label.includes(qq));
-      }
+      if (qq && !sp.name.includes(qq)) forms = forms.filter((f) => f.label.includes(qq));
       if (forms.length === 0) continue;
-      // 名前順のときは素のフォルム、能力順のときはその能力が最も高いフォルムを代表にする
-      const lead = sortKey === "name"
+      const auto = sortKey === "name"
         ? forms[0]
         : forms.reduce((a, b) => (valueOf(b, sortKey) > valueOf(a, sortKey) ? b : a));
-      out.push({ sp, forms, lead, sortVal: valueOf(lead, sortKey) });
+      const sel = forms.find((f) => f.form === picked[sp.name]) ?? auto;
+      out.push({ sp, forms, sel, sortVal: valueOf(sel, sortKey) });
     }
     return out.sort((a, b) => {
-      if (sortKey === "name") return asc ? a.sp.name.localeCompare(b.sp.name, "ja") : b.sp.name.localeCompare(a.sp.name, "ja");
+      if (sortKey === "name") {
+        return asc ? a.sp.name.localeCompare(b.sp.name, "ja") : b.sp.name.localeCompare(a.sp.name, "ja");
+      }
       return asc ? a.sortVal - b.sortVal : b.sortVal - a.sortVal;
     });
-  }, [q, typeFilter, megaOnly, sortKey, asc]);
+  }, [q, typeFilter, megaOnly, sortKey, asc, picked]);
 
   const shownForms = list.reduce((n, x) => n + x.forms.length, 0);
 
@@ -124,6 +133,8 @@ export function DexTab() {
     setTypeFilter((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   const toggleOpen = (name: string) =>
     setOpen((prev) => (prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]));
+  const pickForm = (name: string, form: string) =>
+    setPicked((prev) => ({ ...prev, [name]: form }));
   const setSort = (k: SortKey) => {
     if (sortKey === k) setAsc((v) => !v);
     else { setSortKey(k); setAsc(k === "name"); }
@@ -138,76 +149,6 @@ export function DexTab() {
     e.starred = star;
     addEntry(e);
   };
-
-  /** 1フォルムぶんの行（種族値・弱点・追加ボタン） */
-  const FormRow = ({ sp, f, showLabel }: { sp: Species; f: Form; showLabel: boolean }) => {
-    const isOwned = owned.has(`${sp.name}/${f.form}`);
-    return (
-      <div className="dex-form">
-        <div className="dex-head">
-          <span className="dex-name">
-            {showLabel ? f.label : displayName(sp.name, f.form)}
-            {sp.megaOnly && <span className="small amber" title="メガシンカで初めてはがね化"> ⚑</span>}
-            {isOwned && <span className="small dex-owned" title="すでに自軍にいます"> 自軍</span>}
-          </span>
-          <TypeBadges types={f.types} />
-          <span className="dex-actions">
-            <button
-              className="btn small"
-              title={starDisabled ? "★手持ちは最大6体まで" : "★手持ちに直接追加"}
-              disabled={starDisabled}
-              onClick={() => add(sp.name, f.form, true)}
-            >
-              ★手持ち
-            </button>
-            <button className="btn small" title="ベンチへ追加" onClick={() => add(sp.name, f.form, false)}>
-              ＋ベンチ
-            </button>
-          </span>
-        </div>
-        {/* 6つの種族値を等幅で並べる。行をまたいで縦に揃うので表と同じように読める */}
-        <div className="dex-stats">
-          {STAT_KEYS.map((k) => (
-            <div className={`dex-stat ${sortKey === k ? "on" : ""}`} key={k} title={STAT_LABEL[k]}>
-              <span className="k">{k}</span>
-              <span className="v tnum">{f.stats[k]}</span>
-              {!compact && <span className="bar"><i style={{ width: `${(f.stats[k] / STAT_MAX) * 100}%` }} /></span>}
-            </div>
-          ))}
-          <div className={`dex-stat total ${sortKey === "total" ? "on" : ""}`} title="種族値合計">
-            <span className="k">計</span>
-            <span className="v tnum">{f.total}</span>
-            {!compact && <span className="bar" />}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  /** 弱点・無効。はがね統一だと耐性は多いので、突かれる側だけ出す */
-  const Weak = ({ f }: { f: Form }) => (
-    <div className="dex-weak">
-      <span className="small muted">弱点</span>
-      {f.weak.length === 0 && <span className="small muted">なし</span>}
-      {f.weak.map((w) => (
-        <span
-          key={w.type}
-          className={`weak-chip ${w.mul >= 4 ? "x4" : ""}`}
-          style={{ borderColor: TYPE_COLORS[w.type] }}
-        >
-          {w.type}×{w.mul}
-        </span>
-      ))}
-      {f.immune.length > 0 && (
-        <>
-          <span className="small muted" style={{ marginLeft: 6 }}>無効</span>
-          {f.immune.map((t) => (
-            <span key={t} className="weak-chip immune" style={{ borderColor: TYPE_COLORS[t] }}>{t}</span>
-          ))}
-        </>
-      )}
-    </div>
-  );
 
   return (
     <div>
@@ -258,35 +199,111 @@ export function DexTab() {
               {SORT_LABEL[k]}{sortKey === k ? (asc ? " ▲" : " ▼") : ""}
             </button>
           ))}
+          {Object.keys(picked).length > 0 && (
+            <button className="sort-chip" onClick={() => setPicked({})} title="選んだフォルムを既定に戻す">
+              フォルム選択を戻す
+            </button>
+          )}
         </div>
 
         <div className="small muted" style={{ marginTop: 6 }}>
-          {list.length} 系統 / {shownForms} フォルム表示中（全 {SPECIES.length} 系統・{ALL_FORMS.length} フォルム）
+          {list.length} 系統 / {shownForms} フォルム（全 {SPECIES.length} 系統・{ALL_FORMS.length} フォルム）
           {typeFilter.length > 0 && `　絞込み: ${typeFilter.join("・")}を含む`}
-          {sortKey !== "name" && list.some((x) => x.forms.length > 1) && "　※能力順では、その能力が最も高いフォルムを代表に表示します"}
         </div>
       </div>
 
       <div className={`panel dex-list ${compact ? "compact" : ""}`}>
-        {list.map(({ sp, forms, lead }) => {
+        {list.map(({ sp, forms, sel }) => {
           const isOpen = open.includes(sp.name);
-          const rest = forms.filter((f) => f !== lead);
+          const isOwned = owned.has(`${sp.name}/${sel.form}`);
           return (
             <div className="dex-row" key={sp.name}>
-              <FormRow sp={sp} f={lead} showLabel />
-              <button className="dex-more" onClick={() => toggleOpen(sp.name)} aria-expanded={isOpen}>
-                <span className={`card-caret ${isOpen ? "open" : ""}`}>▶</span>
-                {rest.length > 0 ? `他${rest.length}フォルム・弱点` : "弱点"}
-              </button>
-              {isOpen && (
-                <div className="dex-detail">
-                  <Weak f={lead} />
-                  {rest.map((f) => (
-                    <div key={f.form}>
-                      <FormRow sp={sp} f={f} showLabel />
-                      <Weak f={f} />
-                    </div>
+              {/* 1行目: 名前と追加ボタン */}
+              <div className="dex-head">
+                <span className="dex-name">
+                  {sel.label}
+                  {sp.megaOnly && <span className="small amber" title="メガシンカで初めてはがね化"> ⚑</span>}
+                  {isOwned && <span className="small dex-owned" title="すでに自軍にいます"> 自軍</span>}
+                </span>
+                <span className="dex-actions">
+                  <button
+                    className="btn small"
+                    title={starDisabled ? "★手持ちは最大6体まで" : "★手持ちに直接追加"}
+                    disabled={starDisabled}
+                    onClick={() => add(sp.name, sel.form, true)}
+                  >
+                    ★手持ち
+                  </button>
+                  <button className="btn small" title="ベンチへ追加" onClick={() => add(sp.name, sel.form, false)}>
+                    ＋ベンチ
+                  </button>
+                </span>
+              </div>
+
+              {/* 2行目: タイプ（幅を固定して縦に揃える）とフォルム切替 */}
+              <div className="dex-meta">
+                <span className="dex-types">
+                  {sel.types.map((t) => (
+                    <span key={t} className="tbadge" style={{ background: TYPE_COLORS[t] }}>{t}</span>
                   ))}
+                </span>
+                {forms.length > 1 && (
+                  <span className="dex-forms" title="表示するフォルムを切り替える">
+                    {forms.map((f) => (
+                      <button
+                        key={f.form}
+                        className={`form-chip ${f === sel ? "on" : ""}`}
+                        onClick={() => pickForm(sp.name, f.form)}
+                      >
+                        {f.short}
+                      </button>
+                    ))}
+                  </span>
+                )}
+                <button className="dex-more" onClick={() => toggleOpen(sp.name)} aria-expanded={isOpen}>
+                  <span className={`card-caret ${isOpen ? "open" : ""}`}>▶</span>
+                  弱点
+                </button>
+              </div>
+
+              {/* 3行目: 6つの種族値を等幅で並べる。行をまたいで縦に揃うので表と同じように読める */}
+              <div className="dex-stats">
+                {STAT_KEYS.map((k) => (
+                  <div className={`dex-stat ${sortKey === k ? "on" : ""}`} key={k} title={STAT_LABEL[k]}>
+                    <span className="k">{k}</span>
+                    <span className="v tnum">{sel.stats[k]}</span>
+                    {!compact && <span className="bar"><i style={{ width: `${(sel.stats[k] / STAT_MAX) * 100}%` }} /></span>}
+                  </div>
+                ))}
+                <div className={`dex-stat total ${sortKey === "total" ? "on" : ""}`} title="種族値合計">
+                  <span className="k">計</span>
+                  <span className="v tnum">{sel.total}</span>
+                  {!compact && <span className="bar" />}
+                </div>
+              </div>
+
+              {isOpen && (
+                /* はがね統一だと耐性は多いので、突かれる側だけ出す */
+                <div className="dex-weak">
+                  <span className="small muted">弱点</span>
+                  {sel.weak.length === 0 && <span className="small muted">なし</span>}
+                  {sel.weak.map((w) => (
+                    <span
+                      key={w.type}
+                      className={`weak-chip ${w.mul >= 4 ? "x4" : ""}`}
+                      style={{ borderColor: TYPE_COLORS[w.type] }}
+                    >
+                      {w.type}×{w.mul}
+                    </span>
+                  ))}
+                  {sel.immune.length > 0 && (
+                    <>
+                      <span className="small muted" style={{ marginLeft: 6 }}>無効</span>
+                      {sel.immune.map((t) => (
+                        <span key={t} className="weak-chip immune" style={{ borderColor: TYPE_COLORS[t] }}>{t}</span>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
             </div>
