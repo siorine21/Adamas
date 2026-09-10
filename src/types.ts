@@ -33,6 +33,7 @@ export interface Move {
   useTargetAtk?: boolean; // 相手のAでダメージ計算（イカサマ）
   targetB?: boolean; // 特殊技だが相手のBに与える（サイコショック系）
   ignoreDefRank?: boolean; // 相手の能力ランク変化を無視（せいなるつるぎ）
+  critUp?: boolean; // 急所ランク+1（きりさく等）
 }
 
 export interface RosterEntry {

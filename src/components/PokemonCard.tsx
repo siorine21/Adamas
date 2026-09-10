@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import type { Move, RosterEntry, StatKey } from "../types";
 import { useStore } from "../store";
 import {
@@ -10,6 +11,7 @@ import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { SelectMenu } from "./SelectMenu";
 import { ApSlider } from "./ApSlider";
 import { LockButton } from "./LockButton";
+import { ITEM_BY_NAME, ITEM_SUGGESTIONS } from "../data/items";
 
 interface Props {
   entry: RosterEntry;
@@ -21,6 +23,17 @@ interface Props {
 
 export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, onToggle }: Props) {
   const { updateEntry, removeEntry } = useStore();
+  // 一覧に無い持ち物（＝手入力したもの）は最初から手入力欄で開く
+  const [itemManual, setItemManual] = useState<boolean>(!!entry.item && !ITEM_BY_NAME[entry.item]);
+  const itemOpts = useMemo(() => [
+    { value: "", label: "（持ち物なし）" },
+    ...ITEM_SUGGESTIONS.map((i) => ({
+      value: i.name,
+      label: i.name,
+      sub: i.effect,
+      note: i.mc ? <span className="amber small">M-C</span> : undefined,
+    })),
+  ], []);
   const form = entry.forms[entry.activeForm] ?? entry.forms[0];
   const real = realStats(form.base, entry.ap, entry.nature);
   const apTotal = STAT_KEYS.reduce((s, k) => s + entry.ap[k], 0);
@@ -38,7 +51,9 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
     if (cur && !cur.includes("/") && !list.includes(cur)) list.push(cur);
     return list;
   })();
-  const { options, verified, status, source } = moveOptionsFor(entry.name);
+  const { options, verified, status, source, banned } = moveOptionsFor(entry.name);
+  // レギュレーションで禁止された技を選んでいたら残ってしまうので、選択中も見る
+  const bannedPicked = entry.moves.filter((m) => banned.includes(m.name.trim())).map((m) => m.name);
   // 同じ技を2つ以上入れられないように、他の枠で使っている技名を持っておく
   const moveNameCount = entry.moves.reduce<Record<string, number>>((acc, m) => {
     const n = m.name.trim();
@@ -167,14 +182,34 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
           )}
         </label>
         <label className="fld">
-          <span>持ち物</span>
-          <input
-            type="text"
-            className={itemDuplicated ? "warn" : ""}
-            value={entry.item}
-            placeholder="（自由入力）"
-            onChange={(e) => updateEntry(entry.key, { item: e.target.value })}
-          />
+          <span>
+            持ち物
+            {/* 一覧は攻略サイト由来で網羅とは限らないので、手入力もできるようにしておく */}
+            <button
+              type="button"
+              className="linkish small"
+              onClick={(e) => { e.preventDefault(); setItemManual((v) => !v); }}
+            >
+              {itemManual ? "一覧から選ぶ" : "手入力"}
+            </button>
+          </span>
+          {itemManual ? (
+            <input
+              type="text"
+              className={itemDuplicated ? "warn" : ""}
+              value={entry.item}
+              placeholder="（自由入力）"
+              onChange={(e) => updateEntry(entry.key, { item: e.target.value })}
+            />
+          ) : (
+            <SelectMenu
+              items={itemOpts}
+              value={entry.item}
+              placeholder="持ち物を選択…"
+              searchPlaceholder="持ち物名で検索"
+              onChange={(v) => updateEntry(entry.key, { item: v })}
+            />
+          )}
         </label>
         <label className="fld">
           <span>性格</span>
@@ -223,6 +258,12 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
       )}
       {verified && status === "full" && (
         <div className="banner info">習得技（全収録）: {source}</div>
+      )}
+      {banned.length > 0 && (
+        <div className={`banner ${bannedPicked.length > 0 ? "warn" : "info"}`}>
+          レギュレーションで使用禁止: {banned.join("・")}
+          {bannedPicked.length > 0 && `（${bannedPicked.join("・")}が入っています。外してください）`}
+        </div>
       )}
       {dupMoves.length > 0 && (
         <div className="banner warn">

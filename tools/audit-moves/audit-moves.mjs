@@ -25,7 +25,11 @@ import { fileURLToPath } from "node:url";
 const CHAMP_OVERRIDES = {
   // 本編ではくさタイプだが、チャンピオンズでははがね（2026/9 実機確認）
   "トラバサミ": { type: "はがね" },
+  // レギュM-Cで解禁。本編は威力70だがチャンピオンズは威力80・急所ランク+1
+  "きりさく": { power: 80 },
 };
+/* 命中率・PPのチャンピオンズ独自値は moves.ts の CHAMP_META 側で上書きしている
+   （moveMeta.ts は PokeAPI から再生成するため）。ここでは検証対象外。 */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BASE = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv";

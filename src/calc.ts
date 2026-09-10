@@ -73,17 +73,27 @@ function immunityByAbility(defAbility: string, moveType: string, moveName: strin
 
 export function computeDamage(p: DamageParams): DamageResult | null {
   const {
-    power, moveName, atkStat, defStat, atkRank, defRank, moveType, atkTypes, defTypes,
+    power, moveName, atkStat, defStat, atkRank, defRank, moveType: rawMoveType, atkTypes, defTypes,
     category, item, defItem, crit, weather, field, burn, wall, contact,
     atkAbility, defAbility, defHPFull, helpingHand, spread,
     atkStatused, defStatused, atkPinch, atkMovesLast, rivalry, protect, extraMul,
   } = p;
   if (!power || power <= 0) return null;
 
+  // スカイスキン（メガボーマンダ）: ノーマル技がひこう技になる。
+  // 相性・無効化・タイプ一致もひこうで判定するので、ここで型を差し替える。
+  const skin = atkAbility === "スカイスキン" && rawMoveType === "ノーマル";
+  const moveType = skin ? "ひこう" : rawMoveType;
+
   const flags = MOVE_FLAGS[moveName] ?? "";
   // かたやぶり: 防御側の特性（無効化・軽減）を無視する
   const breaks = atkAbility === "かたやぶり";
   const dAbil = breaks ? "" : defAbility;
+
+  // ふうせん（レギュM-Cで解禁）。持ち物なので かたやぶり では無視されない
+  if (defItem === "ふうせん" && moveType === "じめん") {
+    return { rolls: [], eff: 0, immune: true, immuneReason: "ふうせん" };
+  }
 
   const reason = immunityByAbility(dAbil, moveType, moveName);
   if (reason) return { rolls: [], eff: 0, immune: true, immuneReason: reason };
@@ -128,6 +138,9 @@ export function computeDamage(p: DamageParams): DamageResult | null {
   if (atkAbility === "メガランチャー" && flags.includes("pulse")) pow = pokeRound(pow * 1.5);
   if (atkAbility === "がんじょうあご" && flags.includes("bite")) pow = pokeRound(pow * 1.5);
   if (atkAbility === "きれあじ" && SLICING_MOVES.has(moveName)) pow = pokeRound(pow * 1.5);
+  if (atkAbility === "テクニシャン" && power <= 60) pow = pokeRound(pow * 1.5);
+  if (atkAbility === "パンクロック" && flags.includes("sound")) pow = pokeRound(pow * 1.3);
+  if (skin) pow = pokeRound(pow * 1.2); // スカイスキン
   if (atkAbility === "すてみ" && RECOIL_MOVES.has(moveName)) pow = pokeRound(pow * 1.2);
   if (atkAbility === "すなのちから" && weather === "すなあらし"
       && ["いわ", "じめん", "はがね"].includes(moveType)) pow = pokeRound(pow * 1.3);
@@ -152,9 +165,10 @@ export function computeDamage(p: DamageParams): DamageResult | null {
   }
   if (crit) base = Math.floor(base * 1.5);
 
-  const stab = atkTypes.includes(moveType)
-    ? (atkAbility === "てきおうりょく" ? 2.0 : 1.5)
-    : 1.0;
+  // リベロ／へんげんじざい・スカイスキンは撃つ技のタイプになるので常にタイプ一致
+  const sameType = atkTypes.includes(moveType) || skin
+    || atkAbility === "リベロ／へんげんじざい";
+  const stab = sameType ? (atkAbility === "てきおうりょく" ? 2.0 : 1.5) : 1.0;
   // ピンチ特性（自分のHPが1/3以下で該当タイプ1.5倍）
   const PINCH: Record<string, string> = {
     "しんりょく": "くさ", "もうか": "ほのお", "げきりゅう": "みず", "むしのしらせ": "むし",
@@ -175,11 +189,14 @@ export function computeDamage(p: DamageParams): DamageResult | null {
     if (item === "いのちのたま") d = pokeRound(d * 5324 / 4096);
     if (item === "たつじんのおび" && eff > 1) d = pokeRound(d * 1.2);
     if (item === "タイプ強化アイテム") d = pokeRound(d * 1.2);
+    if (item === "ノーマルジュエル" && moveType === "ノーマル") d = pokeRound(d * 1.3);
     if (dAbil === "フィルター／ハードロック／プリズムアーマー" && eff > 1) d = pokeRound(d * 0.75);
     if (dAbil === "マルチスケイル" && defHPFull) d = pokeRound(d * 0.5);
     if (dAbil === "ファーコート" && category === "物理") d = pokeRound(d * 0.5);
     if (dAbil === "こおりのりんぷん" && category === "特殊") d = pokeRound(d * 0.5);
     if (dAbil === "もふもふ" && contact) d = pokeRound(d * 0.5);
+    if (dAbil === "はどうのぼうご" && contact) d = pokeRound(d * 0.5);
+    if (dAbil === "パンクロック" && flags.includes("sound")) d = pokeRound(d * 0.5);
     if (dAbil === "もふもふ" && moveType === "ほのお") d = pokeRound(d * 2);
     if (dAbil === "たいねつ" && moveType === "ほのお") d = pokeRound(d * 0.5);
     if (dAbil === "あついしぼう" && (moveType === "ほのお" || moveType === "こおり")) d = pokeRound(d * 0.5);
