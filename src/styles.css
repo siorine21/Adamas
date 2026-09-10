@@ -532,8 +532,6 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 }
 .dex-name { font-weight: 600; color: var(--steel-hi); font-size: 13px; }
 .dex-owned { color: var(--green); }
-/* 追加ボタンは右端に寄せる（名前・タイプが伸びても位置が動かない） */
-.dex-add { margin-left: auto; flex: 0 0 auto; }
 
 .dex-stats {
   display: grid;
@@ -580,10 +578,59 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 }
 .sort-chip.on { border-color: var(--amber); color: var(--amber); }
 
+/* 系統をまとめたときの、2つめ以降のフォルムと弱点 */
+.dex-form + .dex-form, .dex-detail .dex-form { margin-top: 8px; }
+.dex-detail {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
+.dex-detail > div + div { margin-top: 8px; }
+.dex-more {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  margin-top: 5px;
+  padding: 3px 0 0;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.dex-more:hover { color: var(--steel); }
+
+/* 弱点チップ。はがね統一だと耐性は多いので、突かれる側だけ出す */
+.dex-weak { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 5px; }
+.weak-chip {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.weak-chip.x4 { color: var(--red); font-weight: 700; }
+.weak-chip.immune { color: var(--green); }
+
+/* コンパクト表示：バーと余白を省いて一度に多く見る */
+.dex-list.compact { gap: 4px; }
+.dex-list.compact .dex-row { padding: 5px 8px; }
+.dex-list.compact .dex-stats { margin-top: 2px; }
+.dex-list.compact .dex-more { margin-top: 3px; }
+
+/* 追加ボタン2つは右端にまとめる */
+.dex-actions { margin-left: auto; display: flex; gap: 4px; flex: 0 0 auto; }
+
 @media (max-width: 560px) {
   .dex-row { padding: 7px 8px; }
   .dex-name { font-size: 12px; }
   .dex-stat .v { font-size: 11px; }
+  .dex-actions .btn.small { padding: 4px 6px; font-size: 11px; }
 }
 
 /* ---------- フッター（URL表示・インストール案内） ---------- */
