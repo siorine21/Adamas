@@ -71,6 +71,18 @@ function immunityByAbility(defAbility: string, moveType: string, moveName: strin
   return null;
 }
 
+/** 補正を掛け合わせる（4096基準の固定小数点。本家と同じ丸め）。
+ *  順に掛けるのではなく一度に合成するので、途中の丸め誤差が出ない。 */
+function chainMods(mods: number[]): number {
+  let m = 4096;
+  for (const mod of mods) if (mod !== 4096) m = (m * mod + 2048) >> 12;
+  return m;
+}
+/** 倍率(1.3など)を4096基準の補正値に直す */
+const M = (x: number): number => Math.round(x * 4096);
+/** 4096基準の補正を適用（五捨五超入） */
+const applyMod = (v: number, mod: number): number => pokeRound((v * mod) / 4096);
+
 export function computeDamage(p: DamageParams): DamageResult | null {
   const {
     power, moveName, atkStat, defStat, atkRank, defRank, moveType: rawMoveType, atkTypes, defTypes,
@@ -104,27 +116,6 @@ export function computeDamage(p: DamageParams): DamageResult | null {
     return { rolls: [], eff: 0, immune: true, immuneReason: "まもる" };
   }
 
-  let aRank = atkRank, dRank = defRank;
-  if (crit) { aRank = Math.max(0, aRank); dRank = Math.min(0, dRank); }
-  let A = rankMul(atkStat, aRank);
-  let D = rankMul(defStat, dRank);
-
-  // 攻撃側の実数値補正
-  if (atkAbility === "ちからもち" || atkAbility === "ヨガパワー") A = Math.floor(A * 2);
-  if (atkAbility === "はりきり" && category === "物理") A = Math.floor(A * 1.5);
-  if (atkAbility === "こんじょう" && atkStatused) A = Math.floor(A * 1.5);
-  if (atkAbility === "サンパワー" && category === "特殊" && weather === "にほんばれ") A = Math.floor(A * 1.5);
-  if (item === "こだわりハチマキ" && category === "物理") A = Math.floor(A * 1.5);
-  if (item === "こだわりメガネ" && category === "特殊") A = Math.floor(A * 1.5);
-
-  // 防御側の実数値補正
-  if (defItem === "とつげきチョッキ" && category === "特殊") D = Math.floor(D * 1.5);
-  if (defItem === "しんかのきせき") D = Math.floor(D * 1.5);
-  if (dAbil === "ふしぎなうろこ" && defStatused && category === "物理") D = Math.floor(D * 1.5);
-  // 天候による防御補正（すなあらし=いわのD1.5 / ゆき=こおりのB1.5）
-  if (weather === "すなあらし" && defTypes.includes("いわ") && category === "特殊") D = Math.floor(D * 1.5);
-  if (weather === "ゆき" && defTypes.includes("こおり") && category === "物理") D = Math.floor(D * 1.5);
-
   let eff = 1;
   for (const t of defTypes) {
     const m = (CHART[moveType] || {})[t];
@@ -132,78 +123,116 @@ export function computeDamage(p: DamageParams): DamageResult | null {
   }
   if (eff === 0) return { rolls: [], eff, immune: true };
 
-  // 威力補正（技の威力そのものにかかるもの）
-  let pow = power;
-  if (atkAbility === "てつのこぶし" && flags.includes("punch")) pow = pokeRound(pow * 1.2);
-  if (atkAbility === "メガランチャー" && flags.includes("pulse")) pow = pokeRound(pow * 1.5);
-  if (atkAbility === "がんじょうあご" && flags.includes("bite")) pow = pokeRound(pow * 1.5);
-  if (atkAbility === "きれあじ" && SLICING_MOVES.has(moveName)) pow = pokeRound(pow * 1.5);
-  if (atkAbility === "テクニシャン" && power <= 60) pow = pokeRound(pow * 1.5);
-  if (atkAbility === "パンクロック" && flags.includes("sound")) pow = pokeRound(pow * 1.3);
-  if (skin) pow = pokeRound(pow * 1.2); // スカイスキン
-  if (atkAbility === "すてみ" && RECOIL_MOVES.has(moveName)) pow = pokeRound(pow * 1.2);
-  if (atkAbility === "すなのちから" && weather === "すなあらし"
-      && ["いわ", "じめん", "はがね"].includes(moveType)) pow = pokeRound(pow * 1.3);
-  if (atkAbility === "アナライズ" && atkMovesLast) pow = pokeRound(pow * 1.3);
-  if (atkAbility === "とうそうしん" && rivalry === "同性") pow = pokeRound(pow * 1.25);
-  if (atkAbility === "とうそうしん" && rivalry === "異性") pow = pokeRound(pow * 0.75);
-  if (helpingHand) pow = pokeRound(pow * 1.5);
-  // フィールド（設置側・被弾側ともに地上にいる前提）
-  if (field === "エレキフィールド" && moveType === "でんき") pow = pokeRound(pow * 1.3);
-  if (field === "サイコフィールド" && moveType === "エスパー") pow = pokeRound(pow * 1.3);
-  if (field === "グラスフィールド" && moveType === "くさ") pow = pokeRound(pow * 1.3);
-  if (field === "グラスフィールド" && GROUND_QUAKE.has(moveName)) pow = pokeRound(pow * 0.5);
-  if (field === "ミストフィールド" && moveType === "ドラゴン") pow = pokeRound(pow * 0.5);
+  /* ---------- ① 威力補正（技の威力にかかるもの・まとめて1回だけ丸める） ---------- */
+  // 条件で威力が変わる技（威力そのものが置き換わるもの）
+  let basePower = power;
+  if (moveName === "しっぺがえし" && atkMovesLast) basePower *= 2;
 
-  let base = Math.floor(Math.floor(Math.floor(22 * pow * A / D) / 50)) + 2;
+  const bpMods: number[] = [];
+  // 条件で威力が変わる技（補正として掛かるもの）
+  if (moveName === "からげんき" && atkStatused) bpMods.push(M(2));
+  if (moveName === "はたきおとす" && defItem !== "（なし）" && defItem !== "") bpMods.push(M(1.5));
+  // テクニシャンは「元の威力が60以下か」で判定する
+  if (atkAbility === "テクニシャン" && basePower <= 60) bpMods.push(M(1.5));
+  if (atkAbility === "メガランチャー" && flags.includes("pulse")) bpMods.push(M(1.5));
+  if (atkAbility === "がんじょうあご" && flags.includes("bite")) bpMods.push(M(1.5));
+  if (atkAbility === "きれあじ" && SLICING_MOVES.has(moveName)) bpMods.push(M(1.5));
+  if (atkAbility === "ちからずく") bpMods.push(5325);
+  if (atkAbility === "すなのちから" && weather === "すなあらし"
+      && ["いわ", "じめん", "はがね"].includes(moveType)) bpMods.push(5325);
+  if (atkAbility === "アナライズ" && atkMovesLast) bpMods.push(5325);
+  if (atkAbility === "かたいツメ" && contact) bpMods.push(5325);
+  if (atkAbility === "パンクロック" && flags.includes("sound")) bpMods.push(5325);
+  if (atkAbility === "とうそうしん" && rivalry === "同性") bpMods.push(M(1.25));
+  if (atkAbility === "とうそうしん" && rivalry === "異性") bpMods.push(M(0.75));
+  if (skin) bpMods.push(4915); // スカイスキン
+  if (atkAbility === "すてみ" && RECOIL_MOVES.has(moveName)) bpMods.push(4915);
+  if (atkAbility === "てつのこぶし" && flags.includes("punch")) bpMods.push(4915);
+  if (dAbil === "たいねつ" && moveType === "ほのお") bpMods.push(M(0.5));
+  if (helpingHand) bpMods.push(M(1.5));
+  if (item === "タイプ強化アイテム") bpMods.push(4915);
+  if (item === "ノーマルジュエル" && moveType === "ノーマル") bpMods.push(5325);
+  // フィールド（設置側・被弾側ともに地上にいる前提）
+  if (field === "エレキフィールド" && moveType === "でんき") bpMods.push(5325);
+  if (field === "サイコフィールド" && moveType === "エスパー") bpMods.push(5325);
+  if (field === "グラスフィールド" && moveType === "くさ") bpMods.push(5325);
+  if (field === "グラスフィールド" && GROUND_QUAKE.has(moveName)) bpMods.push(M(0.5));
+  if (field === "ミストフィールド" && moveType === "ドラゴン") bpMods.push(M(0.5));
+  const pow = Math.max(1, applyMod(basePower, chainMods(bpMods)));
+
+  /* ---------- ② 攻撃の補正 ---------- */
+  let aRank = atkRank, dRank = defRank;
+  if (crit) { aRank = Math.max(0, aRank); dRank = Math.min(0, dRank); }
+  let A = rankMul(atkStat, aRank);
+  // はりきりだけは連鎖に入らず単独で掛かる
+  if (atkAbility === "はりきり" && category === "物理") A = pokeRound((A * 3) / 2);
+  const atMods: number[] = [];
+  if (atkAbility === "ちからもち" || atkAbility === "ヨガパワー") atMods.push(M(2));
+  if (atkAbility === "こんじょう" && atkStatused) atMods.push(M(1.5));
+  if (atkAbility === "サンパワー" && category === "特殊" && weather === "にほんばれ") atMods.push(M(1.5));
+  // ピンチ特性（自分のHPが1/3以下で該当タイプの攻撃が1.5倍）
+  const PINCH: Record<string, string> = {
+    "しんりょく": "くさ", "もうか": "ほのお", "げきりゅう": "みず", "むしのしらせ": "むし",
+  };
+  if (PINCH[atkAbility] && atkPinch && moveType === PINCH[atkAbility]) atMods.push(M(1.5));
+  if (dAbil === "あついしぼう" && (moveType === "ほのお" || moveType === "こおり")) atMods.push(M(0.5));
+  if (item === "こだわりハチマキ" && category === "物理") atMods.push(M(1.5));
+  if (item === "こだわりメガネ" && category === "特殊") atMods.push(M(1.5));
+  A = Math.max(1, applyMod(A, chainMods(atMods)));
+
+  /* ---------- ③ 防御の補正 ---------- */
+  let D = rankMul(defStat, dRank);
+  // 天候による防御補正（すなあらし=いわのD1.5 / ゆき=こおりのB1.5）は連鎖の前
+  if (weather === "すなあらし" && defTypes.includes("いわ") && category === "特殊") D = Math.floor(D * 1.5);
+  if (weather === "ゆき" && defTypes.includes("こおり") && category === "物理") D = Math.floor(D * 1.5);
+  const dfMods: number[] = [];
+  if (dAbil === "ふしぎなうろこ" && defStatused && category === "物理") dfMods.push(M(1.5));
+  if (dAbil === "ファーコート" && category === "物理") dfMods.push(M(2));
+  if (defItem === "とつげきチョッキ" && category === "特殊") dfMods.push(M(1.5));
+  if (defItem === "しんかのきせき") dfMods.push(M(1.5));
+  D = Math.max(1, applyMod(D, chainMods(dfMods)));
+
+  /* ---------- ④ 基本ダメージ（乱数の前にかかる補正） ---------- */
+  let base = Math.floor(Math.floor(Math.floor(22 * pow * A / D) / 50) + 2);
+  if (spread) base = applyMod(base, 3072); // 複数体攻撃 0.75倍
   if (weather === "にほんばれ") {
-    if (moveType === "ほのお") base = Math.floor(base * 1.5);
-    if (moveType === "みず") base = Math.floor(base * 0.5);
+    if (moveType === "ほのお") base = applyMod(base, 6144);
+    if (moveType === "みず") base = applyMod(base, 2048);
   } else if (weather === "あまごい") {
-    if (moveType === "みず") base = Math.floor(base * 1.5);
-    if (moveType === "ほのお") base = Math.floor(base * 0.5);
+    if (moveType === "みず") base = applyMod(base, 6144);
+    if (moveType === "ほのお") base = applyMod(base, 2048);
   }
   if (crit) base = Math.floor(base * 1.5);
+
+  /* ---------- ⑤ 最終補正（乱数のあと・まとめて1回だけ丸める） ---------- */
+  const finalMods: number[] = [];
+  if (wall && !crit) finalMods.push(spread ? 2732 : 2048);
+  if (atkAbility === "スナイパー" && crit) finalMods.push(M(1.5));
+  if (item === "いのちのたま") finalMods.push(5324);
+  if (item === "たつじんのおび" && eff > 1) finalMods.push(4915);
+  if (dAbil === "フィルター／ハードロック／プリズムアーマー" && eff > 1) finalMods.push(3072);
+  if (dAbil === "マルチスケイル" && defHPFull) finalMods.push(M(0.5));
+  if (dAbil === "こおりのりんぷん" && category === "特殊") finalMods.push(M(0.5));
+  if (dAbil === "もふもふ" && contact) finalMods.push(M(0.5));
+  if (dAbil === "はどうのぼうご" && contact) finalMods.push(M(0.5));
+  if (dAbil === "パンクロック" && flags.includes("sound")) finalMods.push(M(0.5));
+  if (dAbil === "もふもふ" && moveType === "ほのお") finalMods.push(M(2));
+  if (extraMul !== 1) finalMods.push(M(extraMul));
+  const finalMod = chainMods(finalMods);
 
   // リベロ／へんげんじざい・スカイスキンは撃つ技のタイプになるので常にタイプ一致
   const sameType = atkTypes.includes(moveType) || skin
     || atkAbility === "リベロ／へんげんじざい";
-  const stab = sameType ? (atkAbility === "てきおうりょく" ? 2.0 : 1.5) : 1.0;
-  // ピンチ特性（自分のHPが1/3以下で該当タイプ1.5倍）
-  const PINCH: Record<string, string> = {
-    "しんりょく": "くさ", "もうか": "ほのお", "げきりゅう": "みず", "むしのしらせ": "むし",
-  };
-  const pinchType = PINCH[atkAbility];
+  const stabMod = sameType ? (atkAbility === "てきおうりょく" ? 8192 : 6144) : 4096;
 
   const rolls: number[] = [];
   for (let r = 85; r <= 100; r++) {
     let d = Math.floor(base * r / 100);
-    if (stab > 1) d = pokeRound(d * stab);
-    d = Math.floor(d * eff);
-    if (burn && category === "物理" && atkAbility !== "こんじょう") d = Math.floor(d * 0.5);
-    if (wall && !crit) d = pokeRound(d * (spread ? 2732 / 4096 : 0.5));
-    if (pinchType && atkPinch && moveType === pinchType) d = pokeRound(d * 1.5);
-    if (atkAbility === "かたいツメ" && contact) d = pokeRound(d * 1.3);
-    if (atkAbility === "ちからずく") d = pokeRound(d * 1.3);
-    if (atkAbility === "スナイパー" && crit) d = pokeRound(d * 1.5);
-    if (item === "いのちのたま") d = pokeRound(d * 5324 / 4096);
-    if (item === "たつじんのおび" && eff > 1) d = pokeRound(d * 1.2);
-    if (item === "タイプ強化アイテム") d = pokeRound(d * 1.2);
-    if (item === "ノーマルジュエル" && moveType === "ノーマル") d = pokeRound(d * 1.3);
-    if (dAbil === "フィルター／ハードロック／プリズムアーマー" && eff > 1) d = pokeRound(d * 0.75);
-    if (dAbil === "マルチスケイル" && defHPFull) d = pokeRound(d * 0.5);
-    if (dAbil === "ファーコート" && category === "物理") d = pokeRound(d * 0.5);
-    if (dAbil === "こおりのりんぷん" && category === "特殊") d = pokeRound(d * 0.5);
-    if (dAbil === "もふもふ" && contact) d = pokeRound(d * 0.5);
-    if (dAbil === "はどうのぼうご" && contact) d = pokeRound(d * 0.5);
-    if (dAbil === "パンクロック" && flags.includes("sound")) d = pokeRound(d * 0.5);
-    if (dAbil === "もふもふ" && moveType === "ほのお") d = pokeRound(d * 2);
-    if (dAbil === "たいねつ" && moveType === "ほのお") d = pokeRound(d * 0.5);
-    if (dAbil === "あついしぼう" && (moveType === "ほのお" || moveType === "こおり")) d = pokeRound(d * 0.5);
-    if (spread) d = pokeRound(d * 0.75);
-    if (extraMul !== 1) d = pokeRound(d * extraMul);
-    if (d < 1) d = 1;
-    rolls.push(d);
+    if (stabMod !== 4096) d = (d * stabMod) / 4096;
+    d = Math.floor(pokeRound(d) * eff);
+    // からげんきは やけどの物理半減を受けない。こんじょうも同様。
+    if (burn && category === "物理" && atkAbility !== "こんじょう" && moveName !== "からげんき") d = Math.floor(d / 2);
+    rolls.push(pokeRound(Math.max(1, (d * finalMod) / 4096)));
   }
   return { rolls, eff, immune: false };
 }
