@@ -40,26 +40,42 @@ async function wazaOf(page, url) {
     for (const tbl of document.querySelectorAll("table")) {
       const head = tbl.querySelector("tr")?.innerText || "";
       if (!(head.includes("わざ名") && head.includes("威力"))) continue; // 覚えるワザ表のみ
+      // 見出しの列名から「威力」「命中」の位置を割り出す（列順はページで変わりうる）
+      const cols = [...(tbl.querySelector("tr")?.querySelectorAll("th,td") ?? [])]
+        .map((c) => (c.textContent || "").trim());
+      const powCol = cols.findIndex((c) => c.includes("威力"));
+      const accCol = cols.findIndex((c) => c.includes("命中"));
       const set = new Set();
+      const stats = {};
       for (const row of tbl.querySelectorAll("tr")) {
-        const c = row.querySelector("td");
+        const cells = [...row.querySelectorAll("td")];
+        const c = cells[0];
         if (!c) continue;
         const nm = (c.textContent || "").trim();
-        if (nm && nm.length <= 12 && /[ぁ-んァ-ヶ一-龠]/.test(nm)) set.add(nm);
+        if (!(nm && nm.length <= 12 && /[ぁ-んァ-ヶ一-龠]/.test(nm))) continue;
+        set.add(nm);
+        // 威力・命中も控えて、アプリの技ライブラリと突き合わせられるようにする
+        const num = (i) => {
+          if (i < 0 || !cells[i]) return null;
+          const t = (cells[i].textContent || "").trim();
+          return /^\d+$/.test(t) ? Number(t) : null;
+        };
+        const pow = num(powCol), acc = num(accCol);
+        if (pow !== null || acc !== null) stats[nm] = { power: pow, acc };
       }
       // 表の直前の見出しも拾う（「ニャースが覚えるワザ」等の判別用）
       let caption = "";
       for (let el = tbl.previousElementSibling; el && !caption; el = el.previousElementSibling) {
         if (/^H[1-6]$/.test(el.tagName)) caption = (el.textContent || "").trim();
       }
-      if (set.size > 0) tables.push({ caption, moves: [...set] });
+      if (set.size > 0) tables.push({ caption, moves: [...set], stats });
     }
     return tables;
   });
 }
 
 (async () => {
-  const result = {}, log = [];
+  const result = {}, stats = {}, log = [];
   const browser = await chromium.launch({ args: ["--no-sandbox"] });
   const page = await (await browser.newContext({
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
@@ -82,6 +98,8 @@ async function wazaOf(page, url) {
         const champ = tables.filter((x) => x.caption.includes("チャンピオンズ"));
         const use = champ.length > 0 ? champ : tables; // 見出しが変わったときは従来どおり全部
         result[t] = [...new Set(use.flatMap((x) => x.moves))];
+        // 威力・命中はチャンピオンズ表のものだけ集める（本編の表と混ざると意味が無い）
+        for (const x of champ) for (const [n, v] of Object.entries(x.stats)) stats[n] = v;
         log.push(`${t}: ${result[t].length}技`
           + (champ.length === 0 ? "（※チャンピオンズ表が見つからず全表を採用）" : "")
           + ` / 全表 ${tables.map((x) => `[${x.caption || "見出し不明"}:${x.moves.length}]`).join("")}`);
@@ -91,6 +109,8 @@ async function wazaOf(page, url) {
   } catch (e) { log.push("FATAL " + e.message); }
   const outDir = "tools/scrape-learnsets";
   fs.writeFileSync(outDir + "/champ_moves.json", JSON.stringify(result, null, 1));
+  // 技名 → {威力, 命中}。tools/audit-moves がアプリの技ライブラリと突き合わせる
+  fs.writeFileSync(outDir + "/champ_move_stats.json", JSON.stringify(stats, null, 1));
   fs.writeFileSync(outDir + "/scrape_log.txt", log.join("\n"));
   console.log(log.join("\n"));
   await browser.close();
