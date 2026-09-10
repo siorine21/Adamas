@@ -29,6 +29,8 @@ const CHAMP_OVERRIDES = {
   "きりさく": { power: 80 },
   // 本編は威力90だがチャンピオンズは威力100（2026/9 実機確認）
   "であいがしら": { power: 100 },
+  // 本編は威力25だがチャンピオンズは威力30（AppMediaの習得表）
+  "ボーンラッシュ": { power: 30 },
 };
 /* 命中率・PPのチャンピオンズ独自値は moves.ts の CHAMP_META 側で上書きしている
    （moveMeta.ts は PokeAPI から再生成するため）。ここでは検証対象外。 */
@@ -136,7 +138,47 @@ if (fs.existsSync(champPath)) {
   for (const n of missing) problems.push(`習得表にあるがMOVE_LIBに無い: ${n}`);
 }
 
+/* AppMedia の「チャンピオンズで覚える技」表に載っている威力・命中と突き合わせる。
+   本編（PokeAPI）ではなくチャンピオンズ実機の値なので、ここで出た差は
+   CHAMP_OVERRIDES / CHAMP_META に入れるべきチャンピオンズ独自の値。 */
+const statsPath = path.join(ROOT, "tools/scrape-learnsets/champ_move_stats.json");
+// moves.ts の CHAMP_META（命中・PPのチャンピオンズ独自値）も読む
+const champMeta = new Map();
+{
+  const block = /const CHAMP_META[^{]*\{([\s\S]*?)\n\};/.exec(src);
+  if (block) {
+    for (const m of block[1].matchAll(/"([^"]+)":\s*\{([^}]*)\}/g)) {
+      const o = {};
+      for (const kv of m[2].matchAll(/(acc|pp):\s*(\d+)/g)) o[kv[1]] = Number(kv[2]);
+      champMeta.set(m[1], o);
+    }
+  }
+}
+let champChecked = 0;
+if (fs.existsSync(statsPath)) {
+  const cs = JSON.parse(fs.readFileSync(statsPath, "utf8"));
+  const byName = new Map(lib.map((m) => [m.name, m]));
+  for (const [name, v] of Object.entries(cs)) {
+    const m = byName.get(name);
+    if (!m) continue;
+    champChecked += 1;
+    if (v.power != null && v.power !== m.power) {
+      problems.push(`威力(チャンピオンズ): ${name} アプリ=${m.power} AppMedia=${v.power}`);
+    }
+    const mt = meta.get(name);
+    const acc = champMeta.get(name)?.acc ?? mt?.[0];
+    if (v.acc != null && acc != null && acc !== v.acc) {
+      problems.push(`命中(チャンピオンズ): ${name} アプリ=${acc} AppMedia=${v.acc}`);
+    }
+  }
+}
+
 console.log(`MOVE_LIB ${lib.length}技 / moveMeta ${meta.size}技 を検証しました。`);
+if (champChecked > 0) {
+  console.log(`うち ${champChecked}技は AppMedia の習得表（チャンピオンズ実機の威力・命中）とも照合しました。`);
+} else {
+  console.log("※ champ_move_stats.json が無いため、チャンピオンズ実機の威力・命中とは照合していません。");
+}
 if (overridden.length > 0) {
   console.log(`\nチャンピオンズ独自の値として扱った技 ${overridden.length}件:`);
   for (const o of overridden) console.log("  " + o);
