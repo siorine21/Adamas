@@ -10,3 +10,4 @@ tsconfig.tsbuildinfo
 # 取得ツールの出力（bot/* ブランチにだけ載せる）
 tools/fetch-pages/out/
 tools/scrape-learnsets/scrape_log.txt
+tools/verify-damage/ours.mjs
