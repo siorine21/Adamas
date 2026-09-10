@@ -324,24 +324,22 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
 
 /* ---------- tables ---------- */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-table.dex, table.spd {
+table.spd {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  /* 2列構成なので画面幅に収める（折り返し可） */
+  min-width: 0;
 }
-/* 種族値が並ぶ図鑑は横スクロール前提で最小幅を確保 */
-table.dex { min-width: 560px; }
-/* 素早さ比較は2列構成なので画面幅に収める（折り返し可） */
-table.spd { min-width: 0; }
 table.spd th, table.spd td { white-space: normal; }
 table.spd th.num, table.spd td.num { white-space: nowrap; width: 1%; }
-table.dex th, table.dex td, table.spd th, table.spd td {
+table.spd th, table.spd td {
   padding: 6px 8px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   white-space: nowrap;
 }
-table.dex th, table.spd th {
+table.spd th {
   color: var(--steel);
   font-size: 11px;
   cursor: pointer;
@@ -350,8 +348,8 @@ table.dex th, table.spd th {
   top: 0;
   background: var(--panel);
 }
-table.dex td.num, table.spd td.num { text-align: right; font-variant-numeric: tabular-nums; }
-table.dex tbody tr:hover, table.spd tbody tr:hover { background: rgba(127, 168, 207, 0.06); }
+table.spd td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.spd tbody tr:hover { background: rgba(127, 168, 207, 0.06); }
 .spd .me { color: var(--steel-hi); font-weight: 600; }
 .spd tr.self-row { background: rgba(127, 168, 207, 0.10); }
 .spd tr.bench-row { background: rgba(217, 164, 65, 0.09); }
@@ -510,20 +508,83 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
   .tabbar { gap: 4px; }
   .tabbar button { font-size: 12px; padding: 8px 2px; }
 
-  /* 表をコンパクトにして横スクロール量を減らす */
-  table.dex th, table.dex td, table.spd th, table.spd td { padding: 4px 5px; font-size: 11px; }
-  table.dex { min-width: 470px; }
+  /* 表をコンパクトにする */
+  table.spd th, table.spd td { padding: 4px 5px; font-size: 11px; }
   .tbadge { padding: 1px 5px; font-size: 10px; }
-  table.dex { font-size: 11px; }
 }
 
-/* 横スクロールできる表であることを示すヒント */
-.scroll-hint {
-  font-size: 10px;
-  color: var(--dim);
-  margin-bottom: 4px;
+/* ---------- はがね図鑑のリスト ----------
+   以前は表（横スクロール前提）だったが、スマホで種族値まで見るのに毎回
+   横スクロールが要るため、1件を1カードにして縦だけで読めるようにした。
+   種族値は6列グリッドなので、行をまたいでも縦位置が揃い表と同じように比べられる。 */
+.dex-list { display: flex; flex-direction: column; gap: 6px; }
+.dex-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: var(--panel2);
 }
-@media (min-width: 561px) { .scroll-hint { display: none; } }
+.dex-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.dex-name { font-weight: 600; color: var(--steel-hi); font-size: 13px; }
+.dex-owned { color: var(--green); }
+/* 追加ボタンは右端に寄せる（名前・タイプが伸びても位置が動かない） */
+.dex-add { margin-left: auto; flex: 0 0 auto; }
+
+.dex-stats {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px 4px;
+  margin-top: 5px;
+}
+/* 「H 80」を1行に収めて、1件あたりの高さを抑える */
+.dex-stat {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+}
+.dex-stat .k { font-size: 10px; color: var(--dim); line-height: 1.2; }
+.dex-stat .v { font-size: 12px; line-height: 1.3; }
+.dex-stat.total .v { color: var(--steel-hi); font-weight: 600; }
+/* 並び替えに使っている能力を目立たせる */
+.dex-stat.on .k, .dex-stat.on .v { color: var(--amber); }
+.dex-stat .bar {
+  flex: 0 0 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(127, 168, 207, 0.15);
+  margin-top: 2px;
+  overflow: hidden;
+}
+.dex-stat .bar i { display: block; height: 100%; background: var(--steel); }
+.dex-stat.on .bar i { background: var(--amber); }
+.dex-stat.total .bar { background: none; }
+
+/* 表ヘッダーのタップに代わる並び替え操作 */
+.sort-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.sort-chip {
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--dim);
+  cursor: pointer;
+}
+.sort-chip.on { border-color: var(--amber); color: var(--amber); }
+
+@media (max-width: 560px) {
+  .dex-row { padding: 7px 8px; }
+  .dex-name { font-size: 12px; }
+  .dex-stat .v { font-size: 11px; }
+}
 
 /* ---------- フッター（URL表示・インストール案内） ---------- */
 .app-footer {
