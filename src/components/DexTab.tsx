@@ -4,6 +4,8 @@ import { useStore } from "../store";
 import { DEX } from "../data/dex";
 import { MAX_STARRED, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS } from "../data/game";
 import { typeEffectiveness } from "../calc";
+import { BANNED_MOVES, LEARNSETS, MOVE_BY_NAME } from "../data/moves";
+import type { Move } from "../types";
 import { displayName, entryFromDex } from "../data/roster";
 import { usePersistedState } from "../uiState";
 
@@ -59,6 +61,25 @@ const SPECIES: Species[] = DEX.map((d) => ({
   }),
 }));
 
+/** 系統ごとに「覚える技をタイプ別にまとめたもの」。
+ *  例: こおりを選ぶと、こおり技を覚える系統だけに絞って技名を出せる。
+ *  レギュレーションで没収された技は除く。並びは 威力の高い順（変化技は最後）。 */
+const MOVES_BY_TYPE: Record<string, Record<string, Move[]>> = {};
+for (const sp of SPECIES) {
+  const banned = BANNED_MOVES[sp.name] ?? [];
+  const byType: Record<string, Move[]> = {};
+  for (const n of LEARNSETS[sp.name]?.moves ?? []) {
+    if (banned.includes(n)) continue;
+    const m = MOVE_BY_NAME[n];
+    if (!m) continue;
+    (byType[m.type] ??= []).push(m);
+  }
+  for (const list of Object.values(byType)) {
+    list.sort((a, b) => (b.power || -1) - (a.power || -1) || a.name.localeCompare(b.name, "ja"));
+  }
+  MOVES_BY_TYPE[sp.name] = byType;
+}
+
 const ALL_FORMS = SPECIES.flatMap((s) => s.forms);
 /** 種族値バーの基準。図鑑内の最大値に合わせると差が見やすい */
 const STAT_MAX = Math.max(...ALL_FORMS.flatMap((f) => STAT_KEYS.map((k) => f.stats[k])));
@@ -77,6 +98,9 @@ export function DexTab() {
   const [q, setQ] = useState(""); // 検索語は一時的なものなので保存しない
   const [typeFilter, setTypeFilter] = usePersistedState<string[]>(
     "dex.types", [], (v) => Array.isArray(v) && v.every((x) => typeof x === "string"));
+  // タイプボタンの意味。self=本人のタイプ / move=覚える技のタイプ
+  const [typeMode, setTypeMode] = usePersistedState<"self" | "move">(
+    "dex.typeMode", "self", (v) => v === "self" || v === "move");
   const [megaOnly, setMegaOnly] = usePersistedState("dex.megaOnly", false, (v) => typeof v === "boolean");
   const [sortKey, setSortKey] = usePersistedState<SortKey>(
     "dex.sortKey", "total", (v) => SORT_KEYS.includes(v as SortKey));
@@ -106,18 +130,28 @@ export function DexTab() {
    *  並び替えは「表示しているフォルムの値」で行うので、見えている数字と順位が一致する。 */
   const list = useMemo(() => {
     const qq = q.trim();
-    const out: { sp: Species; forms: Form[]; sel: Form; sortVal: number }[] = [];
+    const out: { sp: Species; forms: Form[]; sel: Form; sortVal: number; hitMoves: Move[] }[] = [];
     for (const sp of SPECIES) {
       if (megaOnly && !sp.megaOnly) continue;
       let forms = sp.forms;
-      if (typeFilter.length > 0) forms = forms.filter((f) => typeFilter.every((t) => f.types.includes(t)));
+      // 覚える技で絞るときはフォルムではなく系統で判定する（習得技は系統で共通）
+      const hitMoves: Move[] = [];
+      if (typeFilter.length > 0) {
+        if (typeMode === "move") {
+          const byType = MOVES_BY_TYPE[sp.name] ?? {};
+          if (!typeFilter.every((t) => (byType[t]?.length ?? 0) > 0)) continue;
+          for (const t of typeFilter) hitMoves.push(...(byType[t] ?? []));
+        } else {
+          forms = forms.filter((f) => typeFilter.every((t) => f.types.includes(t)));
+        }
+      }
       if (qq && !sp.name.includes(qq)) forms = forms.filter((f) => f.label.includes(qq));
       if (forms.length === 0) continue;
       const auto = sortKey === "name"
         ? forms[0]
         : forms.reduce((a, b) => (valueOf(b, sortKey) > valueOf(a, sortKey) ? b : a));
       const sel = forms.find((f) => f.form === picked[sp.name]) ?? auto;
-      out.push({ sp, forms, sel, sortVal: valueOf(sel, sortKey) });
+      out.push({ sp, forms, sel, sortVal: valueOf(sel, sortKey), hitMoves });
     }
     return out.sort((a, b) => {
       if (sortKey === "name") {
@@ -125,7 +159,7 @@ export function DexTab() {
       }
       return asc ? a.sortVal - b.sortVal : b.sortVal - a.sortVal;
     });
-  }, [q, typeFilter, megaOnly, sortKey, asc, picked]);
+  }, [q, typeFilter, typeMode, megaOnly, sortKey, asc, picked]);
 
   const shownForms = list.reduce((n, x) => n + x.forms.length, 0);
 
@@ -173,8 +207,26 @@ export function DexTab() {
             <button className="btn small" onClick={() => setTypeFilter([])}>タイプ絞込み解除</button>
           )}
         </div>
-        <div className="filter-types" style={{ marginTop: 8 }}>
-          {USED_TYPES.map((t) => (
+        {/* タイプボタンの意味を切り替える。「覚える技」なら、そのタイプの技を
+            覚える系統だけに絞り、該当する技名をカードに出す */}
+        <div className="row tight" style={{ marginTop: 8 }}>
+          <span className="small muted">タイプで絞る</span>
+          <button
+            className={`sort-chip ${typeMode === "self" ? "on" : ""}`}
+            onClick={() => setTypeMode("self")}
+          >
+            本人のタイプ
+          </button>
+          <button
+            className={`sort-chip ${typeMode === "move" ? "on" : ""}`}
+            onClick={() => setTypeMode("move")}
+            title="そのタイプの技を覚えるポケモンを探す"
+          >
+            覚える技
+          </button>
+        </div>
+        <div className="filter-types" style={{ marginTop: 6 }}>
+          {(typeMode === "move" ? TYPES : USED_TYPES).map((t) => (
             <button
               key={t}
               className={typeFilter.includes(t) ? "on" : ""}
@@ -208,12 +260,14 @@ export function DexTab() {
 
         <div className="small muted" style={{ marginTop: 6 }}>
           {list.length} 系統 / {shownForms} フォルム（全 {SPECIES.length} 系統・{ALL_FORMS.length} フォルム）
-          {typeFilter.length > 0 && `　絞込み: ${typeFilter.join("・")}を含む`}
+          {typeFilter.length > 0 && (typeMode === "move"
+            ? `　絞込み: ${typeFilter.join("・")}の技を覚える`
+            : `　絞込み: ${typeFilter.join("・")}を含む`)}
         </div>
       </div>
 
       <div className={`panel dex-list ${compact ? "compact" : ""}`}>
-        {list.map(({ sp, forms, sel }) => {
+        {list.map(({ sp, forms, sel, hitMoves }) => {
           const isOpen = open.includes(sp.name);
           const isOwned = owned.has(`${sp.name}/${sel.form}`);
           return (
@@ -281,6 +335,18 @@ export function DexTab() {
                   {!compact && <span className="bar" />}
                 </div>
               </div>
+
+              {/* 「覚える技」で絞ったときは、該当する技をそのまま並べる */}
+              {hitMoves.length > 0 && (
+                <div className="dex-hits">
+                  {hitMoves.map((m) => (
+                    <span key={m.name} className="hit-chip" style={{ borderColor: TYPE_COLORS[m.type] }}>
+                      {m.name}
+                      <i>{m.power > 0 ? m.power : m.cat === "変化" ? "変化" : "可変"}</i>
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {isOpen && (
                 /* はがね統一だと耐性は多いので、突かれる側だけ出す */

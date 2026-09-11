@@ -30,7 +30,7 @@ export function MoveSelect({
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const popStyle = usePopupPlacement(open, ref);
+  const { style: popStyle, sheet } = usePopupPlacement(open, ref);
   const selected = moves.find((m) => m.name === value);
 
   useEffect(() => {
@@ -77,9 +77,13 @@ export function MoveSelect({
         )}
         <span className="mvsel-caret">▾</span>
       </button>
+      {open && sheet && (
+        /* 画面下部のシートで開いているときの背景。タップで閉じる */
+        <div className="mvsel-veil" onClick={(e) => { e.preventDefault(); close(); }} />
+      )}
       {open && (
         <div
-          className="mvsel-pop"
+          className={`mvsel-pop ${sheet ? "sheet" : ""}`}
           role="listbox"
           style={popStyle}
           // このメニューは <label> の中に置かれることがある。ラベル内のクリックは
@@ -97,6 +101,7 @@ export function MoveSelect({
               onChange={(e) => setQuery(e.target.value)}
             />
           )}
+          <div className="mvsel-list">
           {clearLabel && onClear && !query && (
             <button type="button" className="mvsel-opt special" onClick={() => { onClear(); close(); }}>
               {clearLabel}
@@ -125,6 +130,7 @@ export function MoveSelect({
               ✏️ {manualLabel}
             </button>
           )}
+          </div>
         </div>
       )}
     </div>

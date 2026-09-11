@@ -32,7 +32,7 @@ export function SelectMenu({
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const popStyle = usePopupPlacement(open, ref);
+  const { style: popStyle, sheet } = usePopupPlacement(open, ref);
   const showSearch = searchable ?? items.length > 12;
   const selected = items.find((i) => i.value === value);
 
@@ -82,9 +82,13 @@ export function SelectMenu({
         )}
         <span className="mvsel-caret">▾</span>
       </button>
+      {open && sheet && (
+        /* 画面下部のシートで開いているときの背景。タップで閉じる */
+        <div className="mvsel-veil" onClick={(e) => { e.preventDefault(); setOpen(false); }} />
+      )}
       {open && (
         <div
-          className="mvsel-pop"
+          className={`mvsel-pop ${sheet ? "sheet" : ""}`}
           role="listbox"
           style={popStyle}
           // このメニューは <label> の中に置かれることがある。ラベル内のクリックは
@@ -102,6 +106,7 @@ export function SelectMenu({
               onChange={(e) => setQuery(e.target.value)}
             />
           )}
+          <div className="mvsel-list">
           {filtered.map((i) => (
             <button
               type="button"
@@ -123,6 +128,7 @@ export function SelectMenu({
             </button>
           ))}
           {filtered.length === 0 && <div className="mvsel-empty muted">該当なし</div>}
+          </div>
         </div>
       )}
     </div>
