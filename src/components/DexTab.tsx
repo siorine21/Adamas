@@ -8,6 +8,7 @@ import { BANNED_MOVES, LEARNSETS, MOVE_BY_NAME } from "../data/moves";
 import type { Move } from "../types";
 import { displayName, entryFromDex } from "../data/roster";
 import { usePersistedState } from "../uiState";
+import { kanaMatcher } from "../search";
 
 /** 1フォルム */
 interface Form {
@@ -130,6 +131,7 @@ export function DexTab() {
    *  並び替えは「表示しているフォルムの値」で行うので、見えている数字と順位が一致する。 */
   const list = useMemo(() => {
     const qq = q.trim();
+    const hitQ = kanaMatcher(q);
     const out: { sp: Species; forms: Form[]; sel: Form; sortVal: number; hitMoves: Move[] }[] = [];
     for (const sp of SPECIES) {
       if (megaOnly && !sp.megaOnly) continue;
@@ -145,7 +147,7 @@ export function DexTab() {
           forms = forms.filter((f) => typeFilter.every((t) => f.types.includes(t)));
         }
       }
-      if (qq && !sp.name.includes(qq)) forms = forms.filter((f) => f.label.includes(qq));
+      if (qq && !hitQ(sp.name)) forms = forms.filter((f) => hitQ(f.label));
       if (forms.length === 0) continue;
       const auto = sortKey === "name"
         ? forms[0]

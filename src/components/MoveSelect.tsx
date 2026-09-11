@@ -3,6 +3,7 @@ import type { Move } from "../types";
 import { TYPE_COLORS } from "../data/game";
 import { accLabel, moveWithMeta } from "../data/moves";
 import { usePopupPlacement } from "./popupPlacement";
+import { kanaMatcher } from "../search";
 
 interface Props {
   moves: Move[];
@@ -59,8 +60,9 @@ export function MoveSelect({
   }, [open, searchable]);
 
   const filtered = useMemo(() => {
-    const q = query.trim();
-    return q ? moves.filter((m) => m.name.includes(q)) : moves;
+    if (!query.trim()) return moves;
+    const hit = kanaMatcher(query);
+    return moves.filter((m) => hit(m.name));
   }, [moves, query]);
 
   const close = () => setOpen(false);
