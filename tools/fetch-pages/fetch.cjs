@@ -17,6 +17,9 @@ const path = require("path");
 
 /** [出力ファイル名, URL] */
 const URLS = [
+  // 習得技の二つ目の出典を作るための構造調査（GameWithの個別ページ）
+  ["gamewith-aggron", "https://gamewith.jp/pokemon-champions/553317"],
+  ["gamewith-pokelist", "https://gamewith.jp/pokemon-champions/546414"],
   ["official-mc", "https://news.pokemon-home.com/ja/page/816.html"],
   ["yakkun-mc", "https://yakkun.com/ch/zukan/reg_mc/"],
   ["gamepedia-mc", "https://gamepedia.jp/pokemonchampions/archives/665"],
@@ -49,6 +52,19 @@ const LIMIT = 200000; // 1ページあたりの保存上限（文字）
       const text = await page.evaluate(() => document.body.innerText);
       const body = text.replace(/\n{3,}/g, "\n\n").slice(0, LIMIT);
       fs.writeFileSync(path.join(OUT, `${name}.txt`), `# ${url}\n\n${body}\n`);
+      // 表・見出しの構造も控える（スクレイプの抽出条件を組み立てるときに要る）
+      const struct = await page.evaluate(() => {
+        const out = [];
+        document.querySelectorAll("h1,h2,h3,h4").forEach((h) =>
+          out.push(`見出し<${h.tagName}> ${(h.textContent || "").trim().slice(0, 60)}`));
+        document.querySelectorAll("table").forEach((t, i) => {
+          const rows = [...t.querySelectorAll("tr")].slice(0, 3)
+            .map((r) => [...r.querySelectorAll("th,td")].map((c) => (c.textContent || "").trim().replace(/\s+/g, " ").slice(0, 20)).join(" | "));
+          out.push(`表#${i} 行数${t.querySelectorAll("tr").length} class=${t.className}\n    ` + rows.join("\n    "));
+        });
+        return out.join("\n");
+      });
+      fs.writeFileSync(path.join(OUT, `${name}.struct.txt`), `# ${url}\n\n${struct}\n`);
       log.push(`${name}: ${body.length}文字`);
     } catch (e) {
       fs.writeFileSync(path.join(OUT, `${name}.txt`), `# ${url}\n\nERROR ${e.message}\n`);
