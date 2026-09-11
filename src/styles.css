@@ -219,13 +219,29 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  overflow-y: auto;
+  /* 検索欄を固定し、候補だけを中でスクロールさせる */
+  display: flex;
+  flex-direction: column;
   overscroll-behavior: contain;
   background: var(--panel2);
   border: 1px solid var(--steel);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   padding: 4px;
+}
+.mvsel-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+/* スマホ幅では画面下部のシートとして開く。
+   アンカー直下だと、下のほうで開いたときにソフトキーボードで候補が押し出され、
+   ページをスクロールしようとするとメニューが閉じてしまうため。 */
+.mvsel-pop.sheet { z-index: 61; border-radius: 12px; padding: 6px; }
+.mvsel-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.45);
+  /* シートを開いている間は裏のページを動かさない（候補を追いかけて指が滑るのを防ぐ） */
+  touch-action: none;
 }
 .mvsel-opt {
   display: block;
