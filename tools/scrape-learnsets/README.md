@@ -28,6 +28,8 @@ node tools/scrape-learnsets/gen-learnsets.mjs # moves.ts の LEARNSETS を再生
 - `scrape.cjs` … AppMedia を描画して覚えるワザを取得 → `champ_moves.json`
 - `gen-learnsets.mjs` … `champ_moves.json` から `LEARNSETS` を再生成（MOVE_LIB に存在する技のみ）
 - `champ_moves.json` … 取得済みデータのスナップショット（24系統・2026/9時点）
+- `scrape-gamewith.cjs` … GameWith から同じ情報を取得（二つ目の出典・PPの唯一の出典）
+  → `gamewith_moves.json` / `gamewith_move_stats.json`
 
 ## 注意・マナー
 - 低頻度・少量（24ページ・ページ間に待機）で運用すること。robots.txt を尊重。
@@ -69,9 +71,35 @@ AppMedia の個別ページには「チャンピオンズで覚える技」の�
 （技名 → `{power, acc}`）。`tools/audit-moves` がこれとアプリの技ライブラリを突き合わせ、
 チャンピオンズ実機の値と違うものを報告します。レギュM-C時点で239技を照合しました。
 
-**PP は AppMedia の表に無い**ため、この方法では検証できません。実機で確認するしかありません。
-チャンピオンズは低PPの技が本編より底上げされているようです
-（であいがしら 10→12、きゅうけつ 10→12、ふいうち 5→8。いずれも実機確認）。
+**PP は AppMedia の表に無い**ため、AppMedia だけでは検証できません。
+GameWith の「技（わざ）一覧」には PP 列があるので、そちらを出典にしています（下記）。
+
+## 二つ目の出典（GameWith）
+
+出典が1つだとサイト側の誤りに気づけません。`scrape-gamewith.cjs` が GameWith から
+同じ情報を取り、突き合わせに使えるようにしています。
+
+- `gamewith_move_stats.json` … 技名 → `{power, acc, pp}`。「技（わざ）一覧」ページ＋各個別ページ。
+- `gamewith_moves.json` … 種族ごとの「チャンピオンズで覚える技」。AppMedia 版との差分確認用。
+- `tools/gen-champ-stats` が `gamewith_move_stats.json` から `src/data/champStats.ts`
+  （本編との**差分だけ**）を生成し、技ライブラリに重ねます。
+
+技一覧は `<table>` ではなく、技名／威力／命中／PP が縦に並ぶだけの DOM なので、
+`innerText` を「その4行が揃っている箇所」として読みます。
+
+### 突き合わせの結果（2026/9・レギュM-C）
+
+ボスゴドラで全83技を比較したところ、**技名・威力・命中はすべて一致**しました
+（当方にあって GameWith に無い技: 0／その逆: 0）。習得技データに誤りは見つかっていません。
+
+一方で **PP は本編値のままズレていました**。チャンピオンズは PP を 8/12/16/20 に作り直していて、
+本編値からの単純な換算にもなりません（本編10でも `まもる`→8 / `のろい`→12）。
+実機確認済みの `であいがしら`12 / `きゅうけつ`12 / `ふいうち`8 は GameWith とも一致したので、
+GameWith の PP 列はチャンピオンズの値と判断しています。
+
+ただし GameWith は**レギュM-Cの調整が反映されていない箇所がある**ようで、
+`ねがいごと` を 12（M-C では 8）と載せています。こうした実機確認ぶんは
+`CHAMP_META` が最優先で上書きします（重ね順は `MOVE_META` → `CHAMP_STATS` → `CHAMP_META`）。
 
 ## チャンピオンズ独自の技データ（本編と異なる）
 
@@ -84,5 +112,7 @@ AppMedia の個別ページには「チャンピオンズで覚える技」の�
 - **であいがしら**: 本編は威力90だが、チャンピオンズは **威力100**（実機・AppMediaの両方で確認）。
 - **ボーンラッシュ**: 本編は威力25だが、チャンピオンズは **威力30**。
 - **ゴールドラッシュ**: 本編は命中100だが、チャンピオンズは **命中95**。
-- 命中率・PP の独自値（`ねがいごと` / `ちからをすいとる` のPP=8 など）は
-  `src/data/moves.ts` の `CHAMP_META` に置きます（`moveMeta.ts` は PokeAPI から再生成するため）。
+- 命中率・PP は3段で重ねます。`moveMeta.ts`（PokeAPI＝本編値）→ `champStats.ts`（GameWith＝
+  チャンピオンズ値・自動生成）→ `CHAMP_META`（実機確認などの手動上書き・最優先）。
+  手で直すときは `src/data/moves.ts` の `CHAMP_META` に書きます
+  （`moveMeta.ts` と `champStats.ts` は再生成されるため直接書かない）。

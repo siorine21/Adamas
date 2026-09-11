@@ -1,6 +1,7 @@
 import type { Learnset, Move, MoveCategory } from "../types";
 import { TYPES } from "./game";
 import { MOVE_META } from "./moveMeta";
+import { CHAMP_STATS } from "./champStats";
 
 const M = (
   name: string,
@@ -895,12 +896,14 @@ const CHAMP_META: Record<string, { acc?: number; pp?: number }> = {
   "ゴールドラッシュ": { acc: 95 }, // 本編は必中扱いの命中100
 };
 
-/** 技ライブラリ（命中率・PPを MOVE_META から合成し、CHAMP_META で上書きしたもの）。 */
+/** 技ライブラリ。命中率・PPは3段で重ねる。
+ *    MOVE_META    本編値（PokeAPI）
+ *    CHAMP_STATS  GameWithの技一覧から採ったチャンピオンズ値（本編との差分）
+ *    CHAMP_META   実機確認などの手動上書き（最優先） */
 export const MOVE_LIB: Move[] = BASE_MOVE_LIB.map((m) => {
   const meta = MOVE_META[m.name];
   const withMeta = meta ? { ...m, acc: meta[0], pp: meta[1] } : m;
-  const ov = CHAMP_META[m.name];
-  return ov ? { ...withMeta, ...ov } : withMeta;
+  return { ...withMeta, ...CHAMP_STATS[m.name], ...CHAMP_META[m.name] };
 });
 
 /** レギュレーションで種族ごとに使用禁止になっている技。習得表から除外する。
