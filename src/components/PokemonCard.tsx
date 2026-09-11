@@ -31,7 +31,7 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
       value: i.name,
       label: i.name,
       sub: i.effect,
-      note: i.mc ? <span className="amber small">M-C</span> : undefined,
+      note: i.mc ? <span className="amber badge-mc" title="レギュM-Cで追加">M-C</span> : undefined,
     })),
   ], []);
   const form = entry.forms[entry.activeForm] ?? entry.forms[0];
@@ -207,6 +207,7 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
               value={entry.item}
               placeholder="持ち物を選択…"
               searchPlaceholder="持ち物名で検索"
+              stacked /* 効果の説明が長いので、名前の下の行に出す */
               onChange={(v) => updateEntry(entry.key, { item: v })}
             />
           )}

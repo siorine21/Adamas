@@ -17,6 +17,8 @@ interface Props {
   /** 検索欄を出す（既定: 候補が12件超なら自動で出す） */
   searchable?: boolean;
   searchPlaceholder?: string;
+  /** 補足（sub）を名前の下の行に出す。説明が長い持ち物の一覧など */
+  stacked?: boolean;
   style?: CSSProperties;
   disabled?: boolean;
 }
@@ -24,7 +26,7 @@ interface Props {
 /** ネイティブ<select>の代わりに使う、その場で開く検索付きドロップダウン。
  *  iOS等でフルスクリーンのピッカーが出るのを避け、画面内に収まる小さなメニューにする。 */
 export function SelectMenu({
-  items, value, onChange, placeholder, searchable, searchPlaceholder, style, disabled,
+  items, value, onChange, placeholder, searchable, searchPlaceholder, stacked, style, disabled,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -106,7 +108,7 @@ export function SelectMenu({
               key={i.value}
               role="option"
               aria-selected={i.value === value}
-              className={`mvsel-opt ${i.value === value ? "sel" : ""}`}
+              className={`mvsel-opt ${i.value === value ? "sel" : ""} ${stacked ? "stacked" : ""}`}
               onClick={() => { onChange(i.value); setOpen(false); }}
             >
               <span className="mvsel-row">
@@ -114,8 +116,10 @@ export function SelectMenu({
                   ? <span className="tbadge" style={{ background: i.swatch }}>{i.label}</span>
                   : <span className="mvsel-name">{i.label}</span>}
                 {i.note}
-                {i.sub && <span className="mvsel-meta">{i.sub}</span>}
+                {i.sub && !stacked && <span className="mvsel-meta">{i.sub}</span>}
               </span>
+              {/* 説明は名前の下に1行で出す。長さで高さが変わらないよう省略する */}
+              {stacked && <span className="mvsel-desc">{i.sub ?? ""}</span>}
             </button>
           ))}
           {filtered.length === 0 && <div className="mvsel-empty muted">該当なし</div>}
