@@ -8,6 +8,7 @@ import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { SelectMenu } from "./SelectMenu";
 import { StepSlider } from "./StepSlider";
+import { kanaMatcher } from "../search";
 
 type RefLine = "最速" | "準速" | "無振り";
 type Kind = "team" | "bench" | "ref";
@@ -93,8 +94,10 @@ export function SpeedTab() {
       if (!used.has(nm)) { used.add(nm); out.push(rosterRow(e)); }
     }
     let list = onlyMine ? out.filter((r) => r.kind !== "ref") : out;
-    const qq = q.trim();
-    if (qq) list = list.filter((r) => r.label.includes(qq));
+    if (q.trim()) {
+      const hit = kanaMatcher(q);
+      list = list.filter((r) => hit(r.label));
+    }
     return list.sort((a, b) => b.speed - a.speed);
   }, [sortedRoster, scarf, rank, line, onlyMine, q]);
 

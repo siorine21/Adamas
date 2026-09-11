@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { usePopupPlacement } from "./popupPlacement";
+import { kanaMatcher } from "../search";
 
 export interface MenuItem {
   value: string;
@@ -61,9 +62,9 @@ export function SelectMenu({
   }, [open, showSearch]);
 
   const filtered = useMemo(() => {
-    const q = query.trim();
-    if (!q) return items;
-    return items.filter((i) => i.label.includes(q) || i.sub?.includes(q));
+    if (!query.trim()) return items;
+    const hit = kanaMatcher(query);
+    return items.filter((i) => hit(i.label) || hit(i.sub));
   }, [items, query]);
 
   return (
