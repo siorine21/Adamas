@@ -1,0 +1,13 @@
+gamewith-aggron: 8997文字
+gamewith-pokelist: 24992文字
+official-mc: 641文字
+yakkun-mc: 175文字
+gamepedia-mc: 4631文字
+gamewith-mc: 7379文字
+appmedia-mc: 16523文字
+game8-add: 10020文字
+gamewith-items: 26998文字
+gamepedia-megaz: 4589文字
+gamewith-megalucarioz: 9173文字
+appmedia-megaz: 16523文字
+gamewith-megalist: 16021文字

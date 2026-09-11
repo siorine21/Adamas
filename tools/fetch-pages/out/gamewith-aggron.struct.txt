@@ -1,0 +1,93 @@
+# https://gamewith.jp/pokemon-champions/553317
+
+見出し<H1> 【ポケモンチャンピオンズ】ボスゴドラの入手方法と種族値・覚える技
+見出し<H2> ボスゴドラの種族値・特性・弱点
+見出し<H3> 種族値・特性
+見出し<H4> ステータス(実数値)
+見出し<H3> 弱点・タイプ相性
+見出し<H2> ボスゴドラの入手方法
+見出し<H3> チュートリアルで特定のポケモンを選ぶ
+見出し<H3> スタンダードセレクトM-Cで入手可能
+見出し<H2> ボスゴドラの他作品での入手方法
+見出し<H3> ポケモン剣盾で入手がおすすめ【要:DLC】
+見出し<H3> 9番道路まで進める
+見出し<H3> カンムリせつげんへ向かう
+見出し<H3> ココドラを捕まえる
+見出し<H3> ボスゴドラに進化させる
+見出し<H2> ボスゴドラのおすすめ性格・技構成
+見出し<H3> おすすめの性格
+見出し<H3> おすすめ技構成・育成論
+見出し<H2> ボスゴドラが覚える技
+見出し<H2> 関連ページ
+見出し<H3> タイプ別一覧
+見出し<H3> 世代別一覧
+見出し<H3> その他ポケモン一覧
+見出し<H3> 種族値一覧
+見出し<H3> 過去作限定のポケモン一覧
+表#0 行数2 class=tips-vertical-menu_table
+    HP | 攻撃 | 防御
+    特攻 | 特防 | 素早さ
+表#1 行数9 class=tips-vertical-menu_table
+    ノーマル | ほのお
+    みず | くさ
+    でんき | こおり
+表#2 行数3 class=tips-vertical-menu_table
+    1世代 | 2世代 | 3世代
+    4世代 | 5世代 | 6世代
+    7世代 | 8世代 | 9世代
+表#3 行数9 class=tips-vertical-menu_table
+    ノーマル | ほのお
+    みず | くさ
+    でんき | こおり
+表#4 行数2 class=tips-vertical-menu_table
+    どく | まひ | やけど
+    ねむり | こおり | 
+表#5 行数3 class=tips-vertical-menu_table
+    トトラ | ルッコラ
+    コーディ | キャラウェイ
+    ナカジマナ | 
+表#6 行数3 class=
+    ボスゴドラ関連記事
+    <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im |  | 
+表#7 行数8 class=_pokechamp_pkm_status
+    <img src='https://im | HP | 70231位
+    攻撃 | 110115位
+    防御 | 1806位
+表#8 行数3 class=_pokechamp_ability
+    特性1がんじょう | HPが満タンの時、一撃でひんしになる技の
+    特性2いしあたま | 自分もダメージを受ける技を出してもHPが
+    隠れ特性ヘヴィメタル | 自分の重さが2倍になる。
+表#9 行数7 class=_pokechamp_st_table
+     | 特化 | 32振り | 無振り | 下降
+    HP | - | 177 | 145 | -
+    こうげき | 178 | 162 | 130 | 117
+表#10 行数1 class=
+    終了日時 | 12月2日(水)10:59まで
+表#11 行数4 class=wd-pkch-pkmget-table
+    タイトル | 入手方法
+    Z-A▶詳細 | ワイルドゾーン20異次元いわ(星4)異次
+    BDSP▶詳細 | ◆進化前(コドラ)岩石の空洞(全国図鑑解
+表#12 行数3 class=wd-pkch-nature-rec-table
+    性格 | ステータス補正
+    いじっぱり | こうげき⬆ / とくこう⬇
+    わんぱく | ぼうぎょ⬆ / とくこう⬇
+表#13 行数2 class=
+    <img src='https://im | <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im | <img src='https://im | <img src='https://im
+表#14 行数5 class=
+    <img src='https://im | <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im | <img src='https://im | <img src='https://im
+表#15 行数3 class=
+    第1世代 | 第2世代 | 第3世代
+    第4世代 | 第5世代 | 第6世代
+    第7世代 | 第8世代 | 第9世代
+表#16 行数1 class=
+    御三家ポケモン | 600族ポケモン | 追加ポケモン
+表#17 行数2 class=
+    HP | 攻撃 | 防御
+    特攻 | 特防 | 素早さ / 比較
+表#18 行数2 class=
+    <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im | 

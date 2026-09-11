@@ -1,0 +1,5 @@
+# https://yakkun.com/ch/zukan/reg_mc/
+
+見出し<H1> yakkun.com
+見出し<H2> セキュリティ検証の実行
+見出し<H2> 検証に成功しました。yakkun.com の応答を待っています

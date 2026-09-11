@@ -1,0 +1,43 @@
+# https://gamewith.jp/pokemon-champions/546414
+
+見出し<H1> 【ポケモンチャンピオンズ】内定ポケモン一覧・全352種類
+見出し<H2> ポケモン一覧・全352種類
+見出し<H2> 追加ポケモン一覧
+見出し<H3> M-Cで追加されるポケモン
+見出し<H2> 関連ページ
+見出し<H3> 上位構築まとめを公開！
+見出し<H3> 攻略に便利な記事・ツール関連
+見出し<H3> 攻略おすすめ記事
+表#0 行数2 class=tips-vertical-menu_table
+    HP | 攻撃 | 防御
+    特攻 | 特防 | 素早さ
+表#1 行数9 class=tips-vertical-menu_table
+    ノーマル | ほのお
+    みず | くさ
+    でんき | こおり
+表#2 行数3 class=tips-vertical-menu_table
+    1世代 | 2世代 | 3世代
+    4世代 | 5世代 | 6世代
+    7世代 | 8世代 | 9世代
+表#3 行数9 class=tips-vertical-menu_table
+    ノーマル | ほのお
+    みず | くさ
+    でんき | こおり
+表#4 行数2 class=tips-vertical-menu_table
+    どく | まひ | やけど
+    ねむり | こおり | 
+表#5 行数3 class=tips-vertical-menu_table
+    トトラ | ルッコラ
+    コーディ | キャラウェイ
+    ナカジマナ | 
+表#6 行数12 class=
+    <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im | <img src='https://im
+表#7 行数2 class=
+    <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im
+表#8 行数15 class=
+    攻略おすすめ記事
+    <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im | <img src='https://im

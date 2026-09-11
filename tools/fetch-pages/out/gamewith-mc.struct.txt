@@ -1,0 +1,59 @@
+# https://gamewith.jp/pokemon-champions/574460
+
+見出し<H1> 【ポケモンチャンピオンズ】レギュレーションMCの追加されるポケモンと期間
+見出し<H2> MCで追加されたポケモン
+見出し<H3> レギュMC追加ポケモン一覧
+見出し<H4> MC追加メガシンカの特性一覧
+見出し<H2> MCで追加された持ち物
+見出し<H3> サイコシードやゴツゴツメットなどが追加
+見出し<H2> MCの期間とルール
+見出し<H3> 開催期間
+見出し<H3> メガシンカが使用可能
+見出し<H4> 一部のポケモンはまだメガシンカできないかも
+見出し<H2> 関連ページ
+見出し<H3> 上位構築まとめを公開！
+見出し<H3> 攻略に便利な記事・ツール関連
+見出し<H3> 攻略おすすめ記事
+表#0 行数2 class=tips-vertical-menu_table
+    HP | 攻撃 | 防御
+    特攻 | 特防 | 素早さ
+表#1 行数9 class=tips-vertical-menu_table
+    ノーマル | ほのお
+    みず | くさ
+    でんき | こおり
+表#2 行数3 class=tips-vertical-menu_table
+    1世代 | 2世代 | 3世代
+    4世代 | 5世代 | 6世代
+    7世代 | 8世代 | 9世代
+表#3 行数9 class=tips-vertical-menu_table
+    ノーマル | ほのお
+    みず | くさ
+    でんき | こおり
+表#4 行数2 class=tips-vertical-menu_table
+    どく | まひ | やけど
+    ねむり | こおり | 
+表#5 行数3 class=tips-vertical-menu_table
+    トトラ | ルッコラ
+    コーディ | キャラウェイ
+    ナカジマナ | 
+表#6 行数12 class=
+    <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im | <img src='https://im
+表#7 行数6 class=
+    ポケモン | 特性と効果
+    <img src='https://im | 【特性】きれあじ【効果】切る技の威力が1
+    <img src='https://im | 【特性】ふゆう【効果】地面にいないことに
+表#8 行数9 class=_pkch_popular_items_table
+    M-Cで追加されたもちもの
+    <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im
+表#9 行数1 class=
+    開催期間 | 2026/9/9(水)~2026/12/
+表#10 行数2 class=
+    <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im
+表#11 行数15 class=
+    攻略おすすめ記事
+    <img src='https://im | <img src='https://im | <img src='https://im
+    <img src='https://im | <img src='https://im | <img src='https://im
