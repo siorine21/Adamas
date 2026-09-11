@@ -37,7 +37,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B bot/champ-learnsets
-          git add -f tools/scrape-learnsets/champ_moves.json tools/scrape-learnsets/champ_move_stats.json tools/scrape-learnsets/gamewith_moves.json tools/scrape-learnsets/scrape_log.txt tools/scrape-learnsets/scrape_gamewith_log.txt src/data/moves.ts
+          git add -f tools/scrape-learnsets/champ_moves.json tools/scrape-learnsets/champ_move_stats.json tools/scrape-learnsets/gamewith_moves.json tools/scrape-learnsets/gamewith_move_stats.json tools/scrape-learnsets/scrape_log.txt tools/scrape-learnsets/scrape_gamewith_log.txt src/data/moves.ts
           git commit -q -m "chore: refresh Champions learnsets from AppMedia" || echo "no changes"
           git push -f origin bot/champ-learnsets
 

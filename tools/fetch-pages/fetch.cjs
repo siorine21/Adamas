@@ -49,6 +49,13 @@ const LIMIT = 200000; // 1ページあたりの保存上限（文字）
     try {
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
       await page.waitForTimeout(6000);
+      // 一覧ページは遅延読み込みなので、最後まで送ってから採る
+      for (let i = 0; i < 12; i++) {
+        await page.evaluate(() => window.scrollBy(0, window.innerHeight * 2));
+        await page.waitForTimeout(500);
+      }
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(1000);
       const text = await page.evaluate(() => document.body.innerText);
       const body = text.replace(/\n{3,}/g, "\n\n").slice(0, LIMIT);
       fs.writeFileSync(path.join(OUT, `${name}.txt`), `# ${url}\n\n${body}\n`);
@@ -65,6 +72,17 @@ const LIMIT = 200000; // 1ページあたりの保存上限（文字）
         return out.join("\n");
       });
       fs.writeFileSync(path.join(OUT, `${name}.struct.txt`), `# ${url}\n\n${struct}\n`);
+      // リンク（文字/画像alt + href）。一覧ページから個別ページのURLを引くのに要る
+      const links = await page.evaluate(() =>
+        [...document.querySelectorAll("a")]
+          .map((a) => {
+            const label = (a.textContent || "").trim().replace(/\s+/g, " ")
+              || a.querySelector("img")?.getAttribute("alt")?.trim() || "";
+            return label ? `${label}\t${a.href}` : "";
+          })
+          .filter(Boolean)
+          .join("\n"));
+      fs.writeFileSync(path.join(OUT, `${name}.links.txt`), `# ${url}\n\n${links}\n`);
       log.push(`${name}: ${body.length}文字`);
     } catch (e) {
       fs.writeFileSync(path.join(OUT, `${name}.txt`), `# ${url}\n\nERROR ${e.message}\n`);
