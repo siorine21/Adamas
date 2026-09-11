@@ -1,4 +1,4 @@
-/* src/data/champStats.ts（チャンピオンズ版の命中率・PP）を再生成するスクリプト。
+/* src/data/champStats.ts（チャンピオンズ版の威力・命中率・PP）を再生成するスクリプト。
  *
  *   node tools/gen-champ-stats/gen-champ-stats.mjs
  *
@@ -21,9 +21,12 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 
 const stats = JSON.parse(read("tools/scrape-learnsets/gamewith_move_stats.json"));
 
-// MOVE_LIB の収録技と並び順（moves.ts を素のテキストとして読む。gen-learnsets と同じ作法）
+// MOVE_LIB の収録技・威力・並び順（moves.ts を素のテキストとして読む。gen-learnsets と同じ作法）
 const movesSrc = read("src/data/moves.ts");
-const lib = [...movesSrc.slice(0, movesSrc.indexOf("/* ====")).matchAll(/M\("([^"]+)"/g)].map((m) => m[1]);
+const entries = [...movesSrc.slice(0, movesSrc.indexOf("/* ====")).matchAll(/M\("([^"]+)",\s*"[^"]+",\s*(\d+),/g)]
+  .map((m) => [m[1], Number(m[2])]);
+const lib = entries.map(([n]) => n);
+const libPower = new Map(entries);
 const order = new Map(lib.map((n, i) => [n, i]));
 
 // 本編の命中率・PP
@@ -41,6 +44,9 @@ for (const name of lib) {
   // GameWith の「-」は命中判定なし。MOVE_META では 0 で表す
   const acc = gw.acc === null ? 0 : gw.acc;
   const diff = {};
+  // 威力は MOVE_LIB 側の値と比べる。0＝威力変動技（GameWithも「-」）なので触らない
+  const power = libPower.get(name) ?? 0;
+  if (gw.power !== null && power > 0 && gw.power !== power) diff.power = gw.power;
   if (acc !== base.acc) diff.acc = acc;
   if (gw.pp !== base.pp) diff.pp = gw.pp;
   if (Object.keys(diff).length === 0) continue;
@@ -50,21 +56,25 @@ rows.sort((a, b) => (order.get(a[0]) ?? 9999) - (order.get(b[0]) ?? 9999));
 
 const body = rows.map(([name, d]) => {
   const parts = [];
+  if (d.power !== undefined) parts.push(`power: ${d.power}`);
   if (d.acc !== undefined) parts.push(`acc: ${d.acc}`);
   if (d.pp !== undefined) parts.push(`pp: ${d.pp}`);
   return `  "${name}": { ${parts.join(", ")} },`;
 }).join("\n");
 
 const covered = lib.filter((n) => stats[n]).length;
-const out = `/* ---------- チャンピオンズ版の命中率・PP（本編との差分） ----------
+const buffed = rows.filter(([, d]) => d.power !== undefined);
+const out = `/* ---------- チャンピオンズ版の威力・命中率・PP（本編との差分） ----------
    出典: GameWith「ポケモンチャンピオンズ 技（わざ）一覧」および各ポケモン個別ページ。
         tools/scrape-learnsets/scrape-gamewith.cjs で取得 → 本ファイルを自動生成。
-   ・MOVE_META（PokeAPI＝本編値）に対する上書き。本編と同じ値は載せない。
+   ・MOVE_LIB / MOVE_META（PokeAPI＝本編値）に対する上書き。本編と同じ値は載せない。
    ・命中率 0 は「必中（命中判定なし）」。GameWith の「-」がこれに当たる。
-   ・照合できた技 ${covered}/${lib.length} のうち、差があるのは ${rows.length} 技。
-     未照合の技は本編値のままなので、PP がずれている可能性がある。
+   ・威力変動技（MOVE_LIB で威力0）は対象外。手動で威力を入れるため。
+   ・照合できた技 ${covered}/${lib.length} のうち、差があるのは ${rows.length} 技
+     （うち威力が違うのは ${buffed.length} 技＝チャンピオンズで強化された専用技）。
+     未照合の技は本編値のままなので、値がずれている可能性がある。
    ・再生成: node tools/gen-champ-stats/gen-champ-stats.mjs */
-export const CHAMP_STATS: Record<string, { acc?: number; pp?: number }> = {
+export const CHAMP_STATS: Record<string, { power?: number; acc?: number; pp?: number }> = {
 ${body}
 };
 `;

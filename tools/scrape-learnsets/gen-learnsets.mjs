@@ -13,15 +13,31 @@ const lib = [...head.matchAll(/M\("([^"]+)"/g)].map((m) => m[1]);
 const order = new Map(lib.map((n, i) => [n, i]));
 const libset = new Set(lib);
 
+/* AppMedia の表には無いが、二つ目の出典（GameWith）にはある技。
+   AppMedia のページはレギュM-Cで解禁された技が反映されていないことがある。
+   champ_moves.json は再取得で上書きされるので、追加はここに置く。
+   ※ 片方の出典にしか無いものを足すので、根拠を必ずコメントに書くこと。 */
+const EXTRA = {
+  // きりさく: レギュM-Cで解禁（本編威力70→80・急所ランク+1）。
+  // GameWith の個別ページでは下の5系統に載っているが、AppMedia の表は未更新。
+  "ハッサム": ["きりさく"],
+  "エアームド": ["きりさく"],
+  "ドリュウズ": ["きりさく"],
+  "ドドゲザン": ["きりさく"],
+  "ブリジュラス": ["きりさく"],
+};
+
 const TARGETS = ["フォレトス","ハガネール","ハッサム","エアームド","クチート","ボスゴドラ","チリーン",
  "メタグロス","エンペルト","トリデプス","ルカリオ","ドリュウズ","ガラルマッギョ","ギルガルド",
  "ヒスイヌメルゴン","クレッフィ","グソクムシャ","アーマーガア","ニャイキング","デカヌチャン","ミミズズ","ドドゲザン","サーフゴー","ブリジュラス"];
 
 const blocks = TARGETS.map((t) => {
-  const mv = [...new Set(cm[t] || [])].filter((m) => libset.has(m))
+  const mv = [...new Set([...(cm[t] || []), ...(EXTRA[t] || [])])].filter((m) => libset.has(m))
     .sort((a, b) => (order.get(a) ?? 9999) - (order.get(b) ?? 9999));
   const arr = mv.map((m) => `"${m}"`).join(", ");
-  return `  "${t}": { status: "full", source: "AppMedia個別ページ（チャンピオンズ覚えるワザ）2026/9", moves: [${arr}] },`;
+  const src = EXTRA[t] ? "AppMedia個別ページ＋GameWith（チャンピオンズ覚えるワザ）2026/9"
+    : "AppMedia個別ページ（チャンピオンズ覚えるワザ）2026/9";
+  return `  "${t}": { status: "full", source: "${src}", moves: [${arr}] },`;
 });
 
 const ls = `/* ============================================================

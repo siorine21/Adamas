@@ -162,15 +162,17 @@ const champStats = new Map();
   if (fs.existsSync(p)) {
     for (const m of fs.readFileSync(p, "utf8").matchAll(/"([^"]+)":\s*\{([^}]*)\}/g)) {
       const o = {};
-      for (const kv of m[2].matchAll(/(acc|pp):\s*(\d+)/g)) o[kv[1]] = Number(kv[2]);
+      for (const kv of m[2].matchAll(/(power|acc|pp):\s*(\d+)/g)) o[kv[1]] = Number(kv[2]);
       champStats.set(m[1], o);
     }
   }
 }
-/** アプリが実際に使う命中・PP（moveMeta → champStats → CHAMP_META の重ね順） */
+const libPower = new Map(lib.map((m) => [m.name, m.power]));
+/** アプリが実際に使う威力・命中・PP（MOVE_LIB/moveMeta → champStats → CHAMP_META の重ね順） */
 const effective = (name) => {
   const mt = meta.get(name);
   return {
+    power: champStats.get(name)?.power ?? libPower.get(name),
     acc: champMeta.get(name)?.acc ?? champStats.get(name)?.acc ?? mt?.[0],
     pp: champMeta.get(name)?.pp ?? champStats.get(name)?.pp ?? mt?.[1],
   };
@@ -184,10 +186,11 @@ if (fs.existsSync(statsPath)) {
     const m = byName.get(name);
     if (!m) continue;
     champChecked += 1;
-    if (v.power != null && v.power !== m.power) {
-      problems.push(`威力(チャンピオンズ): ${name} アプリ=${m.power} AppMedia=${v.power}`);
+    const eff = effective(name);
+    if (v.power != null && eff.power > 0 && v.power !== eff.power) {
+      problems.push(`威力(チャンピオンズ): ${name} アプリ=${eff.power} AppMedia=${v.power}`);
     }
-    const acc = effective(name).acc;
+    const acc = eff.acc;
     if (v.acc != null && acc != null && acc !== v.acc) {
       problems.push(`命中(チャンピオンズ): ${name} アプリ=${acc} AppMedia=${v.acc}`);
     }
@@ -206,10 +209,10 @@ if (fs.existsSync(gwPath)) {
     const m = byName.get(name);
     if (!m) continue;
     gwChecked += 1;
-    if (v.power != null && v.power !== m.power) {
-      problems.push(`威力(チャンピオンズ): ${name} アプリ=${m.power} GameWith=${v.power}`);
-    }
     const eff = effective(name);
+    if (v.power != null && eff.power > 0 && v.power !== eff.power) {
+      problems.push(`威力(チャンピオンズ): ${name} アプリ=${eff.power} GameWith=${v.power}`);
+    }
     const gwAcc = v.acc === null ? 0 : v.acc; // GameWith の「-」＝必中
     const manual = champMeta.get(name) ?? {};
     if (manual.acc === undefined && eff.acc !== gwAcc) {
