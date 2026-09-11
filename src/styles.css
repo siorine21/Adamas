@@ -668,11 +668,27 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 .weak-chip.x4 { color: var(--red); font-weight: 700; }
 .weak-chip.immune { color: var(--green); }
 
+/* 「覚える技」で絞ったときに出る、該当技のチップ */
+.dex-hits { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.hit-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.hit-chip i { font-style: normal; font-size: 10px; color: var(--dim); font-variant-numeric: tabular-nums; }
+
 /* コンパクト表示：バーと余白を省いて一度に多く見る */
 .dex-list.compact { gap: 4px; }
 .dex-list.compact .dex-row { padding: 5px 8px; }
 .dex-list.compact .dex-stats { margin-top: 2px; }
 .dex-list.compact .dex-meta { margin-top: 3px; }
+.dex-list.compact .dex-hits { margin-top: 3px; }
 
 /* 追加ボタン2つは右端にまとめる */
 .dex-actions { margin-left: auto; display: flex; gap: 4px; flex: 0 0 auto; }
