@@ -252,14 +252,36 @@ label.fld > span { display: block; font-size: 11px; color: var(--dim); margin-bo
 }
 .mvsel-empty { padding: 8px 6px; font-size: 12px; }
 .mvsel-row { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
-.mvsel-name {
-  color: var(--ink); font-size: 13px;
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* 威力・命中・PP・分類。行が詰まっても折り返さず、技名側を省略する */
+/* 名前は最低限そのまま読めないと選べないので、縮めない */
+.mvsel-name { color: var(--ink); font-size: 13px; flex: 0 0 auto; white-space: nowrap; }
+/* 威力・命中・PP・分類など。幅が足りないときはこちらを省略する */
 .mvsel-meta {
-  margin-left: auto; flex: 0 0 auto; white-space: nowrap;
+  margin-left: auto; flex: 0 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
   color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums;
+}
+/* 説明が長い一覧（持ち物）向け。名前の下に1行で出し、行の高さを揃える */
+.mvsel-opt.stacked { min-height: 44px; }
+.mvsel-desc {
+  display: block;
+  margin-top: 1px;
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* レギュM-C追加などの小さな印 */
+.badge-mc {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0 3px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  line-height: 1.4;
 }
 
 /* ---------- type badges ---------- */
