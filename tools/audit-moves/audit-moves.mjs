@@ -32,8 +32,9 @@ const CHAMP_OVERRIDES = {
   // 本編は威力25だがチャンピオンズは威力30（AppMediaの習得表）
   "ボーンラッシュ": { power: 30 },
 };
-/* 命中率・PPのチャンピオンズ独自値は moves.ts の CHAMP_META 側で上書きしている
-   （moveMeta.ts は PokeAPI から再生成するため）。ここでは検証対象外。 */
+/* 命中率・PP は3段で重ねている（moveMeta → champStats → CHAMP_META）ので、
+   本編との比較ではなく「重ねた結果」を GameWith の技一覧と突き合わせる。
+   CHAMP_META は実機確認ぶんなので GameWith より優先し、差は記録だけ出す。 */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BASE = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv";
@@ -154,6 +155,27 @@ const champMeta = new Map();
     }
   }
 }
+// champStats.ts（GameWith由来のチャンピオンズ値・自動生成）も読む
+const champStats = new Map();
+{
+  const p = path.join(ROOT, "src/data/champStats.ts");
+  if (fs.existsSync(p)) {
+    for (const m of fs.readFileSync(p, "utf8").matchAll(/"([^"]+)":\s*\{([^}]*)\}/g)) {
+      const o = {};
+      for (const kv of m[2].matchAll(/(acc|pp):\s*(\d+)/g)) o[kv[1]] = Number(kv[2]);
+      champStats.set(m[1], o);
+    }
+  }
+}
+/** アプリが実際に使う命中・PP（moveMeta → champStats → CHAMP_META の重ね順） */
+const effective = (name) => {
+  const mt = meta.get(name);
+  return {
+    acc: champMeta.get(name)?.acc ?? champStats.get(name)?.acc ?? mt?.[0],
+    pp: champMeta.get(name)?.pp ?? champStats.get(name)?.pp ?? mt?.[1],
+  };
+};
+
 let champChecked = 0;
 if (fs.existsSync(statsPath)) {
   const cs = JSON.parse(fs.readFileSync(statsPath, "utf8"));
@@ -165,10 +187,40 @@ if (fs.existsSync(statsPath)) {
     if (v.power != null && v.power !== m.power) {
       problems.push(`威力(チャンピオンズ): ${name} アプリ=${m.power} AppMedia=${v.power}`);
     }
-    const mt = meta.get(name);
-    const acc = champMeta.get(name)?.acc ?? mt?.[0];
+    const acc = effective(name).acc;
     if (v.acc != null && acc != null && acc !== v.acc) {
       problems.push(`命中(チャンピオンズ): ${name} アプリ=${acc} AppMedia=${v.acc}`);
+    }
+  }
+}
+
+/* GameWith の技一覧（威力・命中・PP）とも突き合わせる。PP を持つ出典はここだけ。
+   CHAMP_META は実機確認ぶんなので GameWith より優先する＝差が出ても問題にしない。 */
+const gwPath = path.join(ROOT, "tools/scrape-learnsets/gamewith_move_stats.json");
+let gwChecked = 0;
+const gwManual = [];
+if (fs.existsSync(gwPath)) {
+  const gw = JSON.parse(fs.readFileSync(gwPath, "utf8"));
+  const byName = new Map(lib.map((m) => [m.name, m]));
+  for (const [name, v] of Object.entries(gw)) {
+    const m = byName.get(name);
+    if (!m) continue;
+    gwChecked += 1;
+    if (v.power != null && v.power !== m.power) {
+      problems.push(`威力(チャンピオンズ): ${name} アプリ=${m.power} GameWith=${v.power}`);
+    }
+    const eff = effective(name);
+    const gwAcc = v.acc === null ? 0 : v.acc; // GameWith の「-」＝必中
+    const manual = champMeta.get(name) ?? {};
+    if (manual.acc === undefined && eff.acc !== gwAcc) {
+      problems.push(`命中(チャンピオンズ): ${name} アプリ=${eff.acc} GameWith=${gwAcc}`);
+    }
+    if (manual.pp === undefined && eff.pp !== v.pp) {
+      problems.push(`PP(チャンピオンズ): ${name} アプリ=${eff.pp} GameWith=${v.pp}`);
+    }
+    // 実機確認ぶんが GameWith と食い違う場合は、記録として出しておく
+    if (manual.pp !== undefined && manual.pp !== v.pp) {
+      gwManual.push(`${name}: 実機=${manual.pp} GameWith=${v.pp}`);
     }
   }
 }
@@ -178,6 +230,15 @@ if (champChecked > 0) {
   console.log(`うち ${champChecked}技は AppMedia の習得表（チャンピオンズ実機の威力・命中）とも照合しました。`);
 } else {
   console.log("※ champ_move_stats.json が無いため、チャンピオンズ実機の威力・命中とは照合していません。");
+}
+if (gwChecked > 0) {
+  console.log(`GameWith の技一覧（威力・命中・PP）とは ${gwChecked}技を照合しました。`);
+} else {
+  console.log("※ gamewith_move_stats.json が無いため、PP は照合していません。");
+}
+if (gwManual.length > 0) {
+  console.log(`\n実機確認を優先した技（GameWith はレギュM-C前の値とみられる）${gwManual.length}件:`);
+  for (const g of gwManual) console.log("  " + g);
 }
 if (overridden.length > 0) {
   console.log(`\nチャンピオンズ独自の値として扱った技 ${overridden.length}件:`);
