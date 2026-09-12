@@ -68,6 +68,7 @@ function run(name, sc) {
     atkPinch: !!sc.atkPinch,
     atkMovesLast: !!sc.atkMovesLast,
     rivalry: sc.rivalry ?? "なし",
+    alliesFainted: sc.alliesFainted ?? 0,
     protect: false,
     extraMul: 1,
   });
@@ -125,6 +126,10 @@ run("すてみ", { atk: "Golisopod", atkOpts: { ...S, ability: "Reckless" }, def
 run("ちからもち", { atk: "Mawile", atkOpts: { ...S, ability: "Huge Power" }, def: "Chandelure", defOpts: D, move: "Play Rough", jpMove: "じゃれつく", jpAtkAbility: "ちからもち" });
 run("はりきり", { atk: "Togepi", atkOpts: { ...S, ability: "Hustle" }, def: "Klefki", defOpts: D, move: "Body Slam", jpMove: "のしかかり", jpAtkAbility: "はりきり" });
 run("スカイスキン", { atk: "Salamence", atkOpts: { ...S, ability: "Aerilate" }, def: "Klefki", defOpts: D, move: "Double-Edge", jpMove: "すてみタックル", jpAtkAbility: "スカイスキン" });
+run("そうだいしょう（味方1体）", { atk: "Kingambit", atkOpts: { ...S, ability: "Supreme Overlord", alliesFainted: 1 }, def: "Chandelure", defOpts: D, move: "Iron Head", jpMove: "アイアンヘッド", jpAtkAbility: "そうだいしょう", alliesFainted: 1 });
+run("そうだいしょう（味方3体）", { atk: "Kingambit", atkOpts: { ...S, ability: "Supreme Overlord", alliesFainted: 3 }, def: "Chandelure", defOpts: D, move: "Iron Head", jpMove: "アイアンヘッド", jpAtkAbility: "そうだいしょう", alliesFainted: 3 });
+run("そうだいしょう（味方5体）", { atk: "Kingambit", atkOpts: { ...S, ability: "Supreme Overlord", alliesFainted: 5 }, def: "Chandelure", defOpts: D, move: "Iron Head", jpMove: "アイアンヘッド", jpAtkAbility: "そうだいしょう", alliesFainted: 5 });
+run("そうだいしょう（味方0体＝補正なし）", { atk: "Kingambit", atkOpts: { ...S, ability: "Supreme Overlord" }, def: "Chandelure", defOpts: D, move: "Iron Head", jpMove: "アイアンヘッド", jpAtkAbility: "そうだいしょう" });
 run("とうそうしん（同性）", { atk: "Nidoking", atkOpts: { ...S, ability: "Rivalry", gender: "M" }, def: "Chandelure", defOpts: { ...D, gender: "M" }, move: "Earthquake", jpMove: "じしん", jpAtkAbility: "とうそうしん", rivalry: "同性" });
 run("ふしぎなうろこ", { atk: "Golisopod", atkOpts: S, def: "Milotic", defOpts: { ...D, ability: "Marvel Scale", status: "par" }, move: "Liquidation", jpMove: "アクアブレイク", jpDefAbility: "ふしぎなうろこ" });
 run("すなあらし＋いわの特防", { atk: "Charizard", atkOpts: { level: 50, nature: "Modest", evs: { spa: 252 } }, def: "Tyranitar", defOpts: D, move: "Flamethrower", jpMove: "かえんほうしゃ", field: { weather: "Sand" }, jpWeather: "すなあらし" });

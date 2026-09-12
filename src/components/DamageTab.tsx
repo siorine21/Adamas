@@ -39,7 +39,10 @@ const ATK_ABILITIES = [
   "ふかしのこぶし", "かんつうドリル",
   // レギュM-Cの追加ポケモンが持つもの（テクニシャンはハッサム等も該当）
   "テクニシャン", "パンクロック", "スカイスキン", "リベロ／へんげんじざい",
+  "そうだいしょう",
 ];
+/** そうだいしょうで選べる「倒れた味方の数」。6体目以降は増えないので5まで */
+const FAINTED = [0, 1, 2, 3, 4, 5];
 const DEF_ABILITIES = [
   "（補正なし）", "フィルター／ハードロック／プリズムアーマー", "マルチスケイル",
   "ファーコート", "こおりのりんぷん", "もふもふ", "たいねつ", "あついしぼう", "ふしぎなうろこ",
@@ -178,6 +181,8 @@ export function DamageTab() {
   const [atkMovesLast, setAtkMovesLast] = usePersistedState("dmg.atkLast", false, isBool);
   const [rivalry, setRivalry] = usePersistedState<"なし" | "同性" | "異性">(
     "dmg.rivalry", "なし", (v) => RIVALRY.includes(v as "なし"));
+  const [alliesFainted, setAlliesFainted] = usePersistedState(
+    "dmg.alliesFainted", 0, (v) => typeof v === "number" && FAINTED.includes(v));
   const [protect, setProtect] = usePersistedState("dmg.protect", false, isBool);
   const [extraMul, setExtraMul] = usePersistedState("dmg.extraMul", 100, isNum); // %で保持
   // 仮想敵のAPもスクロール中の誤操作を防げるようロックできるようにする
@@ -257,6 +262,7 @@ export function DamageTab() {
       atkPinch,
       atkMovesLast,
       rivalry,
+      alliesFainted,
       protect,
       extraMul: extraMul / 100,
     });
@@ -455,6 +461,25 @@ export function DamageTab() {
               onChange={(v) => setRivalry(v as "なし")}
             />
           </label>
+          {/* そうだいしょうを選んだときだけ出す。常時出すとドドゲザン専用の項目が邪魔になる */}
+          {atkAbil === "そうだいしょう" && (
+            <div className="fld wide">
+              <span className="fld-label">そうだいしょう（倒れた味方）</span>
+              <div className="seg">
+                {FAINTED.map((n) => (
+                  <button
+                    type="button"
+                    key={n}
+                    className={`sort-chip ${alliesFainted === n ? "on" : ""}`}
+                    aria-pressed={alliesFainted === n}
+                    onClick={() => setAlliesFainted(n)}
+                  >
+                    {n}体<i>×{(1 + n * 0.1).toFixed(1)}</i>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="checks">
           <label><input type="checkbox" checked={crit} onChange={(e) => setCrit(e.target.checked)} />急所</label>
