@@ -26,7 +26,10 @@ interface Form {
 /** 1系統（フォルムをまとめたもの） */
 interface Species {
   name: string;
+  /** メガシンカで初めてはがねが付く（通常フォルムは非はがね） */
   megaOnly: boolean;
+  /** メガシンカのフォルムを持つ */
+  hasMega: boolean;
   forms: Form[];
 }
 
@@ -37,9 +40,19 @@ const SORT_LABEL: Record<SortKey, string> = {
   H: "H", A: "A", B: "B", C: "C", D: "D", S: "S",
 };
 
+/** メガ絞込み。has=メガを持つ / none=持たない / steel=メガで初めてはがねが付く */
+type MegaMode = "all" | "has" | "none" | "steel";
+const MEGA_MODES: { key: MegaMode; label: string; title: string }[] = [
+  { key: "all", label: "すべて", title: "メガの有無で絞らない" },
+  { key: "has", label: "メガあり", title: "メガシンカを持つ系統" },
+  { key: "none", label: "メガなし", title: "メガシンカを持たない系統（メガ枠を空けたいとき）" },
+  { key: "steel", label: "メガで初鋼化", title: "通常フォルムは非はがね。メガシンカで初めてはがねが付く" },
+];
+
 const SPECIES: Species[] = DEX.map((d) => ({
   name: d.name,
   megaOnly: !!d.megaOnly,
+  hasMega: d.forms.some((f) => f.form.startsWith("メガ")),
   forms: d.forms.map((f) => {
     const weak: { type: string; mul: number }[] = [];
     const immune: string[] = [];
@@ -102,7 +115,8 @@ export function DexTab() {
   // タイプボタンの意味。self=本人のタイプ / move=覚える技のタイプ
   const [typeMode, setTypeMode] = usePersistedState<"self" | "move">(
     "dex.typeMode", "self", (v) => v === "self" || v === "move");
-  const [megaOnly, setMegaOnly] = usePersistedState("dex.megaOnly", false, (v) => typeof v === "boolean");
+  const [megaMode, setMegaMode] = usePersistedState<MegaMode>(
+    "dex.mega", "all", (v) => MEGA_MODES.some((m) => m.key === v));
   const [sortKey, setSortKey] = usePersistedState<SortKey>(
     "dex.sortKey", "total", (v) => SORT_KEYS.includes(v as SortKey));
   const [asc, setAsc] = usePersistedState("dex.asc", false, (v) => typeof v === "boolean");
@@ -134,7 +148,9 @@ export function DexTab() {
     const hitQ = kanaMatcher(q);
     const out: { sp: Species; forms: Form[]; sel: Form; sortVal: number; hitMoves: Move[] }[] = [];
     for (const sp of SPECIES) {
-      if (megaOnly && !sp.megaOnly) continue;
+      if (megaMode === "has" && !sp.hasMega) continue;
+      if (megaMode === "none" && sp.hasMega) continue;
+      if (megaMode === "steel" && !sp.megaOnly) continue;
       let forms = sp.forms;
       // 覚える技で絞るときはフォルムではなく系統で判定する（習得技は系統で共通）
       const hitMoves: Move[] = [];
@@ -161,7 +177,7 @@ export function DexTab() {
       }
       return asc ? a.sortVal - b.sortVal : b.sortVal - a.sortVal;
     });
-  }, [q, typeFilter, typeMode, megaOnly, sortKey, asc, picked]);
+  }, [q, typeFilter, typeMode, megaMode, sortKey, asc, picked]);
 
   const shownForms = list.reduce((n, x) => n + x.forms.length, 0);
 
@@ -197,10 +213,6 @@ export function DexTab() {
             onChange={(e) => setQ(e.target.value)}
             style={{ flex: "1 1 160px" }}
           />
-          <label className="row tight small" style={{ cursor: "pointer" }}>
-            <input type="checkbox" checked={megaOnly} onChange={(e) => setMegaOnly(e.target.checked)} />
-            メガで初鋼化のみ
-          </label>
           <label className="row tight small" style={{ cursor: "pointer" }} title="バーと余白を省いて一度に多く見る">
             <input type="checkbox" checked={compact} onChange={(e) => setCompact(e.target.checked)} />
             コンパクト
@@ -208,6 +220,22 @@ export function DexTab() {
           {typeFilter.length > 0 && (
             <button className="btn small" onClick={() => setTypeFilter([])}>タイプ絞込み解除</button>
           )}
+        </div>
+        {/* メガシンカで絞る。チャンピオンズはメガを1体しか入れられないので、
+            「あり」だけでなく「なし」も要る（メガ枠を空けた構成を組むとき） */}
+        <div className="row tight" style={{ marginTop: 8 }}>
+          <span className="small muted">メガシンカ</span>
+          {MEGA_MODES.map((m) => (
+            <button
+              key={m.key}
+              className={`sort-chip ${megaMode === m.key ? "on" : ""}`}
+              aria-pressed={megaMode === m.key}
+              title={m.title}
+              onClick={() => setMegaMode(m.key)}
+            >
+              {m.label}
+            </button>
+          ))}
         </div>
         {/* タイプボタンの意味を切り替える。「覚える技」なら、そのタイプの技を
             覚える系統だけに絞り、該当する技名をカードに出す */}
