@@ -8,6 +8,10 @@ export type Field = "なし" | "エレキフィールド" | "グラスフィー�
 /** グラスフィールドで半減される地面技（地面を揺らす技） */
 const GROUND_QUAKE = new Set(["じしん", "じならし", "マグニチュード"]);
 
+/** そうだいしょう: 倒れた味方の数ごとの威力補正（×1.0 / 1.1 / … / 1.5）。
+ *  0.1刻みを丸めた値なので、4096×1.1 のような計算ではなくこの表を使う。 */
+const OVERLORD = [4096, 4506, 4915, 5325, 5734, 6144];
+
 export interface DamageParams {
   power: number;
   moveName: string;
@@ -44,6 +48,8 @@ export interface DamageParams {
   atkMovesLast: boolean;
   /** とうそうしん: 同性 / 異性 / なし */
   rivalry: "なし" | "同性" | "異性";
+  /** そうだいしょう: 倒れた味方の数（0〜5。6体目以降は増えない） */
+  alliesFainted: number;
   /** 相手が まもる／みきり を使っている（貫通特性以外は無効） */
   protect: boolean;
   /** 実装外の補正（チャンピオンズ独自の特性など）を手で掛ける */
@@ -89,6 +95,7 @@ export function computeDamage(p: DamageParams): DamageResult | null {
     category, item, defItem, crit, weather, field, burn, wall, contact,
     atkAbility, defAbility, defHPFull, helpingHand, spread,
     atkStatused, defStatused, atkPinch, atkMovesLast, rivalry, protect, extraMul,
+    alliesFainted,
   } = p;
   if (!power || power <= 0) return null;
 
@@ -145,6 +152,11 @@ export function computeDamage(p: DamageParams): DamageResult | null {
   if (atkAbility === "パンクロック" && flags.includes("sound")) bpMods.push(5325);
   if (atkAbility === "とうそうしん" && rivalry === "同性") bpMods.push(M(1.25));
   if (atkAbility === "とうそうしん" && rivalry === "異性") bpMods.push(M(0.75));
+  // そうだいしょう: 倒れた味方1体につき10%。効果の文言は「攻撃・特攻が上がる」だが、
+  // 計算上は威力の連鎖に入る（本家と同じ扱い）。5体で打ち止め。
+  if (atkAbility === "そうだいしょう" && alliesFainted > 0) {
+    bpMods.push(OVERLORD[Math.min(5, alliesFainted)]);
+  }
   if (skin) bpMods.push(4915); // スカイスキン
   if (atkAbility === "すてみ" && RECOIL_MOVES.has(moveName)) bpMods.push(4915);
   if (atkAbility === "てつのこぶし" && flags.includes("punch")) bpMods.push(4915);

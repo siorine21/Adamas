@@ -835,3 +835,15 @@ table.cv td.cv-h { color: var(--red); background: rgba(224, 87, 79, .14); }
 table.cv td.cv-q { color: var(--red); background: rgba(224, 87, 79, .26); font-weight: 600; }
 table.cv td.cv-imm { color: var(--red); background: rgba(224, 87, 79, .4); font-weight: 700; }
 table.cv td.cv-none { color: var(--dim); }
+
+/* そうだいしょうの「倒れた味方」。0〜5を横一列で、412px幅でも折り返さずに収める */
+.fld-label { display: block; font-size: 11px; color: var(--dim); margin-bottom: 3px; }
+.seg { display: flex; gap: 4px; }
+.seg .sort-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 5px 2px;
+  text-align: center;
+  line-height: 1.2;
+}
+.seg .sort-chip i { display: block; font-style: normal; font-size: 9px; opacity: 0.75; }
