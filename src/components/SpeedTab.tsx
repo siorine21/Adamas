@@ -3,7 +3,7 @@ import type { RosterEntry } from "../types";
 import { useStore } from "../store";
 import { usePersistedState } from "../uiState";
 import { CONFIRMED } from "../data/confirmed";
-import { RANK_MAX, RANK_MIN, calcStat, rankLabel, rankMul, realStats } from "../data/game";
+import { RANK_MAX, RANK_MIN, TYPES, TYPE_COLORS, calcStat, rankLabel, rankMul, realStats } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { SelectMenu } from "./SelectMenu";
@@ -18,9 +18,24 @@ interface SpeedRow {
   label: string;
   detail: string;
   types?: string[];
+  /** 特性の候補（絞込み用。個体として選んでいる1つではない） */
+  abilities: string[];
+  isMega: boolean;
   speed: number;
   kind: Kind;
 }
+
+/** メガ絞込み。はがね図鑑と同じ考え方だが、内定表はメガを別の行として持つので
+ *  「持つ／持たない」ではなく「その行がメガか」で見る */
+type MegaMode = "all" | "only" | "not";
+const MEGA_MODES: { key: MegaMode; label: string }[] = [
+  { key: "all", label: "すべて" },
+  { key: "only", label: "メガのみ" },
+  { key: "not", label: "メガ以外" },
+];
+
+const ANY_ABILITY = "（すべて）";
+const splitAbility = (s: string): string[] => s.split("/").map((a) => a.trim()).filter(Boolean);
 
 function refSpeed(baseS: number, line: RefLine): number {
   if (line === "最速") return calcStat(baseS, 32, 1.1);
@@ -40,6 +55,13 @@ export function SpeedTab() {
   const [onlyMine, setOnlyMine] = usePersistedState("spd.onlyMine", false, (v) => typeof v === "boolean");
   // 絞込みは保存しない（開いた時に何も出ない状態になるのを避ける）
   const [q, setQ] = useState("");
+  // はがね図鑑と同じ絞込み。こちらも保存しない（何も出ない状態で開くのを避ける）
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [megaMode, setMegaMode] = useState<MegaMode>("all");
+  const [ability, setAbility] = useState(ANY_ABILITY);
+  // 手持ち・控えの設定パネルは行数が多いので畳めるようにする
+  const [rosterOpen, setRosterOpen] = usePersistedState(
+    "spd.rosterOpen", true, (v) => typeof v === "boolean");
 
   // 手持ち(★)→控えの順に全個体
   const sortedRoster = useMemo(
@@ -61,6 +83,8 @@ export function SpeedTab() {
       label: `${displayName(e.name, form.form)}${e.nickname ? `「${e.nickname}」` : ""}`,
       detail: tags.join(" / "),
       types: form.types,
+      abilities: splitAbility(form.ability),
+      isMega: form.form.startsWith("メガ"),
       speed: s,
       kind: e.starred ? "team" : "bench",
     };
@@ -83,6 +107,8 @@ export function SpeedTab() {
           label: c.name,
           detail: line,
           types: c.types,
+          abilities: c.abilities,
+          isMega: c.name.startsWith("メガ"),
           speed: refSpeed(c.base.S, line),
           kind: "ref",
         });
@@ -94,12 +120,44 @@ export function SpeedTab() {
       if (!used.has(nm)) { used.add(nm); out.push(rosterRow(e)); }
     }
     let list = onlyMine ? out.filter((r) => r.kind !== "ref") : out;
+    if (megaMode === "only") list = list.filter((r) => r.isMega);
+    if (megaMode === "not") list = list.filter((r) => !r.isMega);
+    // タイプは図鑑と同じく AND（選んだタイプをすべて持つ）
+    if (typeFilter.length > 0) {
+      list = list.filter((r) => typeFilter.every((t) => r.types?.includes(t)));
+    }
+    if (ability !== ANY_ABILITY) list = list.filter((r) => r.abilities.includes(ability));
     if (q.trim()) {
       const hit = kanaMatcher(q);
       list = list.filter((r) => hit(r.label));
     }
     return list.sort((a, b) => b.speed - a.speed);
-  }, [sortedRoster, scarf, rank, line, onlyMine, q]);
+  }, [sortedRoster, scarf, rank, line, onlyMine, q, typeFilter, megaMode, ability]);
+
+  /** 絞込みに出す特性。内定表＋自分の個体に実際に出てくるものだけを、多い順に */
+  const abilityOptions = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const c of CONFIRMED) for (const a of c.abilities) count.set(a, (count.get(a) ?? 0) + 1);
+    for (const e of roster) {
+      for (const a of splitAbility(e.forms[e.activeForm].ability)) {
+        if (!count.has(a)) count.set(a, 0);
+      }
+    }
+    return [...count.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja"))
+      .map(([name, n]) => ({ value: name, label: name, sub: n > 0 ? `${n}` : undefined }));
+  }, [roster]);
+
+  /** 内定表に実際に出てくるタイプだけ（18種すべて出るが、将来レギュが変わっても空振りしない） */
+  const usedTypes = useMemo(
+    () => TYPES.filter((t) => CONFIRMED.some((c) => c.types.includes(t))),
+    [],
+  );
+
+  const filtered = typeFilter.length > 0 || megaMode !== "all" || ability !== ANY_ABILITY;
+  const clearFilters = () => { setTypeFilter([]); setMegaMode("all"); setAbility(ANY_ABILITY); };
+  const toggleType = (t: string) =>
+    setTypeFilter((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
   const marker = (k: Kind) => (k === "team" ? "★ " : k === "bench" ? "◆ " : "");
   const rowClass = (k: Kind) => (k === "team" ? "self-row" : k === "bench" ? "bench-row" : "");
@@ -107,9 +165,15 @@ export function SpeedTab() {
   return (
     <div>
       <div className="panel">
-        <div className="section-title">手持ち・控えの素早さ設定</div>
+        {/* 個体が多いと縦に長くなり、肝心の比較表まで遠くなるので畳めるようにする */}
+        <button type="button" className="wk-head" aria-expanded={rosterOpen} onClick={() => setRosterOpen(!rosterOpen)}>
+          <span className={`card-caret ${rosterOpen ? "open" : ""}`}>▶</span>
+          <span className="section-title" style={{ margin: 0, border: "none", padding: 0 }}>
+            手持ち・控えの素早さ設定（{sortedRoster.length}体）
+          </span>
+        </button>
         {sortedRoster.length === 0 && <div className="muted small">個体がいません。チーム管理で登録してください。</div>}
-        {sortedRoster.map((e) => {
+        {rosterOpen && sortedRoster.map((e) => {
           const form = e.forms[e.activeForm];
           const base = realStats(form.base, e.ap, e.nature).S;
           return (
@@ -167,11 +231,57 @@ export function SpeedTab() {
             onChange={(e) => setQ(e.target.value)}
             style={{ flex: "1 1 140px" }}
           />
+          {filtered && <button className="btn small" onClick={clearFilters}>絞込みを解除</button>}
+        </div>
+
+        {/* 以下ははがね図鑑と同じ絞込み */}
+        <div className="row tight" style={{ marginTop: 8 }}>
+          <span className="small muted">メガシンカ</span>
+          {MEGA_MODES.map((m) => (
+            <button
+              key={m.key}
+              className={`sort-chip ${megaMode === m.key ? "on" : ""}`}
+              aria-pressed={megaMode === m.key}
+              onClick={() => setMegaMode(m.key)}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <div className="row tight" style={{ marginTop: 8 }}>
+          <span className="small muted">特性</span>
+          <SelectMenu
+            style={{ flex: "1 1 150px", minWidth: 130 }}
+            items={[{ value: ANY_ABILITY, label: ANY_ABILITY }, ...abilityOptions]}
+            value={ability}
+            onChange={setAbility}
+            searchPlaceholder="特性を絞り込み…"
+          />
+        </div>
+        <div className="row tight" style={{ marginTop: 8 }}>
+          <span className="small muted" title="選んだタイプをすべて持つポケモンだけ残します">
+            タイプで絞る{typeFilter.length > 1 && "（すべて持つ）"}
+          </span>
+        </div>
+        <div className="filter-types" style={{ marginTop: 6 }}>
+          {usedTypes.map((t) => (
+            <button
+              key={t}
+              className={typeFilter.includes(t) ? "on" : ""}
+              style={{ background: TYPE_COLORS[t], color: "#14171c" }}
+              onClick={() => toggleType(t)}
+            >
+              {t}
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="panel table-scroll">
-        <div className="section-title">素早さ比較（内定{CONFIRMED.length}体・降順）</div>
+        <div className="section-title">
+          素早さ比較（{rows.length}件・降順）
+          {filtered && <span className="small muted">　全{CONFIRMED.length}体から絞込み中</span>}
+        </div>
         <div className="small muted" style={{ marginBottom: 6 }}>
           <span className="spd-tag team">★手持ち</span>
           <span className="spd-tag bench">◆控え</span>
