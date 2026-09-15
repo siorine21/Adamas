@@ -847,3 +847,59 @@ table.cv td.cv-none { color: var(--dim); }
   line-height: 1.2;
 }
 .seg .sort-chip i { display: block; font-style: normal; font-size: 9px; opacity: 0.75; }
+
+/* ---------- 汎用ツール ---------- */
+/* 防御相性: 倍率ごとにタイプを並べる。倍率のラベル幅を揃えて行頭で縦に読める */
+.tool-rows { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.tool-row { display: flex; align-items: flex-start; gap: 6px; }
+.tool-row-key {
+  flex: 0 0 auto;
+  width: 44px;
+  padding: 2px 0;
+  text-align: center;
+  font-size: 11px;
+  border-radius: 4px;
+}
+.tool-row-types { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+
+/* タイプ相性表: 18列あるので横スクロール前提。セルは詰めて1画面に多く入れる。
+   攻撃側の列は貼り付けておかないと、右へ送ったときにどの行か分からなくなる */
+table.wk.chart { font-size: 11px; }
+table.wk.chart th, table.wk.chart td { padding: 2px 3px; }
+table.wk.chart td.num { min-width: 22px; text-align: center; }
+table.wk.chart th:first-child, table.wk.chart td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+.tabbr {
+  display: inline-block;
+  width: 18px;
+  padding: 1px 0;
+  border-radius: 3px;
+  text-align: center;
+  color: #14171c;
+  font-size: 11px;
+}
+
+/* 実数値計算の入力欄。数字4桁が収まる最小幅に留める */
+input.tool-num { width: 62px; text-align: right; }
+.warn-text { color: var(--red); }
+
+/* 防御相性の倍率ラベル。表ではないので wk-* の色をここでも当てる（赤＝痛い／緑＝助かる） */
+.tool-row-key.wk-x4 { color: #fff; background: rgba(224, 87, 79, .55); font-weight: 700; }
+.tool-row-key.wk-x2 { color: var(--red); background: rgba(224, 87, 79, .18); font-weight: 600; }
+.tool-row-key.wk-n { color: var(--dim); background: var(--panel2); }
+.tool-row-key.wk-h { color: var(--green); background: rgba(109, 181, 109, .12); }
+.tool-row-key.wk-q { color: var(--green); background: rgba(109, 181, 109, .24); font-weight: 600; }
+.tool-row-key.wk-imm { color: var(--steel-hi); background: rgba(127, 168, 207, .22); font-weight: 700; }
+
+/* タブが5つになり、最長の「ダメージ計算」が枠から溢れるので狭い画面では字を詰める。
+   360px 以下は詰めても入らないので折り返す（タブを隠すより1行増やすほうがまし） */
+@media (max-width: 430px) {
+  .tabbar button { font-size: 11px; padding: 8px 1px; }
+}
+@media (max-width: 360px) {
+  .tabbar button { white-space: normal; line-height: 1.25; }
+}
