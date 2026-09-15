@@ -5,14 +5,16 @@ import { TeamTab } from "./components/TeamTab";
 import { DexTab } from "./components/DexTab";
 import { DamageTab } from "./components/DamageTab";
 import { SpeedTab } from "./components/SpeedTab";
+import { ToolsTab } from "./components/ToolsTab";
 
-type Tab = "team" | "dex" | "damage" | "speed";
+type Tab = "team" | "dex" | "damage" | "speed" | "tools";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "team", label: "チーム管理" },
   { id: "dex", label: "はがね図鑑" },
   { id: "damage", label: "ダメージ計算" },
   { id: "speed", label: "素早さ比較" },
+  { id: "tools", label: "ツール" },
 ];
 
 function SaveBadge() {
@@ -62,6 +64,7 @@ export default function App() {
         <div style={{ display: tab === "dex" ? "block" : "none" }}><DexTab /></div>
         <div style={{ display: tab === "damage" ? "block" : "none" }}><DamageTab /></div>
         <div style={{ display: tab === "speed" ? "block" : "none" }}><SpeedTab /></div>
+        <div style={{ display: tab === "tools" ? "block" : "none" }}><ToolsTab /></div>
       </main>
       <InstallFooter />
     </div>
