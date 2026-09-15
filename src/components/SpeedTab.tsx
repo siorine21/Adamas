@@ -119,19 +119,24 @@ export function SpeedTab() {
       const nm = displayName(e.name, e.forms[e.activeForm].form);
       if (!used.has(nm)) { used.add(nm); out.push(rosterRow(e)); }
     }
-    let list = onlyMine ? out.filter((r) => r.kind !== "ref") : out;
-    if (megaMode === "only") list = list.filter((r) => r.isMega);
-    if (megaMode === "not") list = list.filter((r) => !r.isMega);
-    // タイプは図鑑と同じく AND（選んだタイプをすべて持つ）
-    if (typeFilter.length > 0) {
-      list = list.filter((r) => typeFilter.every((t) => r.types?.includes(t)));
-    }
-    if (ability !== ANY_ABILITY) list = list.filter((r) => r.abilities.includes(ability));
-    if (q.trim()) {
-      const hit = kanaMatcher(q);
-      list = list.filter((r) => hit(r.label));
-    }
-    return list.sort((a, b) => b.speed - a.speed);
+    const list = onlyMine ? out.filter((r) => r.kind !== "ref") : out;
+
+    /* 絞込みは内定の行にだけ効かせる。自分の個体は「どこに置かれるか」を見るための
+       基準線なので、相手を絞った拍子に消えると比較そのものができなくなる。
+       自分の個体だけにしたいときは「自分の個体のみ」を使う。 */
+    const hit = kanaMatcher(q);
+    const matchesRef = (r: SpeedRow): boolean => {
+      if (megaMode === "only" && !r.isMega) return false;
+      if (megaMode === "not" && r.isMega) return false;
+      // タイプは図鑑と同じく AND（選んだタイプをすべて持つ）
+      if (typeFilter.length > 0 && !typeFilter.every((t) => r.types?.includes(t))) return false;
+      if (ability !== ANY_ABILITY && !r.abilities.includes(ability)) return false;
+      if (q.trim() && !hit(r.label)) return false;
+      return true;
+    };
+    return list
+      .filter((r) => r.kind !== "ref" || matchesRef(r))
+      .sort((a, b) => b.speed - a.speed);
   }, [sortedRoster, scarf, rank, line, onlyMine, q, typeFilter, megaMode, ability]);
 
   /** 絞込みに出す特性。内定表＋自分の個体に実際に出てくるものだけを、多い順に */
@@ -155,6 +160,8 @@ export function SpeedTab() {
   );
 
   const filtered = typeFilter.length > 0 || megaMode !== "all" || ability !== ANY_ABILITY;
+  /** 名前検索も含め、内定側を絞っている状態か（注記の出し分けに使う） */
+  const narrowing = filtered || q.trim().length > 0;
   const clearFilters = () => { setTypeFilter([]); setMegaMode("all"); setAbility(ANY_ABILITY); };
   const toggleType = (t: string) =>
     setTypeFilter((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
@@ -280,12 +287,13 @@ export function SpeedTab() {
       <div className="panel table-scroll">
         <div className="section-title">
           素早さ比較（{rows.length}件・降順）
-          {filtered && <span className="small muted">　全{CONFIRMED.length}体から絞込み中</span>}
+          {narrowing && <span className="small muted">　内定{CONFIRMED.length}体から絞込み中</span>}
         </div>
         <div className="small muted" style={{ marginBottom: 6 }}>
           <span className="spd-tag team">★手持ち</span>
           <span className="spd-tag bench">◆控え</span>
           は自分の構成（実数値）。それ以外は内定ポケモンの{line}ライン。
+          {narrowing && "　絞込みは内定ポケモンにだけ効きます（自分の個体は基準線として常に表示）。"}
         </div>
         {/* スマホでも横スクロール無しで読めるよう、条件/タイプは名前の下に重ねる2列構成 */}
         <table className="spd">
