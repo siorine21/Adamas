@@ -161,7 +161,7 @@ export const CONFIRMED: ConfirmedMon[] = [
   { no: 392, name: "ゴウカザル", types: ["ほのお", "かくとう"], base: B(76, 104, 71, 104, 71, 108), abilities: ["もうか", "てつのこぶし"], total: 534, typeVerified: true },
   { no: 395, name: "エンペルト", types: ["みず", "はがね"], base: B(84, 86, 88, 111, 101, 60), abilities: ["げきりゅう", "かちき"], total: 530, typeVerified: true },
   { no: 398, name: "ムクホーク", types: ["ノーマル", "ひこう"], base: B(85, 120, 70, 50, 60, 100), abilities: ["いかく", "すてみ"], total: 485, typeVerified: true },
-  { no: 398, name: "メガムクホーク", types: ["ノーマル", "ひこう"], base: B(85, 140, 100, 60, 90, 110), abilities: ["あまのじゃく"], total: 585, typeVerified: false },
+  { no: 398, name: "メガムクホーク", types: ["かくとう", "ひこう"], base: B(85, 140, 100, 60, 90, 110), abilities: ["あまのじゃく"], total: 585, typeVerified: true },
   { no: 405, name: "レントラー", types: ["でんき"], base: B(80, 120, 79, 95, 79, 70), abilities: ["とうそうしん", "いかく", "こんじょう"], total: 523, typeVerified: true },
   { no: 407, name: "ロズレイド", types: ["くさ", "どく"], base: B(60, 70, 65, 125, 105, 90), abilities: ["しぜんかいふく", "どくのトゲ", "テクニシャン"], total: 515, typeVerified: true },
   { no: 409, name: "ラムパルド", types: ["いわ"], base: B(97, 165, 60, 65, 50, 58), abilities: ["かたやぶり", "ちからずく"], total: 495, typeVerified: true },

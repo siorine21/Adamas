@@ -9,6 +9,7 @@ import { typeEffectiveness } from "../calc";
 import { usePersistedState } from "../uiState";
 import { NumberInput } from "./NumberInput";
 import { SelectMenu } from "./SelectMenu";
+import { TypeMatchup, matchupOf } from "./TypeMatchup";
 
 /* ============================================================
    汎用ツール。特定のチームや図鑑に紐づかない、タイプ相性・実数値まわりの
@@ -228,26 +229,10 @@ function DefenseTool() {
       ? prev.filter((x) => x !== t)
       : prev.length >= MAX_DEF_TYPES ? prev : [...prev, t]));
 
-  const groups = useMemo(() => {
-    if (picked.length === 0) return null;
-    const g: Record<string, string[]> = { x4: [], x2: [], n: [], h: [], q: [], z: [] };
-    for (const t of TYPES) {
-      const m = typeEffectiveness(t, picked);
-      const k = m === 0 ? "z" : m >= 4 ? "x4" : m > 1 ? "x2" : m === 1 ? "n" : m <= 0.25 ? "q" : "h";
-      g[k].push(t);
-    }
-    return g;
-  }, [picked]);
-
-  // 色は弱点表と同じ意味づけ（赤＝痛い／緑＝助かる）
-  const ROWS: { key: string; label: string; cls: string }[] = [
-    { key: "x4", label: "4倍", cls: "wk-x4" },
-    { key: "x2", label: "2倍", cls: "wk-x2" },
-    { key: "n", label: "等倍", cls: "wk-n" },
-    { key: "h", label: "半減", cls: "wk-h" },
-    { key: "q", label: "¼", cls: "wk-q" },
-    { key: "z", label: "無効", cls: "wk-imm" },
-  ];
+  const groups = useMemo(
+    () => (picked.length === 0 ? null : matchupOf(picked)),
+    [picked],
+  );
 
   return (
     <div className="panel">
@@ -271,20 +256,7 @@ function DefenseTool() {
             弱点 <b>{groups.x4.length + groups.x2.length}</b>／半減以下{" "}
             <b>{groups.h.length + groups.q.length + groups.z.length}</b>
           </div>
-          <div className="tool-rows">
-            {ROWS.map((r) => (
-              <div className="tool-row" key={r.key}>
-                <span className={`tool-row-key ${r.cls}`}>{r.label}</span>
-                <span className="tool-row-types">
-                  {groups[r.key].length === 0
-                    ? <span className="small muted">なし</span>
-                    : groups[r.key].map((t) => (
-                      <span key={t} className="tbadge" style={{ background: TYPE_COLORS[t] }}>{t}</span>
-                    ))}
-                </span>
-              </div>
-            ))}
-          </div>
+          <TypeMatchup types={picked} showEmpty showNeutral />
           <div className="small muted" style={{ marginTop: 6 }}>
             タイプ相性のみです。特性（ふゆう・もらいび・ぼうおん等）やもちものは考慮しません。
           </div>

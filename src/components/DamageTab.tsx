@@ -14,6 +14,7 @@ import { displayName } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { MoveSelect } from "./MoveSelect";
 import { SelectMenu } from "./SelectMenu";
+import { TypeMatchup } from "./TypeMatchup";
 import { ApSlider } from "./ApSlider";
 import { StepSlider } from "./StepSlider";
 import { NumberInput } from "./NumberInput";
@@ -350,6 +351,14 @@ export function DamageTab() {
             <button className="btn small" onClick={() => setThreat((p) => ({ ...p, types: p.types.length > 1 ? [p.types[0]] : [...p.types, "ノーマル"] }))}>
               {threat.types.length > 1 ? "単タイプ" : "＋タイプ"}
             </button>
+          </div>
+          {/* 選んだ仮想敵が何を嫌うか。どの技を持たせるか決めるのに毎回タイプ表を引くのは手間なので添える */}
+          <div className="small muted" style={{ marginTop: 6 }}>
+            {attackerIsSelf ? "この相手のタイプ相性" : "この相手が受けるタイプ相性"}
+          </div>
+          <TypeMatchup types={threat.types} />
+          <div className="small muted" style={{ marginTop: 4 }}>
+            タイプ相性のみです。特性（ふゆう・もらいび等）やもちものは考慮しません。
           </div>
           <label className="fld">
             <span>性格</span>
