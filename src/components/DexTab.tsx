@@ -121,6 +121,36 @@ for (const sp of SPECIES) {
   MOVES_BY_TYPE[sp.name] = byType;
 }
 
+/** 系統ごとの「覚える技の集合」。技名ちょうどで絞るときに使う（没収技は除く） */
+const MOVE_SET: Record<string, Set<string>> = {};
+for (const sp of SPECIES) {
+  const banned = BANNED_MOVES[sp.name] ?? [];
+  MOVE_SET[sp.name] = new Set(
+    (LEARNSETS[sp.name]?.moves ?? []).filter((n) => !banned.includes(n) && MOVE_BY_NAME[n]),
+  );
+}
+
+/** 技名の選択肢。図鑑の誰かが覚える技だけを、覚える系統の多い順に並べる。
+ *  全833技から選ばせても、はがね勢が覚えない技が大半で空振りするため。 */
+const MOVE_OPTIONS = (() => {
+  const count = new Map<string, number>();
+  for (const set of Object.values(MOVE_SET)) {
+    for (const n of set) count.set(n, (count.get(n) ?? 0) + 1);
+  }
+  return [...count.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja"))
+    .map(([name, n]) => {
+      const m = MOVE_BY_NAME[name];
+      return {
+        value: name,
+        label: name,
+        sub: `${m.type}・${m.power > 0 ? `威力${m.power}` : m.cat}・${n}系統`,
+        swatch: undefined as string | undefined,
+      };
+    });
+})();
+const ADD_MOVE = "（技を追加…）";
+
 const ALL_FORMS = SPECIES.flatMap((s) => s.forms);
 
 /** 特性の選択肢。図鑑に出てくるものだけを、持つフォルムの多い順に並べる */
@@ -167,6 +197,10 @@ export function DexTab() {
   const [unowned, setUnowned] = usePersistedState("dex.unowned", false, (v) => typeof v === "boolean");
   const [minCoverage, setMinCoverage] = usePersistedState(
     "dex.coverage", 0, (v) => typeof v === "number" && COVERAGE_STEPS.includes(v));
+  // 技名で絞る（複数選ぶと「すべて覚える」系統だけ残る）
+  const [moveFilter, setMoveFilter] = usePersistedState<string[]>(
+    "dex.moves", [],
+    (v) => Array.isArray(v) && v.every((x) => typeof x === "string" && !!MOVE_BY_NAME[x as string]));
   const [sortKey, setSortKey] = usePersistedState<SortKey>(
     "dex.sortKey", "total", (v) => SORT_KEYS.includes(v as SortKey));
   const [asc, setAsc] = usePersistedState("dex.asc", false, (v) => typeof v === "boolean");
@@ -208,6 +242,12 @@ export function DexTab() {
       if (ability !== ANY_ABILITY) forms = forms.filter((f) => f.abilities.includes(ability));
       // 覚える技で絞るときはフォルムではなく系統で判定する（習得技は系統で共通）
       const hitMoves: Move[] = [];
+      // 技名での絞込み。複数選んだら「すべて覚える」系統だけ残す
+      if (moveFilter.length > 0) {
+        const set = MOVE_SET[sp.name];
+        if (!moveFilter.every((n) => set?.has(n))) continue;
+        for (const n of moveFilter) hitMoves.push(MOVE_BY_NAME[n]);
+      }
       if (typeFilter.length > 0) {
         if (typeMode === "move") {
           const byType = MOVES_BY_TYPE[sp.name] ?? {};
@@ -234,7 +274,7 @@ export function DexTab() {
       }
       return asc ? a.sortVal - b.sortVal : b.sortVal - a.sortVal;
     });
-  }, [q, typeFilter, typeMode, megaMode, ability, unowned, minCoverage, owned, sortKey, asc, picked]);
+  }, [q, typeFilter, typeMode, megaMode, ability, unowned, minCoverage, moveFilter, owned, sortKey, asc, picked]);
 
   const shownForms = list.reduce((n, x) => n + x.forms.length, 0);
 
@@ -251,10 +291,10 @@ export function DexTab() {
 
   // 絞り込みが増えたので、何か効いているときだけ「まとめて解除」を出す
   const filtered = typeFilter.length > 0 || megaMode !== "all"
-    || ability !== ANY_ABILITY || unowned || minCoverage > 0;
+    || ability !== ANY_ABILITY || unowned || minCoverage > 0 || moveFilter.length > 0;
   const clearFilters = () => {
     setTypeFilter([]); setMegaMode("all"); setAbility(ANY_ABILITY);
-    setUnowned(false); setMinCoverage(0);
+    setUnowned(false); setMinCoverage(0); setMoveFilter([]);
   };
 
   /** 図鑑から自軍へ。star=true なら★手持ちとして入れる */
@@ -317,6 +357,39 @@ export function DexTab() {
             searchPlaceholder="特性を絞り込み…"
           />
         </div>
+        {/* 技名で絞る。タイプ絞込みと違い「この技が使える枠を探す」用 */}
+        <div className="row tight" style={{ marginTop: 8 }}>
+          <span className="small muted" title="複数選ぶと、すべて覚える系統だけが残ります">
+            覚える技{moveFilter.length > 1 && "（すべて覚える）"}
+          </span>
+          <SelectMenu
+            style={{ flex: "1 1 150px", minWidth: 130 }}
+            items={[
+              { value: ADD_MOVE, label: ADD_MOVE },
+              ...MOVE_OPTIONS.filter((m) => !moveFilter.includes(m.value)),
+            ]}
+            value={ADD_MOVE}
+            onChange={(v) => { if (v !== ADD_MOVE) setMoveFilter((prev) => [...prev, v]); }}
+            searchable
+            stacked
+            searchPlaceholder="技名で絞り込み…"
+          />
+        </div>
+        {moveFilter.length > 0 && (
+          <div className="row tight" style={{ marginTop: 6 }}>
+            {moveFilter.map((n) => (
+              <button
+                key={n}
+                className="sort-chip on"
+                title="タップで外す"
+                onClick={() => setMoveFilter((prev) => prev.filter((x) => x !== n))}
+              >
+                {n} ✕
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* 打点の広さ。覚える攻撃技が何タイプあるか（ルカリオ16〜ミミズズ5） */}
         <div className="row tight" style={{ marginTop: 8 }}>
           <span className="small muted" title="覚える攻撃技のタイプ数">打点の広さ</span>
@@ -385,6 +458,7 @@ export function DexTab() {
           {list.length} 系統 / {shownForms} フォルム（全 {SPECIES.length} 系統・{ALL_FORMS.length} フォルム）
           {typeFilter.length > 0 && `　絞込み: ${typeFilter.join("・")}${
             typeMode === "move" ? "の技を覚える" : typeMode === "safe" ? "が弱点でない" : "を含む"}`}
+          {moveFilter.length > 0 && `　${moveFilter.join("・")}を覚える`}
         </div>
       </div>
 
