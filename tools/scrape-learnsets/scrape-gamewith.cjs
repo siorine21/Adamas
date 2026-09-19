@@ -17,7 +17,7 @@
  *   ローカルなら: npm i --no-save playwright && npx playwright install chromium
  *                 node tools/scrape-learnsets/scrape-gamewith.cjs
  *
- * 礼儀: 低頻度・少量（30ページ弱）・ページ間に待機。
+ * 礼儀: 低頻度・少量（50ページ強）・ページ間に待機。
  */
 const { chromium } = require("playwright");
 const fs = require("fs");
@@ -31,14 +31,25 @@ const MOVE_LIST = "https://gamewith.jp/pokemon-champions/546417";
 const LINK_SOURCES = [
   "https://gamewith.jp/pokemon-champions/546414", // 内定ポケモン一覧
   "https://gamewith.jp/pokemon-champions/553006", // はがねタイプ一覧
+  "https://gamewith.jp/pokemon-champions/553007", // あくタイプ一覧
   "https://gamewith.jp/pokemon-champions/553083", // 8世代
   "https://gamewith.jp/pokemon-champions/553082", // 9世代
 ];
 
-const TARGETS = ["フォレトス","ハガネール","ハッサム","エアームド","クチート","ボスゴドラ","チリーン",
+/** はがね24系統。メガでしかはがねが付かない系統も含む */
+const STEEL = ["フォレトス","ハガネール","ハッサム","エアームド","クチート","ボスゴドラ","チリーン",
  "メタグロス","エンペルト","トリデプス","ルカリオ","ドリュウズ","ガラルマッギョ","ギルガルド",
  "ヒスイヌメルゴン","クレッフィ","アーマーガア","デカヌチャン","ミミズズ","ドドゲザン","サーフゴー","ブリジュラス",
  "グソクムシャ","ニャイキング"];
+
+/** あく24系統。ドドゲザンは あく/はがね なので STEEL と重複する（下で重複を除く）。
+ *  ギャラドスは素がみず/ひこうで、メガであくが付く（はがねのグソクムシャと同じ扱い）。 */
+const DARK = ["アローラペルシアン","ブラッキー","ヘルガー","バンギラス","ヤミラミ","サメハダー","アブソル",
+ "ミカルゲ","マニューラ","レパルダス","ワルビアル","ズルズキン","ゾロアーク","サザンドラ","ゲッコウガ",
+ "ゴロンダ","カラマネロ","ガオガエン","フォクスライ","オーロンゲ","モルペコ","マスカーニャ","マフィティフ",
+ "ドドゲザン","ギャラドス"];
+
+const TARGETS = [...new Set([...STEEL, ...DARK])];
 
 /** 一覧ページから引けなかったときの直接指定 */
 const OVERRIDE_URL = {
@@ -48,6 +59,7 @@ const OVERRIDE_URL = {
 /** GameWith 上の表記が当方と違うもの（当方の名前 → GameWith の名前） */
 const GW_NAME = {
   "ガラルマッギョ": "マッギョ(ガラル)",
+  "アローラペルシアン": "ペルシアン(アローラ)",
   "ヒスイヌメルゴン": "ヌメルゴン(ヒスイ)",
 };
 
