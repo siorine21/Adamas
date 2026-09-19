@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import type { StatKey } from "../types";
+import type { DexEntry, StatKey } from "../types";
 import { useStore } from "../store";
-import { DEX } from "../data/dex";
+import { DEX_BY_TYPE, DEX_TYPES, type DexType } from "../data/dex";
 import { MAX_STARRED, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS } from "../data/game";
 import { typeEffectiveness } from "../calc";
 import { BANNED_MOVES, LEARNSETS, MOVE_BY_NAME } from "../data/moves";
@@ -51,7 +51,7 @@ const MEGA_MODES: { key: MegaMode; label: string; title: string }[] = [
   { key: "all", label: "すべて", title: "メガの有無で絞らない" },
   { key: "has", label: "メガあり", title: "メガシンカを持つ系統" },
   { key: "none", label: "メガなし", title: "メガシンカを持たない系統（メガ枠を空けたいとき）" },
-  { key: "steel", label: "メガで初鋼化", title: "通常フォルムは非はがね。メガシンカで初めてはがねが付く" },
+  { key: "steel", label: "メガで初獲得", title: "通常フォルムはそのタイプを持たず、メガシンカで初めて付く" },
 ];
 
 /** タイプボタンの意味 */
@@ -74,70 +74,81 @@ function coverageOf(name: string): number {
   return types.size;
 }
 
-const SPECIES: Species[] = DEX.map((d) => ({
-  name: d.name,
-  megaOnly: !!d.megaOnly,
-  hasMega: d.forms.some((f) => f.form.startsWith("メガ")),
-  coverage: coverageOf(d.name),
-  forms: d.forms.map((f) => {
-    const weak: { type: string; mul: number }[] = [];
-    const immune: string[] = [];
-    for (const t of TYPES) {
-      const e = typeEffectiveness(t, f.types);
-      if (e === 0) immune.push(t);
-      else if (e > 1) weak.push({ type: t, mul: e });
+/** 1タイプぶんの図鑑データ。タイプを切り替えても作り直さずに済むよう、
+ *  起動時に一度だけ組んでおく（はがね24系統・あく25系統なので軽い）。 */
+interface Dataset {
+  species: Species[];
+  movesByType: Record<string, Record<string, Move[]>>;
+  moveSet: Record<string, Set<string>>;
+  moveOptions: { value: string; label: string; sub: string }[];
+  abilityOptions: { value: string; label: string; sub: string }[];
+  allForms: Form[];
+  statMax: number;
+  usedTypes: string[];
+  weakTypes: string[];
+  /** 習得技データを持つ系統の数。0なら技での絞込みは出さない */
+  withLearnset: number;
+}
+
+function buildDataset(dex: DexEntry[]): Dataset {
+  const species: Species[] = dex.map((d) => ({
+    name: d.name,
+    megaOnly: !!d.megaOnly,
+    hasMega: d.forms.some((f) => f.form.startsWith("メガ")),
+    coverage: coverageOf(d.name),
+    forms: d.forms.map((f) => {
+      const weak: { type: string; mul: number }[] = [];
+      const immune: string[] = [];
+      for (const t of TYPES) {
+        const e = typeEffectiveness(t, f.types);
+        if (e === 0) immune.push(t);
+        else if (e > 1) weak.push({ type: t, mul: e });
+      }
+      weak.sort((a, b) => b.mul - a.mul);
+      return {
+        form: f.form,
+        label: displayName(d.name, f.form),
+        short: f.form,
+        types: f.types,
+        abilities: f.ability.split("/").map((a) => a.trim()).filter(Boolean),
+        stats: f.base,
+        total: STAT_KEYS.reduce((s, k) => s + f.base[k], 0),
+        weak,
+        immune,
+      };
+    }),
+  }));
+
+  /* 系統ごとに「覚える技をタイプ別にまとめたもの」。
+     例: こおりを選ぶと、こおり技を覚える系統だけに絞って技名を出せる。
+     レギュレーションで没収された技は除く。並びは 威力の高い順（変化技は最後）。 */
+  const movesByType: Record<string, Record<string, Move[]>> = {};
+  const moveSet: Record<string, Set<string>> = {};
+  for (const sp of species) {
+    const banned = BANNED_MOVES[sp.name] ?? [];
+    const byType: Record<string, Move[]> = {};
+    const names = new Set<string>();
+    for (const n of LEARNSETS[sp.name]?.moves ?? []) {
+      if (banned.includes(n)) continue;
+      const m = MOVE_BY_NAME[n];
+      if (!m) continue;
+      (byType[m.type] ??= []).push(m);
+      names.add(n);
     }
-    weak.sort((a, b) => b.mul - a.mul);
-    return {
-      form: f.form,
-      label: displayName(d.name, f.form),
-      short: f.form,
-      types: f.types,
-      abilities: f.ability.split("/").map((a) => a.trim()).filter(Boolean),
-      stats: f.base,
-      total: STAT_KEYS.reduce((s, k) => s + f.base[k], 0),
-      weak,
-      immune,
-    };
-  }),
-}));
-
-/** 系統ごとに「覚える技をタイプ別にまとめたもの」。
- *  例: こおりを選ぶと、こおり技を覚える系統だけに絞って技名を出せる。
- *  レギュレーションで没収された技は除く。並びは 威力の高い順（変化技は最後）。 */
-const MOVES_BY_TYPE: Record<string, Record<string, Move[]>> = {};
-for (const sp of SPECIES) {
-  const banned = BANNED_MOVES[sp.name] ?? [];
-  const byType: Record<string, Move[]> = {};
-  for (const n of LEARNSETS[sp.name]?.moves ?? []) {
-    if (banned.includes(n)) continue;
-    const m = MOVE_BY_NAME[n];
-    if (!m) continue;
-    (byType[m.type] ??= []).push(m);
+    for (const list of Object.values(byType)) {
+      list.sort((a, b) => (b.power || -1) - (a.power || -1) || a.name.localeCompare(b.name, "ja"));
+    }
+    movesByType[sp.name] = byType;
+    moveSet[sp.name] = names;
   }
-  for (const list of Object.values(byType)) {
-    list.sort((a, b) => (b.power || -1) - (a.power || -1) || a.name.localeCompare(b.name, "ja"));
-  }
-  MOVES_BY_TYPE[sp.name] = byType;
-}
 
-/** 系統ごとの「覚える技の集合」。技名ちょうどで絞るときに使う（没収技は除く） */
-const MOVE_SET: Record<string, Set<string>> = {};
-for (const sp of SPECIES) {
-  const banned = BANNED_MOVES[sp.name] ?? [];
-  MOVE_SET[sp.name] = new Set(
-    (LEARNSETS[sp.name]?.moves ?? []).filter((n) => !banned.includes(n) && MOVE_BY_NAME[n]),
-  );
-}
-
-/** 技名の選択肢。図鑑の誰かが覚える技だけを、覚える系統の多い順に並べる。
- *  全833技から選ばせても、はがね勢が覚えない技が大半で空振りするため。 */
-const MOVE_OPTIONS = (() => {
-  const count = new Map<string, number>();
-  for (const set of Object.values(MOVE_SET)) {
-    for (const n of set) count.set(n, (count.get(n) ?? 0) + 1);
+  /* 技名の選択肢。図鑑の誰かが覚える技だけを、覚える系統の多い順に並べる。
+     全833技から選ばせても、その図鑑の面々が覚えない技が大半で空振りするため。 */
+  const moveCount = new Map<string, number>();
+  for (const set of Object.values(moveSet)) {
+    for (const n of set) moveCount.set(n, (moveCount.get(n) ?? 0) + 1);
   }
-  return [...count.entries()]
+  const moveOptions = [...moveCount.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja"))
     .map(([name, n]) => {
       const m = MOVE_BY_NAME[name];
@@ -145,33 +156,45 @@ const MOVE_OPTIONS = (() => {
         value: name,
         label: name,
         sub: `${m.type}・${m.power > 0 ? `威力${m.power}` : m.cat}・${n}系統`,
-        swatch: undefined as string | undefined,
       };
     });
-})();
-const ADD_MOVE = "（技を追加…）";
 
-const ALL_FORMS = SPECIES.flatMap((s) => s.forms);
+  const allForms = species.flatMap((sp) => sp.forms);
 
-/** 特性の選択肢。図鑑に出てくるものだけを、持つフォルムの多い順に並べる */
-const ABILITY_OPTIONS = (() => {
-  const count = new Map<string, number>();
-  for (const f of ALL_FORMS) for (const a of f.abilities) count.set(a, (count.get(a) ?? 0) + 1);
-  return [...count.entries()]
+  /* 特性の選択肢。図鑑に出てくるものだけを、持つフォルムの多い順に並べる */
+  const abCount = new Map<string, number>();
+  for (const f of allForms) for (const a of f.abilities) abCount.set(a, (abCount.get(a) ?? 0) + 1);
+  const abilityOptions = [...abCount.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja"))
     .map(([name, n]) => ({ value: name, label: name, sub: `${n}` }));
-})();
+
+  return {
+    species,
+    movesByType,
+    moveSet,
+    moveOptions,
+    abilityOptions,
+    allForms,
+    /** 種族値バーの基準。図鑑内の最大値に合わせると差が見やすい */
+    statMax: Math.max(...allForms.flatMap((f) => STAT_KEYS.map((k) => f.stats[k]))),
+    /** 図鑑に実際に出てくるタイプだけを絞込みボタンに出す（18個並べても押せないタイプが大半なので） */
+    usedTypes: TYPES.filter((t) => allForms.some((f) => f.types.includes(t))),
+    /** 誰かの弱点になりうるタイプ。「弱点でない」で絞るときはこれだけ出す
+     *  （誰の弱点でもないタイプを押しても全員が残るだけなので） */
+    weakTypes: TYPES.filter((t) => allForms.some((f) => f.weak.some((w) => w.type === t))),
+    withLearnset: species.filter((sp) => (moveSet[sp.name]?.size ?? 0) > 0).length,
+  };
+}
+
+const DATASETS = Object.fromEntries(
+  DEX_TYPES.map((t) => [t, buildDataset(DEX_BY_TYPE[t])]),
+) as Record<DexType, Dataset>;
+
+const ADD_MOVE = "（技を追加…）";
 const ANY_ABILITY = "（すべて）";
 
 /** 打点の広さのしきい値。図鑑の分布（5〜16タイプ）に合わせた刻み */
 const COVERAGE_STEPS = [0, 10, 12];
-/** 種族値バーの基準。図鑑内の最大値に合わせると差が見やすい */
-const STAT_MAX = Math.max(...ALL_FORMS.flatMap((f) => STAT_KEYS.map((k) => f.stats[k])));
-/** 図鑑に実際に出てくるタイプだけを絞込みボタンに出す（18個並べても押せないタイプが大半なので） */
-const USED_TYPES = TYPES.filter((t) => ALL_FORMS.some((f) => f.types.includes(t)));
-/** 誰かの弱点になりうるタイプ。「弱点でない」で絞るときはこれだけ出す
- *  （誰の弱点でもないタイプを押しても全員が残るだけなので） */
-const WEAK_TYPES = TYPES.filter((t) => ALL_FORMS.some((f) => f.weak.some((w) => w.type === t)));
 
 const valueOf = (f: Form, k: SortKey): number =>
   k === "total" ? f.total : k === "name" ? 0 : f.stats[k];
@@ -182,6 +205,10 @@ const isStrRecord = (v: unknown) =>
 
 export function DexTab() {
   const { addEntry, roster, starredCount } = useStore();
+  // どのタイプの図鑑を見るか。はがね統一が主目的だが、あく統一でも同じ道具が使える
+  const [dexType, setDexType] = usePersistedState<DexType>(
+    "dex.type", "はがね", (v) => DEX_TYPES.includes(v as DexType));
+  const D = DATASETS[dexType];
   const [q, setQ] = useState(""); // 検索語は一時的なものなので保存しない
   const [typeFilter, setTypeFilter] = usePersistedState<string[]>(
     "dex.types", [], (v) => Array.isArray(v) && v.every((x) => typeof x === "string"));
@@ -192,7 +219,7 @@ export function DexTab() {
     "dex.mega", "all", (v) => MEGA_MODES.some((m) => m.key === v));
   const [ability, setAbility] = usePersistedState(
     "dex.ability", ANY_ABILITY,
-    (v) => v === ANY_ABILITY || ABILITY_OPTIONS.some((a) => a.value === v));
+    (v) => v === ANY_ABILITY || D.abilityOptions.some((a) => a.value === v));
   // 自軍に1フォルムも入れていない系統だけ（6体を埋めていくとき用）
   const [unowned, setUnowned] = usePersistedState("dex.unowned", false, (v) => typeof v === "boolean");
   const [minCoverage, setMinCoverage] = usePersistedState(
@@ -231,7 +258,7 @@ export function DexTab() {
     const qq = q.trim();
     const hitQ = kanaMatcher(q);
     const out: { sp: Species; forms: Form[]; sel: Form; sortVal: number; hitMoves: Move[] }[] = [];
-    for (const sp of SPECIES) {
+    for (const sp of D.species) {
       if (megaMode === "has" && !sp.hasMega) continue;
       if (megaMode === "none" && sp.hasMega) continue;
       if (megaMode === "steel" && !sp.megaOnly) continue;
@@ -244,13 +271,13 @@ export function DexTab() {
       const hitMoves: Move[] = [];
       // 技名での絞込み。複数選んだら「すべて覚える」系統だけ残す
       if (moveFilter.length > 0) {
-        const set = MOVE_SET[sp.name];
+        const set = D.moveSet[sp.name];
         if (!moveFilter.every((n) => set?.has(n))) continue;
         for (const n of moveFilter) hitMoves.push(MOVE_BY_NAME[n]);
       }
       if (typeFilter.length > 0) {
         if (typeMode === "move") {
-          const byType = MOVES_BY_TYPE[sp.name] ?? {};
+          const byType = D.movesByType[sp.name] ?? {};
           if (!typeFilter.every((t) => (byType[t]?.length ?? 0) > 0)) continue;
           for (const t of typeFilter) hitMoves.push(...(byType[t] ?? []));
         } else if (typeMode === "safe") {
@@ -274,7 +301,7 @@ export function DexTab() {
       }
       return asc ? a.sortVal - b.sortVal : b.sortVal - a.sortVal;
     });
-  }, [q, typeFilter, typeMode, megaMode, ability, unowned, minCoverage, moveFilter, owned, sortKey, asc, picked]);
+  }, [D, q, typeFilter, typeMode, megaMode, ability, unowned, minCoverage, moveFilter, owned, sortKey, asc, picked]);
 
   const shownForms = list.reduce((n, x) => n + x.forms.length, 0);
 
@@ -310,6 +337,26 @@ export function DexTab() {
   return (
     <div>
       <div className="panel">
+        {/* 図鑑のタイプ。はがね統一が主目的だが、あく統一でも同じ道具が使える */}
+        <div className="row tight" style={{ marginBottom: 8 }}>
+          <span className="small muted">図鑑</span>
+          {DEX_TYPES.map((t) => (
+            <button
+              key={t}
+              className={`tbadge dex-type ${dexType === t ? "on" : ""}`}
+              style={{ background: TYPE_COLORS[t], color: "#14171c" }}
+              aria-pressed={dexType === t}
+              onClick={() => setDexType(t)}
+            >
+              {t}
+            </button>
+          ))}
+          <span className="small muted">
+            {D.species.length}系統 / {D.allForms.length}フォルム
+            {D.withLearnset < D.species.length
+              && `　習得技データ ${D.withLearnset}/${D.species.length}系統`}
+          </span>
+        </div>
         <div className="row">
           <input
             type="text"
@@ -351,7 +398,7 @@ export function DexTab() {
           <span className="small muted">特性</span>
           <SelectMenu
             style={{ flex: "1 1 150px", minWidth: 130 }}
-            items={[{ value: ANY_ABILITY, label: ANY_ABILITY }, ...ABILITY_OPTIONS]}
+            items={[{ value: ANY_ABILITY, label: ANY_ABILITY }, ...D.abilityOptions]}
             value={ability}
             onChange={setAbility}
             searchPlaceholder="特性を絞り込み…"
@@ -366,7 +413,7 @@ export function DexTab() {
             style={{ flex: "1 1 150px", minWidth: 130 }}
             items={[
               { value: ADD_MOVE, label: ADD_MOVE },
-              ...MOVE_OPTIONS.filter((m) => !moveFilter.includes(m.value)),
+              ...D.moveOptions.filter((m) => !moveFilter.includes(m.value)),
             ]}
             value={ADD_MOVE}
             onChange={(v) => { if (v !== ADD_MOVE) setMoveFilter((prev) => [...prev, v]); }}
@@ -422,7 +469,7 @@ export function DexTab() {
           ))}
         </div>
         <div className="filter-types" style={{ marginTop: 6 }}>
-          {(typeMode === "move" ? TYPES : typeMode === "safe" ? WEAK_TYPES : USED_TYPES).map((t) => (
+          {(typeMode === "move" ? TYPES : typeMode === "safe" ? D.weakTypes : D.usedTypes).map((t) => (
             <button
               key={t}
               className={typeFilter.includes(t) ? "on" : ""}
@@ -455,7 +502,7 @@ export function DexTab() {
         </div>
 
         <div className="small muted" style={{ marginTop: 6 }}>
-          {list.length} 系統 / {shownForms} フォルム（全 {SPECIES.length} 系統・{ALL_FORMS.length} フォルム）
+          {list.length} 系統 / {shownForms} フォルム（全 {D.species.length} 系統・{D.allForms.length} フォルム）
           {typeFilter.length > 0 && `　絞込み: ${typeFilter.join("・")}${
             typeMode === "move" ? "の技を覚える" : typeMode === "safe" ? "が弱点でない" : "を含む"}`}
           {moveFilter.length > 0 && `　${moveFilter.join("・")}を覚える`}
@@ -472,7 +519,7 @@ export function DexTab() {
               <div className="dex-head">
                 <span className="dex-name">
                   {sel.label}
-                  {sp.megaOnly && <span className="small amber" title="メガシンカで初めてはがね化"> ⚑</span>}
+                  {sp.megaOnly && <span className="small amber" title={`メガシンカで初めて${dexType}が付く`}> ⚑</span>}
                   {isOwned && <span className="small dex-owned" title="すでに自軍にいます"> 自軍</span>}
                 </span>
                 <span className="dex-actions">
@@ -526,7 +573,7 @@ export function DexTab() {
                   <div className={`dex-stat ${sortKey === k ? "on" : ""}`} key={k} title={STAT_LABEL[k]}>
                     <span className="k">{k}</span>
                     <span className="v tnum">{sel.stats[k]}</span>
-                    {!compact && <span className="bar"><i style={{ width: `${(sel.stats[k] / STAT_MAX) * 100}%` }} /></span>}
+                    {!compact && <span className="bar"><i style={{ width: `${(sel.stats[k] / D.statMax) * 100}%` }} /></span>}
                   </div>
                 ))}
                 <div className={`dex-stat total ${sortKey === "total" ? "on" : ""}`} title="種族値合計">
@@ -549,7 +596,7 @@ export function DexTab() {
               )}
 
               {isOpen && (
-                /* はがね統一だと耐性は多いので、突かれる側だけ出す */
+                /* はがね・あくとも耐性は多いので、突かれる側だけ出す */
                 <div className="dex-weak">
                   <span className="small muted">弱点</span>
                   {sel.weak.length === 0 && <span className="small muted">なし</span>}

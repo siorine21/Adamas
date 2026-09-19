@@ -903,3 +903,13 @@ input.tool-num { width: 62px; text-align: right; }
 @media (max-width: 360px) {
   .tabbar button { white-space: normal; line-height: 1.25; }
 }
+
+/* 図鑑のタイプ切り替え。選択中だけはっきり見せ、それ以外は控えめにする */
+.tbadge.dex-type {
+  border: 1px solid transparent;
+  cursor: pointer;
+  opacity: 0.5;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.tbadge.dex-type.on { opacity: 1; outline: 2px solid var(--steel-hi); }

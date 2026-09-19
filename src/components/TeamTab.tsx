@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { MAX_STARRED } from "../data/game";
-import { DEX } from "../data/dex";
+import { ALL_DEX } from "../data/dex";
 import { emptyEntry, entryFromDex } from "../data/roster";
 import { PRESET_TEAMS } from "../data/teams";
 import { exportJSON, importJSON } from "../storage";
@@ -164,7 +164,7 @@ export function TeamTab() {
         <div className="row">
           <SelectMenu
             style={{ flex: "1 1 200px", minWidth: 0 }}
-            items={DEX.map((d) => ({ value: d.name, label: d.name }))}
+            items={ALL_DEX.map((d) => ({ value: d.name, label: d.name }))}
             value={addName}
             onChange={setAddName}
             placeholder="＋ 図鑑から追加…"

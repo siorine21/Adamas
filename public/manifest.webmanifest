@@ -1,7 +1,7 @@
 {
   "name": "アダマス工房",
   "short_name": "アダマス工房",
-  "description": "ポケモンチャンピオンズ はがね統一チーム構成支援＆ダメージ計算ツール",
+  "description": "ポケモンチャンピオンズ はがね／あく統一チーム構成支援＆ダメージ計算ツール",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

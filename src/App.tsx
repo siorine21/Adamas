@@ -11,7 +11,7 @@ type Tab = "team" | "dex" | "damage" | "speed" | "tools";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "team", label: "チーム管理" },
-  { id: "dex", label: "はがね図鑑" },
+  { id: "dex", label: "図鑑" },
   { id: "damage", label: "ダメージ計算" },
   { id: "speed", label: "素早さ比較" },
   { id: "tools", label: "ツール" },
@@ -43,7 +43,7 @@ export default function App() {
       <header className="app-header">
         <div className="app-title">
           <h1>アダマス工房</h1>
-          <span className="sub">はがね統一チーム構成支援 ／ レギュM-C・Lv50</span>
+          <span className="sub">はがね／あく統一チーム構成支援 ／ レギュM-C・Lv50</span>
           <SaveBadge />
         </div>
         <nav className="tabbar">

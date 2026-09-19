@@ -1,4 +1,5 @@
 import type { DexEntry, DexForm, StatBlock, Threat } from "../types";
+import { DEX_DARK } from "./dexDark";
 
 const B = (h: number, a: number, b: number, c: number, d: number, s: number): StatBlock =>
   ({ H: h, A: a, B: b, C: c, D: d, S: s });
@@ -86,3 +87,30 @@ export const THREATS: Threat[] = [
   { name: "ブラッキー", types: ["あく"], base: B(95, 65, 110, 60, 130, 65) },
   { name: "手動入力", types: ["ノーマル"], base: B(100, 100, 100, 100, 100, 100) },
 ];
+
+/* ---------- 図鑑のタイプ切り替え ----------
+   はがね統一が主目的だが、あく統一でも同じ道具が使えるので両方を持つ。
+   はがね図鑑は一次ソースのスプレッドシートから手で起こしたもの、
+   あく図鑑は confirmed.ts から自動生成（tools/gen-dex）。 */
+export const DEX_TYPES = ["はがね", "あく"] as const;
+export type DexType = (typeof DEX_TYPES)[number];
+
+export const DEX_BY_TYPE: Record<DexType, DexEntry[]> = {
+  "はがね": DEX,
+  "あく": DEX_DARK,
+};
+
+/** どちらの図鑑からでも引ける統合ビュー。ロスター登録・チーム管理はタイプを問わない。
+ *  ドドゲザン（あく/はがね）のように両方に載る系統は、はがね側を先勝ちで1つだけ持つ。 */
+export const ALL_DEX: DexEntry[] = (() => {
+  const seen = new Set<string>();
+  const out: DexEntry[] = [];
+  for (const t of DEX_TYPES) {
+    for (const d of DEX_BY_TYPE[t]) {
+      if (seen.has(d.name)) continue;
+      seen.add(d.name);
+      out.push(d);
+    }
+  }
+  return out;
+})();
