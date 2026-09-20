@@ -12,6 +12,7 @@ const head = src.slice(0, src.indexOf("/* ===="));
 const lib = [...head.matchAll(/M\("([^"]+)"/g)].map((m) => m[1]);
 const order = new Map(lib.map((n, i) => [n, i]));
 const libset = new Set(lib);
+const missing = [];
 
 /* AppMedia の表には無いが、二つ目の出典（GameWith）にはある技。
    AppMedia のページはレギュM-Cで解禁された技が反映されていないことがある。
@@ -42,25 +43,51 @@ const EXCLUDE = {
     "エアスラッシュ", "サイコカッター", "もろはのずつき"],
 };
 
-const TARGETS = ["フォレトス","ハガネール","ハッサム","エアームド","クチート","ボスゴドラ","チリーン",
+/** はがね24系統。AppMedia（champ_moves.json）を主、GameWith を裏取りに使う */
+const STEEL = ["フォレトス","ハガネール","ハッサム","エアームド","クチート","ボスゴドラ","チリーン",
  "メタグロス","エンペルト","トリデプス","ルカリオ","ドリュウズ","ガラルマッギョ","ギルガルド",
  "ヒスイヌメルゴン","クレッフィ","グソクムシャ","アーマーガア","ニャイキング","デカヌチャン","ミミズズ","ドドゲザン","サーフゴー","ブリジュラス"];
 
-const blocks = TARGETS.map((t) => {
+/** あく系統。AppMedia 側のあく一覧URLが未調査なので、こちらは GameWith を主にする。
+ *  ドドゲザン（あく/はがね）は STEEL 側で既に出しているのでここには入れない。 */
+const DARK = ["アローラペルシアン","ブラッキー","ヘルガー","バンギラス","ヤミラミ","サメハダー","アブソル",
+ "ミカルゲ","マニューラ","レパルダス","ワルビアル","ズルズキン","ゾロアーク","サザンドラ","ゲッコウガ",
+ "ゴロンダ","カラマネロ","ガオガエン","フォクスライ","オーロンゲ","モルペコ","マスカーニャ","マフィティフ",
+ "ギャラドス"];
+
+/** GameWith 由来（裏取り用・あくの主データ） */
+const gw = (() => {
+  const p = "tools/scrape-learnsets/gamewith_moves.json";
+  return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {};
+})();
+
+const clean = (names, t) => {
   const drop = new Set(EXCLUDE[t] || []);
-  const mv = [...new Set([...(cm[t] || []), ...(EXTRA[t] || [])])]
+  return [...new Set(names)]
     .filter((m) => libset.has(m) && !drop.has(m))
     .sort((a, b) => (order.get(a) ?? 9999) - (order.get(b) ?? 9999));
-  const arr = mv.map((m) => `"${m}"`).join(", ");
-  const src = EXTRA[t] || EXCLUDE[t]
-    ? "AppMedia個別ページ＋実機確認（チャンピオンズ覚えるワザ）2026/9"
-    : "AppMedia個別ページ（チャンピオンズ覚えるワザ）2026/9";
-  return `  "${t}": { status: "full", source: "${src}", moves: [${arr}] },`;
-});
+};
+
+const blocks = [
+  ...STEEL.map((t) => {
+    const mv = clean([...(cm[t] || []), ...(EXTRA[t] || [])], t);
+    const src = EXTRA[t] || EXCLUDE[t]
+      ? "AppMedia個別ページ＋実機確認（チャンピオンズ覚えるワザ）2026/9"
+      : "AppMedia個別ページ（チャンピオンズ覚えるワザ）2026/9";
+    return `  "${t}": { status: "full", source: "${src}", moves: [${mv.map((m) => `"${m}"`).join(", ")}] },`;
+  }),
+  ...DARK.map((t) => {
+    const mv = clean([...(gw[t] || []), ...(EXTRA[t] || [])], t);
+    // 取得できなかった系統は収録しない（空の習得表を置くと「覚える技なし」に見えるため）
+    if (mv.length === 0) { missing.push(t); return null; }
+    return `  "${t}": { status: "full", source: "GameWith個別ページ（チャンピオンズ覚えるワザ）2026/9", moves: [${mv.map((m) => `"${m}"`).join(", ")}] },`;
+  }).filter(Boolean),
+];
 
 const ls = `/* ============================================================
    種族別習得技データベース（ポケモンチャンピオンズ準拠）
-   出典: AppMedia のチャンピオンズ各ポケモン個別ページの「チャンピオンズで覚える技」表。
+   出典: はがね系統は AppMedia、あく系統は GameWith の
+        チャンピオンズ各ポケモン個別ページの「チャンピオンズで覚える技」表。
         tools/scrape-learnsets で描画取得したデータから自動生成。
         （同ページに並ぶ本編の技マシン／タマゴ技表は含めない＝チャンピオンズでは使えない）
         メガ/フォルムは基本種の習得を共有。
@@ -73,3 +100,4 @@ ${blocks.join("\n")}
 `;
 fs.writeFileSync(MOVES, head + ls);
 console.log("LEARNSETS regenerated for", blocks.length, "species");
+if (missing.length) console.warn("取得できず未収録:", missing.join(", "));

@@ -1,5 +1,5 @@
 import type { Move, RosterEntry, StatBlock } from "../types";
-import { DEX } from "./dex";
+import { ALL_DEX } from "./dex";
 import { MOVE_BY_NAME } from "./moves";
 
 let keyCounter = 0;
@@ -22,7 +22,7 @@ export function displayName(name: string, form: string): string {
 }
 
 export function findDex(name: string) {
-  return DEX.find((d) => d.name === name);
+  return ALL_DEX.find((d) => d.name === name);
 }
 
 /** 図鑑エントリからロスター個体を生成（種族値等はディープコピーし個別編集可能に） */

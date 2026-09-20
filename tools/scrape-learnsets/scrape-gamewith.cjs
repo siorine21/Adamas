@@ -17,7 +17,7 @@
  *   ローカルなら: npm i --no-save playwright && npx playwright install chromium
  *                 node tools/scrape-learnsets/scrape-gamewith.cjs
  *
- * 礼儀: 低頻度・少量（30ページ弱）・ページ間に待機。
+ * 礼儀: 低頻度・少量（50ページ強）・ページ間に待機。
  */
 const { chromium } = require("playwright");
 const fs = require("fs");
@@ -31,25 +31,40 @@ const MOVE_LIST = "https://gamewith.jp/pokemon-champions/546417";
 const LINK_SOURCES = [
   "https://gamewith.jp/pokemon-champions/546414", // 内定ポケモン一覧
   "https://gamewith.jp/pokemon-champions/553006", // はがねタイプ一覧
+  "https://gamewith.jp/pokemon-champions/553007", // あくタイプ一覧
   "https://gamewith.jp/pokemon-champions/553083", // 8世代
   "https://gamewith.jp/pokemon-champions/553082", // 9世代
 ];
 
-const TARGETS = ["フォレトス","ハガネール","ハッサム","エアームド","クチート","ボスゴドラ","チリーン",
+/** はがね24系統。メガでしかはがねが付かない系統も含む */
+const STEEL = ["フォレトス","ハガネール","ハッサム","エアームド","クチート","ボスゴドラ","チリーン",
  "メタグロス","エンペルト","トリデプス","ルカリオ","ドリュウズ","ガラルマッギョ","ギルガルド",
  "ヒスイヌメルゴン","クレッフィ","アーマーガア","デカヌチャン","ミミズズ","ドドゲザン","サーフゴー","ブリジュラス",
  "グソクムシャ","ニャイキング"];
+
+/** あく24系統。ドドゲザンは あく/はがね なので STEEL と重複する（下で重複を除く）。
+ *  ギャラドスは素がみず/ひこうで、メガであくが付く（はがねのグソクムシャと同じ扱い）。 */
+const DARK = ["アローラペルシアン","ブラッキー","ヘルガー","バンギラス","ヤミラミ","サメハダー","アブソル",
+ "ミカルゲ","マニューラ","レパルダス","ワルビアル","ズルズキン","ゾロアーク","サザンドラ","ゲッコウガ",
+ "ゴロンダ","カラマネロ","ガオガエン","フォクスライ","オーロンゲ","モルペコ","マスカーニャ","マフィティフ",
+ "ドドゲザン","ギャラドス"];
+
+const TARGETS = [...new Set([...STEEL, ...DARK])];
 
 /** 一覧ページから引けなかったときの直接指定 */
 const OVERRIDE_URL = {
   "ボスゴドラ": "https://gamewith.jp/pokemon-champions/553317",
 };
 
-/** GameWith 上の表記が当方と違うもの（当方の名前 → GameWith の名前） */
+/** GameWith 上の表記が当方と違うもの（当方の名前 → GameWith 側の候補）。
+ *  括弧の全角/半角や「〜のすがた」の有無が一定しないので、候補を並べて総当たりする。 */
 const GW_NAME = {
-  "ガラルマッギョ": "マッギョ(ガラル)",
-  "ヒスイヌメルゴン": "ヌメルゴン(ヒスイ)",
+  "ガラルマッギョ": ["マッギョ(ガラル)", "マッギョ（ガラル）", "マッギョ(ガラルのすがた)"],
+  "アローラペルシアン": ["ペルシアン(アローラ)", "ペルシアン（アローラ）", "ペルシアン(アローラのすがた)"],
+  "ヒスイヌメルゴン": ["ヌメルゴン(ヒスイ)", "ヌメルゴン（ヒスイ）", "ヌメルゴン(ヒスイのすがた)"],
 };
+/** その系統を指しうる名前をすべて返す（当方の名前そのものも候補に含める） */
+const nameCandidates = (t) => [t, ...(GW_NAME[t] ?? [])];
 
 /** ページ全体を下まで送って遅延読み込みを終わらせる */
 async function scrollAll(page) {
@@ -128,9 +143,9 @@ const lineup = (text) => text.split("\n").map((s) => s.trim());
       let got = 0;
       for (const t of TARGETS) {
         if (url[t]) continue;
-        const want = GW_NAME[t] ?? t;
+        const wants = nameCandidates(t);
         const hit = links.find((l) => /pokemon-champions\/\d+/.test(l.href)
-          && (l.text === want || l.alt === want || l.alt.includes(`${want}のアイコン`)));
+          && wants.some((w) => l.text === w || l.alt === w || l.alt.includes(`${w}のアイコン`)));
         if (hit) { url[t] = hit.href; got++; }
       }
       log.push(`${src}: リンク${links.length}件 → 新たに${got}件解決`);
