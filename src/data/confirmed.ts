@@ -199,7 +199,7 @@ export const CONFIRMED: ConfirmedMon[] = [
   { no: 500, name: "エンブオー", types: ["ほのお", "かくとう"], base: B(110, 123, 65, 100, 65, 65), abilities: ["もうか", "すてみ"], total: 528, typeVerified: true },
   { no: 500, name: "メガエンブオー", types: ["ほのお", "かくとう"], base: B(110, 148, 75, 110, 110, 75), abilities: ["かたやぶり"], total: 628, typeVerified: false },
   { no: 503, name: "ダイケンキ", types: ["みず"], base: B(95, 100, 85, 108, 70, 70), abilities: ["げきりゅう", "シェルアーマー"], total: 528, typeVerified: true },
-  { no: 503, name: "ヒスイダイケンキ", types: ["みず", "かくとう"], base: B(90, 108, 80, 100, 65, 85), abilities: ["げきりゅう", "きれあじ"], total: 528, typeVerified: true },
+  { no: 503, name: "ヒスイダイケンキ", types: ["みず", "あく"], base: B(90, 108, 80, 100, 65, 85), abilities: ["げきりゅう", "きれあじ"], total: 528, typeVerified: true },
   { no: 505, name: "ミルホッグ", types: ["ノーマル"], base: B(60, 85, 69, 60, 69, 77), abilities: ["はっこう", "するどいめ", "アナライズ"], total: 420, typeVerified: true },
   { no: 510, name: "レパルダス", types: ["あく"], base: B(64, 88, 50, 88, 50, 106), abilities: ["じゅうなん", "かるわざ", "いたずらごころ"], total: 446, typeVerified: true },
   { no: 512, name: "ヤナッキー", types: ["くさ"], base: B(75, 98, 63, 98, 63, 101), abilities: ["くいしんぼう", "しんりょく"], total: 498, typeVerified: true },
