@@ -6,6 +6,7 @@ import { CONFIRMED } from "../data/confirmed";
 import { RANK_MAX, RANK_MIN, TYPES, TYPE_COLORS, calcStat, rankLabel, rankMul, realStats } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
+import { Panel } from "./Panel";
 import { SelectMenu } from "./SelectMenu";
 import { StepSlider } from "./StepSlider";
 import { kanaMatcher } from "../search";
@@ -59,9 +60,6 @@ export function SpeedTab() {
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [megaMode, setMegaMode] = useState<MegaMode>("all");
   const [ability, setAbility] = useState(ANY_ABILITY);
-  // 手持ち・控えの設定パネルは行数が多いので畳めるようにする
-  const [rosterOpen, setRosterOpen] = usePersistedState(
-    "spd.rosterOpen", true, (v) => typeof v === "boolean");
 
   // 手持ち(★)→控えの順に全個体
   const sortedRoster = useMemo(
@@ -163,6 +161,15 @@ export function SpeedTab() {
   /** 名前検索も含め、内定側を絞っている状態か（注記の出し分けに使う） */
   const narrowing = filtered || q.trim().length > 0;
   const clearFilters = () => { setTypeFilter([]); setMegaMode("all"); setAbility(ANY_ABILITY); };
+  /** 畳んだままでも何が効いているか分かるよう、見出しに出す要約 */
+  const filterSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (megaMode !== "all") parts.push(MEGA_MODES.find((m) => m.key === megaMode)?.label ?? "");
+    if (ability !== ANY_ABILITY) parts.push(ability);
+    if (typeFilter.length > 0) parts.push(typeFilter.join("・"));
+    if (q.trim()) parts.push(`「${q.trim()}」`);
+    return parts.join(" / ");
+  }, [megaMode, ability, typeFilter, q]);
   const toggleType = (t: string) =>
     setTypeFilter((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
@@ -171,16 +178,10 @@ export function SpeedTab() {
 
   return (
     <div>
-      <div className="panel">
-        {/* 個体が多いと縦に長くなり、肝心の比較表まで遠くなるので畳めるようにする */}
-        <button type="button" className="wk-head" aria-expanded={rosterOpen} onClick={() => setRosterOpen(!rosterOpen)}>
-          <span className={`card-caret ${rosterOpen ? "open" : ""}`}>▶</span>
-          <span className="section-title" style={{ margin: 0, border: "none", padding: 0 }}>
-            手持ち・控えの素早さ設定（{sortedRoster.length}体）
-          </span>
-        </button>
+      {/* 個体が多いと縦に長くなり、肝心の比較表まで遠くなるので畳めるようにする */}
+      <Panel id="spd.roster" title="手持ち・控えの素早さ設定" summary={`${sortedRoster.length}体`}>
         {sortedRoster.length === 0 && <div className="muted small">個体がいません。チーム管理で登録してください。</div>}
-        {rosterOpen && sortedRoster.map((e) => {
+        {sortedRoster.map((e) => {
           const form = e.forms[e.activeForm];
           const base = realStats(form.base, e.ap, e.nature).S;
           return (
@@ -210,9 +211,14 @@ export function SpeedTab() {
             </div>
           );
         })}
-      </div>
+      </Panel>
 
-      <div className="panel">
+      <Panel
+        id="spd.filters"
+        title="絞り込み"
+        defaultOpen={false}
+        summary={narrowing ? filterSummary : "未設定"}
+      >
         <div className="row" style={{ gap: 12 }}>
           <label className="row tight small">
             内定の素早さライン
@@ -282,7 +288,7 @@ export function SpeedTab() {
             </button>
           ))}
         </div>
-      </div>
+      </Panel>
 
       <div className="panel table-scroll">
         <div className="section-title">

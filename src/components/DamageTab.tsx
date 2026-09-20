@@ -13,6 +13,7 @@ import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { MoveSelect } from "./MoveSelect";
+import { Panel } from "./Panel";
 import { SelectMenu } from "./SelectMenu";
 import { TypeMatchup } from "./TypeMatchup";
 import { ApSlider } from "./ApSlider";
@@ -272,6 +273,28 @@ export function DamageTab() {
 
   const srInfo = self ? hazardDamage(defHP, "いわ", defTypes) : 0;
 
+  /** 畳んだままでも何が効いているか分かるよう、見出しに出す要約 */
+  const condSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (atkRank !== 0) parts.push(`攻撃${rankLabel(atkRank)}`);
+    if (defRank !== 0) parts.push(`防御${rankLabel(defRank)}`);
+    if (weather !== "なし") parts.push(weather);
+    if (field !== "なし") parts.push(field);
+    if (crit) parts.push("急所");
+    if (burn) parts.push("やけど");
+    if (helpingHand) parts.push("てだすけ");
+    if (spread) parts.push("複数体");
+    if (wall) parts.push("壁");
+    if (protect) parts.push("まもる");
+    if (atkItem !== "（なし）") parts.push(atkItem);
+    if (defItem !== "（なし）") parts.push(defItem);
+    if (atkAbil !== "（補正なし）") parts.push(atkAbil);
+    if (defAbil !== "（補正なし）") parts.push(defAbil);
+    if (extraMul !== 100) parts.push(`補正${extraMul}%`);
+    return parts.length > 0 ? parts.join(" / ") : "既定（補正なし）";
+  }, [atkRank, defRank, weather, field, crit, burn, helpingHand, spread, wall, protect,
+      atkItem, defItem, atkAbil, defAbil, extraMul]);
+
   return (
     <div>
       {/* 方向切替 */}
@@ -404,9 +427,8 @@ export function DamageTab() {
         </div>
       </div>
 
-      {/* 戦闘条件 */}
-      <div className="panel">
-        <div className="section-title">戦闘条件</div>
+      {/* 戦闘条件は項目が多く縦に伸びるので畳めるようにする */}
+      <Panel id="dmg.cond" title="戦闘条件" summary={condSummary}>
 
         <div className="cond-group">場・ランク</div>
         <div className="grid3">
@@ -565,7 +587,7 @@ export function DamageTab() {
           壁の軽減はシングル基準（1/2）。「複数体に攻撃」を選んだときだけ、ダブルの値（2732/4096）で計算します。
           未対応の条件・独自特性は「補正%」で掛けてください。
         </div>
-      </div>
+      </Panel>
 
       {/* 結果 */}
       <div className="panel">
