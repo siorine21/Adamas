@@ -12,6 +12,8 @@ import { SelectMenu } from "./SelectMenu";
 import { ApSlider } from "./ApSlider";
 import { LockButton } from "./LockButton";
 import { ITEM_BY_NAME, ITEM_SUGGESTIONS } from "../data/items";
+import { abilitySummary } from "../data/abilities";
+import { AbilityNote } from "./AbilityNote";
 
 interface Props {
   entry: RosterEntry;
@@ -174,18 +176,22 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
             />
           </label>
         )}
-        <label className="fld">
+        <label className="fld wide">
           <span>特性</span>
           {abilityOpts.length > 1 ? (
             <SelectMenu
-              items={abilityOpts.map((a) => ({ value: a, label: a }))}
+              items={abilityOpts.map((a) => ({ value: a, label: a, sub: abilitySummary(a) }))}
               value={form.ability}
               placeholder="特性を選択…"
+              stacked /* 効果の説明が長いので、名前の下の行に出す */
+              subInListOnly /* 選んだあとの説明は欄の下に出す */
               onChange={setAbility}
             />
           ) : (
             <input type="text" value={form.ability} onChange={(e) => setAbility(e.target.value)} />
           )}
+          {/* 選んだあとも効果を確かめられるように、欄の下に出しておく */}
+          <AbilityNote name={form.ability} />
         </label>
         <label className="fld">
           <span>

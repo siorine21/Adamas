@@ -11,6 +11,8 @@ import { usePersistedState } from "../uiState";
 import { Panel } from "./Panel";
 import { SelectMenu } from "./SelectMenu";
 import { kanaMatcher } from "../search";
+import { abilitySummary } from "../data/abilities";
+import { AbilityNote } from "./AbilityNote";
 
 /** 1フォルム */
 interface Form {
@@ -167,7 +169,7 @@ function buildDataset(dex: DexEntry[]): Dataset {
   for (const f of allForms) for (const a of f.abilities) abCount.set(a, (abCount.get(a) ?? 0) + 1);
   const abilityOptions = [...abCount.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja"))
-    .map(([name, n]) => ({ value: name, label: name, sub: `${n}` }));
+    .map(([name, n]) => ({ value: name, label: name, sub: abilitySummary(name) ?? `${n}フォルム` }));
 
   return {
     species,
@@ -434,6 +436,7 @@ export function DexTab() {
               style={{ flex: "1 1 150px", minWidth: 130 }}
               items={[{ value: ANY_ABILITY, label: ANY_ABILITY }, ...D.abilityOptions]}
               value={ability}
+              stacked /* 効果の説明を名前の下に出す */
               onChange={setAbility}
               searchPlaceholder="特性を絞り込み…"
             />
@@ -608,7 +611,7 @@ export function DexTab() {
                 )}
                 <button className="dex-more" onClick={() => toggleOpen(sp.name)} aria-expanded={isOpen}>
                   <span className={`card-caret ${isOpen ? "open" : ""}`}>▶</span>
-                  弱点
+                  特性・弱点
                 </button>
               </div>
 
@@ -637,6 +640,14 @@ export function DexTab() {
                       <i>{m.power > 0 ? m.power : m.cat === "変化" ? "変化" : "可変"}</i>
                     </span>
                   ))}
+                </div>
+              )}
+
+              {isOpen && (
+                /* 特性は行が伸びるので、弱点と同じここに畳んでおく */
+                <div className="dex-abil">
+                  <span className="small muted">特性</span>
+                  <AbilityNote name={sel.abilities.join("/")} withName />
                 </div>
               )}
 

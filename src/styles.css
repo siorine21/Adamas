@@ -476,6 +476,9 @@ table.spd tbody tr:hover { background: rgba(127, 168, 207, 0.06); }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 /* スライダーを置く欄は1行を丸ごと使う（AP配分と同じ操作幅を確保する） */
 .grid2 > .fld.wide, .grid3 > .fld.wide { grid-column: 1 / -1; }
+/* 欄の中身（特性の説明など）が長くても列が広がらないようにする。
+   これが無いと min-width:auto で列が中身の幅まで伸び、画面が横スクロールする */
+.grid2 > .fld, .grid3 > .fld { min-width: 0; }
 @media (max-width: 560px) {
   .grid2 { grid-template-columns: 1fr; }
 }
@@ -921,3 +924,30 @@ input.tool-num { width: 62px; text-align: right; }
 /* 見出しの右に出す要約。畳んだときに中身の見当がつくようにする */
 .panel-sum { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-actions { flex: 0 0 auto; display: flex; gap: 6px; align-items: center; }
+
+/* 特性の効果。選択欄の下や図鑑の行に添える小さな説明。
+   ゲーム内表記は分かち書きなので、折り返しは任意の位置で切ってよい */
+.abil-note { margin-top: 4px; }
+.abil-note p {
+  margin: 0 0 2px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--dim);
+  word-break: break-word;
+}
+.abil-note p:last-child { margin-bottom: 0; }
+.abil-note b { color: var(--steel-hi); font-weight: 700; margin-right: 4px; }
+/* ダメージ計算に効く倍率。本文と区別したいので色と囲みを変える */
+.abil-calc {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+/* 図鑑の「特性・弱点」を開いたときの特性欄。弱点行と見出しの位置を揃える */
+.dex-abil { display: flex; gap: 8px; align-items: baseline; margin-top: 6px; }
+.dex-abil > .small { flex: 0 0 auto; white-space: nowrap; }
+.dex-abil > .abil-note { flex: 1 1 auto; min-width: 0; margin-top: 0; }

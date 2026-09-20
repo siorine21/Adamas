@@ -15,6 +15,8 @@ import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { MoveSelect } from "./MoveSelect";
 import { Panel } from "./Panel";
 import { SelectMenu } from "./SelectMenu";
+import { abilitySummary } from "../data/abilities";
+import { AbilityNote } from "./AbilityNote";
 import { TypeMatchup } from "./TypeMatchup";
 import { ApSlider } from "./ApSlider";
 import { StepSlider } from "./StepSlider";
@@ -352,6 +354,10 @@ export function DamageTab() {
             searchPlaceholder="内定ポケモンを名前で絞込み…"
           />
           <div className="small muted">{CONFIRMED.length}体の内定ポケモンから選択（種族値・特性はシート準拠）</div>
+          {/* この相手が持ちうる特性。下の「特性」欄は計算に効くものだけの一覧なので、
+              そこに出てこない特性（いかく等）もここで分かるようにしておく */}
+          <AbilityNote name={threat.ability} withName />
+          <div className="small muted" style={{ marginTop: 2 }}>特性はどれか1つを持ちます。</div>
           {!threat.typeVerified && (
             <div className="banner warn">この個体はチャンピオンズ新規メガ等でタイプが未公表です。素の型を仮採用しています（下で修正可）。</div>
           )}
@@ -476,13 +482,16 @@ export function DamageTab() {
             <span>持ち物</span>
             <SelectMenu items={ATK_ITEMS.map((i) => ({ value: i, label: i }))} value={atkItem} onChange={setAtkItem} />
           </label>
-          <label className="fld">
+          <label className="fld wide">
             <span>特性</span>
             <SelectMenu
-              items={abilityOptionsWith(attackerIsSelf ? selfForm.ability : threat.ability, ATK_ABILITIES).map((a) => ({ value: a, label: a }))}
+              items={abilityOptionsWith(attackerIsSelf ? selfForm.ability : threat.ability, ATK_ABILITIES).map((a) => ({ value: a, label: a, sub: abilitySummary(a) }))}
               value={atkAbil}
+              stacked /* 倍率を添えるので名前の下の行に出す */
+              subInListOnly /* 選んだあとの説明は欄の下に出す */
               onChange={setAtkAbil}
             />
+            <AbilityNote name={atkAbil} />
           </label>
           <label className="fld">
             <span>とうそうしん（性別）</span>
@@ -536,13 +545,16 @@ export function DamageTab() {
             <span>持ち物</span>
             <SelectMenu items={DEF_ITEMS.map((i) => ({ value: i, label: i }))} value={defItem} onChange={setDefItem} />
           </label>
-          <label className="fld">
+          <label className="fld wide">
             <span>特性</span>
             <SelectMenu
-              items={abilityOptionsWith(attackerIsSelf ? threat.ability : selfForm.ability, DEF_ABILITIES).map((a) => ({ value: a, label: a }))}
+              items={abilityOptionsWith(attackerIsSelf ? threat.ability : selfForm.ability, DEF_ABILITIES).map((a) => ({ value: a, label: a, sub: abilitySummary(a) }))}
               value={defAbil}
+              stacked /* 倍率を添えるので名前の下の行に出す */
+              subInListOnly /* 選んだあとの説明は欄の下に出す */
               onChange={setDefAbil}
             />
+            <AbilityNote name={defAbil} />
           </label>
         </div>
         <div className="checks">
