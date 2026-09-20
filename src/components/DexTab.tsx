@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DexEntry, StatKey } from "../types";
 import { useStore } from "../store";
 import { DEX_BY_TYPE, DEX_TYPES, type DexType } from "../data/dex";
@@ -6,7 +6,7 @@ import { MAX_STARRED, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS } from "../data/
 import { typeEffectiveness } from "../calc";
 import { BANNED_MOVES, LEARNSETS, MOVE_BY_NAME } from "../data/moves";
 import type { Move } from "../types";
-import { displayName, entryFromDex } from "../data/roster";
+import { dexFitsMainType, displayName, entryFromDex } from "../data/roster";
 import { usePersistedState } from "../uiState";
 import { SelectMenu } from "./SelectMenu";
 import { kanaMatcher } from "../search";
@@ -204,11 +204,16 @@ const isStrRecord = (v: unknown) =>
   && Object.values(v as object).every((x) => typeof x === "string");
 
 export function DexTab() {
-  const { addEntry, roster, starredCount } = useStore();
+  const { addEntry, roster, starredCount, mainType } = useStore();
   // どのタイプの図鑑を見るか。はがね統一が主目的だが、あく統一でも同じ道具が使える
   const [dexType, setDexType] = usePersistedState<DexType>(
     "dex.type", "はがね", (v) => DEX_TYPES.includes(v as DexType));
   const D = DATASETS[dexType];
+  // チームを切り替えたら、その統一タイプの図鑑を開く（別タイプの図鑑では何も追加できないため）。
+  // 開いたあとに手で切り替えるのは自由。
+  useEffect(() => {
+    if (DEX_TYPES.includes(mainType as DexType)) setDexType(mainType as DexType);
+  }, [mainType, setDexType]);
   const [q, setQ] = useState(""); // 検索語は一時的なものなので保存しない
   const [typeFilter, setTypeFilter] = usePersistedState<string[]>(
     "dex.types", [], (v) => Array.isArray(v) && v.every((x) => typeof x === "string"));
@@ -240,6 +245,11 @@ export function DexTab() {
     "dex.form", {}, isStrRecord);
 
   const starDisabled = starredCount >= MAX_STARRED;
+  /** この系統を今のチームに入れられるか。メインタイプを持つフォルムが1つでもあればよい */
+  const fits = (name: string) => {
+    const d = DEX_BY_TYPE[dexType].find((x) => x.name === name);
+    return !!d && dexFitsMainType(d, mainType);
+  };
 
   // すでに自軍にいるフォルムには印を付ける（同じ個体を二重に足すミスを防ぐ）
   const owned = useMemo(() => {
@@ -513,6 +523,9 @@ export function DexTab() {
         {list.map(({ sp, forms, sel, hitMoves }) => {
           const isOpen = open.includes(sp.name);
           const isOwned = owned.has(`${sp.name}/${sel.form}`);
+          // 別タイプの統一チームを開いているときは、その図鑑から入れられない
+          const offType = !fits(sp.name);
+          const offReason = `このチームは${mainType}統一です（${sp.name}は${mainType}を持ちません）`;
           return (
             <div className="dex-row" key={sp.name}>
               {/* 1行目: 名前と追加ボタン */}
@@ -525,13 +538,18 @@ export function DexTab() {
                 <span className="dex-actions">
                   <button
                     className="btn small"
-                    title={starDisabled ? "★手持ちは最大6体まで" : "★手持ちに直接追加"}
-                    disabled={starDisabled}
+                    title={offType ? offReason : starDisabled ? "★手持ちは最大6体まで" : "★手持ちに直接追加"}
+                    disabled={starDisabled || offType}
                     onClick={() => add(sp.name, sel.form, true)}
                   >
                     ★手持ち
                   </button>
-                  <button className="btn small" title="ベンチへ追加" onClick={() => add(sp.name, sel.form, false)}>
+                  <button
+                    className="btn small"
+                    title={offType ? offReason : "ベンチへ追加"}
+                    disabled={offType}
+                    onClick={() => add(sp.name, sel.form, false)}
+                  >
                     ＋ベンチ
                   </button>
                 </span>

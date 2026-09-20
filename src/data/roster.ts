@@ -1,4 +1,4 @@
-import type { Move, RosterEntry, StatBlock } from "../types";
+import type { DexEntry, Move, RosterEntry, StatBlock } from "../types";
 import { ALL_DEX } from "./dex";
 import { MOVE_BY_NAME } from "./moves";
 
@@ -25,6 +25,22 @@ export function findDex(name: string) {
   return ALL_DEX.find((d) => d.name === name);
 }
 
+/* ---------- 統一パーティのメインタイプ判定 ----------
+   チームごとに軸のタイプを決めておき、それを持たない個体は登録させない。
+   判定は「どれか1フォルムが持っていればよい」。グソクムシャ（メガではがね）や
+   ギャラドス（メガであく）のように、メガシンカで初めて付く枠を許すため。 */
+
+/** 図鑑エントリがそのメインタイプの統一に入れられるか */
+export function dexFitsMainType(dex: DexEntry, mainType: string): boolean {
+  return dex.forms.some((f) => f.types.includes(mainType));
+}
+
+/** ロスター個体がそのメインタイプの統一に入れられるか。
+ *  手動個体はタイプを自由に編集できるので、個体が持つフォルムで判定する。 */
+export function entryFitsMainType(e: RosterEntry, mainType: string): boolean {
+  return e.forms.some((f) => f.types.includes(mainType));
+}
+
 /** 図鑑エントリからロスター個体を生成（種族値等はディープコピーし個別編集可能に） */
 export function entryFromDex(name: string): RosterEntry | null {
   const dex = findDex(name);
@@ -49,15 +65,16 @@ export function entryFromDex(name: string): RosterEntry | null {
   };
 }
 
-/** 空の手動個体（7体目以降の手動追加用） */
-export function emptyEntry(): RosterEntry {
+/** 空の手動個体（7体目以降の手動追加用）。
+ *  チームのメインタイプを初期タイプに入れておく（そのままでは登録を弾かれるため）。 */
+export function emptyEntry(mainType = "はがね"): RosterEntry {
   return {
     key: makeKey(),
     name: "",
     nickname: "",
     starred: false,
     activeForm: 0,
-    forms: [{ form: "通常", types: ["はがね"], base: { H: 100, A: 100, B: 100, C: 100, D: 100, S: 100 }, ability: "" }],
+    forms: [{ form: "通常", types: [mainType], base: { H: 100, A: 100, B: 100, C: 100, D: 100, S: 100 }, ability: "" }],
     item: "",
     nature: "がんばりや（無補正）",
     ap: { ...ZERO_AP },

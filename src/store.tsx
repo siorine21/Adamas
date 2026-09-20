@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { RosterEntry, Team } from "./types";
-import { buildPresetRoster, makeKey } from "./data/roster";
+import { buildPresetRoster, entryFitsMainType, makeKey } from "./data/roster";
 import { buildTeamPreset, PRESET_TEAMS } from "./data/teams";
 import { loadTeams, saveTeams, type SaveState, type TeamsState } from "./storage";
 
@@ -20,14 +20,17 @@ interface StoreCtx {
   setRoster: (updater: RosterEntry[] | ((prev: RosterEntry[]) => RosterEntry[])) => void;
   updateEntry: (key: string, patch: Partial<RosterEntry> | ((e: RosterEntry) => RosterEntry)) => void;
   removeEntry: (key: string) => void;
-  addEntry: (entry: RosterEntry) => void;
+  /** メインタイプに合わない個体は登録しない。合わなければ false を返す */
+  addEntry: (entry: RosterEntry) => boolean;
+  /** アクティブチームのメインタイプ（統一の軸） */
+  mainType: string;
   resetToPreset: () => void;
   // チーム管理
   teams: Team[];
   activeTeamId: string;
   activeTeam: Team | undefined;
   setActiveTeam: (id: string) => void;
-  createTeam: (name?: string) => void;
+  createTeam: (mainType: string, name?: string) => void;
   duplicateTeam: () => void;
   renameTeam: (name: string) => void;
   removeTeam: () => void;
@@ -47,7 +50,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       restored.current = true;
       return loaded;
     }
-    const t: Team = { id: makeTeamId(), name: "アダマス編成", roster: buildPresetRoster() };
+    const t: Team = {
+      id: makeTeamId(), name: "アダマス編成", mainType: "はがね", roster: buildPresetRoster(),
+    };
     return { teams: [t], activeTeamId: t.id };
   });
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -79,6 +84,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [state]);
 
   const activeTeam = state.teams.find((t) => t.id === state.activeTeamId) ?? state.teams[0];
+  const mainType = activeTeam?.mainType ?? "はがね";
   const roster = activeTeam?.roster ?? [];
 
   // アクティブチームのロスターを更新
@@ -107,8 +113,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [updateActiveRoster]);
 
   const addEntry = useCallback((entry: RosterEntry) => {
+    // 統一の軸から外れる個体は入れない（呼び出し側でも弾いているが最後の砦）
+    if (!entryFitsMainType(entry, mainType)) return false;
     updateActiveRoster((prev) => [...prev, entry]);
-  }, [updateActiveRoster]);
+    return true;
+  }, [updateActiveRoster, mainType]);
 
   const resetToPreset = useCallback(() => {
     updateActiveRoster(() => buildPresetRoster());
@@ -118,9 +127,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => (prev.teams.some((t) => t.id === id) ? { ...prev, activeTeamId: id } : prev));
   }, []);
 
-  const createTeam = useCallback((name?: string) => {
+  const createTeam = useCallback((mainType: string, name?: string) => {
     setState((prev) => {
-      const t: Team = { id: makeTeamId(), name: name?.trim() || `チーム${prev.teams.length + 1}`, roster: [] };
+      const t: Team = {
+        id: makeTeamId(),
+        name: name?.trim() || `${mainType}チーム${prev.teams.length + 1}`,
+        mainType,
+        roster: [],
+      };
       return { teams: [...prev.teams, t], activeTeamId: t.id };
     });
   }, []);
@@ -129,7 +143,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => {
       const src = prev.teams.find((t) => t.id === prev.activeTeamId);
       if (!src) return prev;
-      const t: Team = { id: makeTeamId(), name: `${src.name}のコピー`, roster: cloneRoster(src.roster) };
+      const t: Team = {
+        id: makeTeamId(), name: `${src.name}のコピー`, mainType: src.mainType, roster: cloneRoster(src.roster),
+      };
       return { teams: [...prev.teams, t], activeTeamId: t.id };
     });
   }, []);
@@ -156,7 +172,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const built = buildTeamPreset(presetId);
     if (!preset || !built) return;
     setState((prev) => {
-      const t: Team = { id: makeTeamId(), name: preset.name, roster: built };
+      // プリセットははがね統一の編成
+      const t: Team = { id: makeTeamId(), name: preset.name, mainType: "はがね", roster: built };
       return { teams: [...prev.teams, t], activeTeamId: t.id };
     });
   }, []);
@@ -166,7 +183,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider
       value={{
-        roster, setRoster, updateEntry, removeEntry, addEntry, resetToPreset,
+        roster, setRoster, updateEntry, removeEntry, addEntry, resetToPreset, mainType,
         teams: state.teams, activeTeamId: state.activeTeamId, activeTeam,
         setActiveTeam, createTeam, duplicateTeam, renameTeam, removeTeam, loadPresetTeam,
         saveState, saveError, starredCount,
