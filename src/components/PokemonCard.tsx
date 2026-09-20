@@ -6,7 +6,7 @@ import {
   STAT_KEYS, STAT_LABEL,
 } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
-import { displayName, findDex } from "../data/roster";
+import { displayName, entryFitsMainType, findDex } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { SelectMenu } from "./SelectMenu";
 import { ApSlider } from "./ApSlider";
@@ -22,7 +22,7 @@ interface Props {
 }
 
 export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, onToggle }: Props) {
-  const { updateEntry, removeEntry } = useStore();
+  const { updateEntry, removeEntry, mainType } = useStore();
   // 一覧に無い持ち物（＝手入力したもの）は最初から手入力欄で開く
   const [itemManual, setItemManual] = useState<boolean>(!!entry.item && !ITEM_BY_NAME[entry.item]);
   const itemOpts = useMemo(() => [
@@ -149,6 +149,12 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
       </div>
 
       {itemDuplicated && <div className="banner warn">★手持ち内で持ち物が重複しています（同一アイテム所持は不可）</div>}
+      {/* 手入力でタイプを書き換えると統一から外れうるので、その場で気づけるようにする */}
+      {!entryFitsMainType(entry, mainType) && (
+        <div className="banner warn">
+          このチームは{mainType}統一ですが、この個体は{mainType}を持ちません（どのフォルムにもありません）。
+        </div>
+      )}
 
       {collapsed ? null : (
       <>

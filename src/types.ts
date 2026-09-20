@@ -54,6 +54,10 @@ export interface RosterEntry {
 export interface Team {
   id: string; // 一意識別子
   name: string; // チーム名
+  /** 統一パーティの軸になるタイプ。このタイプを持たない個体は登録できない。
+   *  メガシンカで初めて付く場合は許可する（どれか1フォルムが持てばよい）。
+   *  未設定の古いデータは読み込み時に「はがね」を入れる。 */
+  mainType: string;
   roster: RosterEntry[]; // このチームの登録個体（★手持ち＋控え）
 }
 

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
-import { MAX_STARRED } from "../data/game";
-import { ALL_DEX } from "../data/dex";
-import { emptyEntry, entryFromDex } from "../data/roster";
+import { MAX_STARRED, TYPE_COLORS } from "../data/game";
+import { ALL_DEX, DEX_BY_TYPE, DEX_TYPES } from "../data/dex";
+import { dexFitsMainType, emptyEntry, entryFitsMainType, entryFromDex } from "../data/roster";
 import { PRESET_TEAMS } from "../data/teams";
 import { exportJSON, importJSON } from "../storage";
 import { PokemonCard } from "./PokemonCard";
@@ -35,8 +35,13 @@ export function TeamTab() {
   const {
     roster, addEntry, setRoster, resetToPreset, starredCount,
     teams, activeTeamId, activeTeam, setActiveTeam,
-    createTeam, duplicateTeam, renameTeam, removeTeam, loadPresetTeam,
+    createTeam, duplicateTeam, renameTeam, removeTeam, loadPresetTeam, mainType,
   } = useStore();
+  // このチームに入れられる系統だけを「図鑑から追加」に出す
+  const addable = useMemo(
+    () => ALL_DEX.filter((d) => dexFitsMainType(d, mainType)),
+    [mainType],
+  );
   const [addName, setAddName] = useState("");
   const [presetId, setPresetId] = useState("");
   const [ioOpen, setIoOpen] = useState(false);
@@ -97,12 +102,18 @@ export function TeamTab() {
 
   const doImport = () => {
     const res = importJSON(ioText);
-    if (res.ok && res.roster) {
-      setRoster(res.roster);
-      setIoMsg(`${res.roster.length}体を読み込みました。`);
-    } else {
+    if (!res.ok || !res.roster) {
       setIoMsg(`インポート失敗: ${res.error}`);
+      return;
     }
+    // 統一の軸から外れる個体は入れない。黙って落とすと気づけないので名前を出す
+    const fit = res.roster.filter((e) => entryFitsMainType(e, mainType));
+    const off = res.roster.filter((e) => !entryFitsMainType(e, mainType));
+    setRoster(fit);
+    setIoMsg(off.length === 0
+      ? `${fit.length}体を読み込みました。`
+      : `${fit.length}体を読み込みました。${mainType}を持たない${off.length}体は除外しました: `
+        + off.map((e) => e.name || "（無名）").join("・"));
   };
 
   const doAddPreset = () => {
@@ -127,7 +138,16 @@ export function TeamTab() {
             value={activeTeamId}
             onChange={setActiveTeam}
           />
-          <button className="btn" onClick={() => createTeam()} title="空のチームを新規作成">＋新規</button>
+          <SelectMenu
+            style={{ flex: "0 1 190px", minWidth: 150 }}
+            items={DEX_TYPES.map((t) => ({
+              value: t, label: t, swatch: TYPE_COLORS[t],
+              sub: `${DEX_BY_TYPE[t].length}系統`,
+            }))}
+            value=""
+            onChange={(t) => createTeam(t)}
+            placeholder="＋新規（メインタイプ）"
+          />
           <button className="btn" onClick={duplicateTeam} title="このチームを複製">複製</button>
           <button
             className="btn"
@@ -155,6 +175,11 @@ export function TeamTab() {
           <button className="btn primary" onClick={doAddPreset} disabled={!presetId}>追加</button>
         </div>
         <div className="small muted" style={{ marginTop: 6 }}>
+          このチームのメインタイプは{" "}
+          <span className="tbadge" style={{ background: TYPE_COLORS[mainType] }}>{mainType}</span>
+          {" "}です。{mainType}を持たないポケモンは登録できません
+          （メガシンカで初めて付く枠は登録できます）。
+          <br />
           チームは複数保存できます。別チームであれば同じポケモンも使えます（各チーム独立）。全{teams.length}チーム。
         </div>
       </div>
@@ -164,13 +189,13 @@ export function TeamTab() {
         <div className="row">
           <SelectMenu
             style={{ flex: "1 1 200px", minWidth: 0 }}
-            items={ALL_DEX.map((d) => ({ value: d.name, label: d.name }))}
+            items={addable.map((d) => ({ value: d.name, label: d.name }))}
             value={addName}
             onChange={setAddName}
             placeholder="＋ 図鑑から追加…"
           />
           <button className="btn primary" onClick={doAdd} disabled={!addName}>追加</button>
-          <button className="btn" onClick={() => addEntry(emptyEntry())} title="レギュ変更で増えた新規はがねポケモン等を空欄で作成">
+          <button className="btn" onClick={() => addEntry(emptyEntry(mainType))} title={`レギュ変更で増えた新規${mainType}ポケモン等を空欄で作成`}>
             ＋ 手動個体
           </button>
           <div className="spacer" />

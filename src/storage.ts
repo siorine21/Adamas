@@ -47,13 +47,17 @@ export function loadTeams(): TeamsState | null {
         const activeTeamId = data.teams.some((t) => t.id === data.activeTeamId)
           ? data.activeTeamId
           : data.teams[0].id;
-        return { teams: data.teams, activeTeamId };
+        // メインタイプを持たない旧データは、それまで唯一の対象だった「はがね」とみなす
+        const teams = data.teams.map((t) => (t.mainType ? t : { ...t, mainType: "はがね" }));
+        return { teams, activeTeamId };
       }
     }
     // 旧データからの移行（単一ロスター → 1チーム）
     const legacy = loadRoster();
     if (legacy) {
-      const team: Team = { id: `team_${Date.now().toString(36)}`, name: "マイチーム", roster: legacy };
+      const team: Team = {
+        id: `team_${Date.now().toString(36)}`, name: "マイチーム", mainType: "はがね", roster: legacy,
+      };
       return { teams: [team], activeTeamId: team.id };
     }
     return null;
