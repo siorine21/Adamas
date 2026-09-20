@@ -913,3 +913,11 @@ input.tool-num { width: 62px; text-align: right; }
   font-size: 12px;
 }
 .tbadge.dex-type.on { opacity: 1; outline: 2px solid var(--steel-hi); }
+
+/* ---------- 畳めるパネル（Panel） ----------
+   見出し行は「開閉ボタン＋その行に置く操作」。操作は畳んでいても押せる。 */
+.panel-head { display: flex; align-items: center; gap: 8px; }
+.panel-head .wk-head { flex: 1 1 auto; min-width: 0; }
+/* 見出しの右に出す要約。畳んだときに中身の見当がつくようにする */
+.panel-sum { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-actions { flex: 0 0 auto; display: flex; gap: 6px; align-items: center; }

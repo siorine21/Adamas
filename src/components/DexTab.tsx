@@ -8,6 +8,7 @@ import { BANNED_MOVES, LEARNSETS, MOVE_BY_NAME } from "../data/moves";
 import type { Move } from "../types";
 import { dexFitsMainType, displayName, entryFromDex } from "../data/roster";
 import { usePersistedState } from "../uiState";
+import { Panel } from "./Panel";
 import { SelectMenu } from "./SelectMenu";
 import { kanaMatcher } from "../search";
 
@@ -333,6 +334,19 @@ export function DexTab() {
     setTypeFilter([]); setMegaMode("all"); setAbility(ANY_ABILITY);
     setUnowned(false); setMinCoverage(0); setMoveFilter([]);
   };
+  /** 畳んだままでも何が効いているか分かるよう、見出しに出す要約 */
+  const filterSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (megaMode !== "all") parts.push(MEGA_MODES.find((m) => m.key === megaMode)?.label ?? "");
+    if (ability !== ANY_ABILITY) parts.push(ability);
+    if (moveFilter.length > 0) parts.push(moveFilter.join("・"));
+    if (minCoverage > 0) parts.push(`打点${minCoverage}+`);
+    if (typeFilter.length > 0) {
+      const how = typeMode === "move" ? "の技" : typeMode === "safe" ? "が弱点でない" : "";
+      parts.push(typeFilter.join("・") + how);
+    }
+    return parts.length > 0 ? parts.join(" / ") : "未設定";
+  }, [megaMode, ability, moveFilter, minCoverage, typeFilter, typeMode]);
 
   /** 図鑑から自軍へ。star=true なら★手持ちとして入れる */
   const add = (speciesName: string, form: string, star: boolean) => {
@@ -387,109 +401,122 @@ export function DexTab() {
             <button className="btn small" onClick={clearFilters}>絞込みを解除</button>
           )}
         </div>
-        {/* メガシンカで絞る。チャンピオンズはメガを1体しか入れられないので、
-            「あり」だけでなく「なし」も要る（メガ枠を空けた構成を組むとき） */}
-        <div className="row tight" style={{ marginTop: 8 }}>
-          <span className="small muted">メガシンカ</span>
-          {MEGA_MODES.map((m) => (
-            <button
-              key={m.key}
-              className={`sort-chip ${megaMode === m.key ? "on" : ""}`}
-              aria-pressed={megaMode === m.key}
-              title={m.title}
-              onClick={() => setMegaMode(m.key)}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        {/* 特性と打点。特性は図鑑に出てくるものだけ、持つフォルム数の多い順 */}
-        <div className="row tight" style={{ marginTop: 8 }}>
-          <span className="small muted">特性</span>
-          <SelectMenu
-            style={{ flex: "1 1 150px", minWidth: 130 }}
-            items={[{ value: ANY_ABILITY, label: ANY_ABILITY }, ...D.abilityOptions]}
-            value={ability}
-            onChange={setAbility}
-            searchPlaceholder="特性を絞り込み…"
-          />
-        </div>
-        {/* 技名で絞る。タイプ絞込みと違い「この技が使える枠を探す」用 */}
-        <div className="row tight" style={{ marginTop: 8 }}>
-          <span className="small muted" title="複数選ぶと、すべて覚える系統だけが残ります">
-            覚える技{moveFilter.length > 1 && "（すべて覚える）"}
-          </span>
-          <SelectMenu
-            style={{ flex: "1 1 150px", minWidth: 130 }}
-            items={[
-              { value: ADD_MOVE, label: ADD_MOVE },
-              ...D.moveOptions.filter((m) => !moveFilter.includes(m.value)),
-            ]}
-            value={ADD_MOVE}
-            onChange={(v) => { if (v !== ADD_MOVE) setMoveFilter((prev) => [...prev, v]); }}
-            searchable
-            stacked
-            searchPlaceholder="技名で絞り込み…"
-          />
-        </div>
-        {moveFilter.length > 0 && (
-          <div className="row tight" style={{ marginTop: 6 }}>
-            {moveFilter.map((n) => (
+      </div>
+
+      {/* 絞込みは項目が増えて縦に伸びたので畳めるようにする。
+            スマホだと開きっぱなしでは一覧が画面の下半分に追いやられる。 */}
+      <Panel
+        id="dex.filters"
+        title="絞り込み"
+        defaultOpen={false}
+        summary={filterSummary}
+      >
+          {/* メガシンカで絞る。チャンピオンズはメガを1体しか入れられないので、
+              「あり」だけでなく「なし」も要る（メガ枠を空けた構成を組むとき） */}
+          <div className="row tight" style={{ marginTop: 8 }}>
+            <span className="small muted">メガシンカ</span>
+            {MEGA_MODES.map((m) => (
               <button
-                key={n}
-                className="sort-chip on"
-                title="タップで外す"
-                onClick={() => setMoveFilter((prev) => prev.filter((x) => x !== n))}
+                key={m.key}
+                className={`sort-chip ${megaMode === m.key ? "on" : ""}`}
+                aria-pressed={megaMode === m.key}
+                title={m.title}
+                onClick={() => setMegaMode(m.key)}
               >
-                {n} ✕
+                {m.label}
               </button>
             ))}
           </div>
-        )}
+          {/* 特性と打点。特性は図鑑に出てくるものだけ、持つフォルム数の多い順 */}
+          <div className="row tight" style={{ marginTop: 8 }}>
+            <span className="small muted">特性</span>
+            <SelectMenu
+              style={{ flex: "1 1 150px", minWidth: 130 }}
+              items={[{ value: ANY_ABILITY, label: ANY_ABILITY }, ...D.abilityOptions]}
+              value={ability}
+              onChange={setAbility}
+              searchPlaceholder="特性を絞り込み…"
+            />
+          </div>
+          {/* 技名で絞る。タイプ絞込みと違い「この技が使える枠を探す」用 */}
+          <div className="row tight" style={{ marginTop: 8 }}>
+            <span className="small muted" title="複数選ぶと、すべて覚える系統だけが残ります">
+              覚える技{moveFilter.length > 1 && "（すべて覚える）"}
+            </span>
+            <SelectMenu
+              style={{ flex: "1 1 150px", minWidth: 130 }}
+              items={[
+                { value: ADD_MOVE, label: ADD_MOVE },
+                ...D.moveOptions.filter((m) => !moveFilter.includes(m.value)),
+              ]}
+              value={ADD_MOVE}
+              onChange={(v) => { if (v !== ADD_MOVE) setMoveFilter((prev) => [...prev, v]); }}
+              searchable
+              stacked
+              searchPlaceholder="技名で絞り込み…"
+            />
+          </div>
+          {moveFilter.length > 0 && (
+            <div className="row tight" style={{ marginTop: 6 }}>
+              {moveFilter.map((n) => (
+                <button
+                  key={n}
+                  className="sort-chip on"
+                  title="タップで外す"
+                  onClick={() => setMoveFilter((prev) => prev.filter((x) => x !== n))}
+                >
+                  {n} ✕
+                </button>
+              ))}
+            </div>
+          )}
 
-        {/* 打点の広さ。覚える攻撃技が何タイプあるか（ルカリオ16〜ミミズズ5） */}
-        <div className="row tight" style={{ marginTop: 8 }}>
-          <span className="small muted" title="覚える攻撃技のタイプ数">打点の広さ</span>
-          {COVERAGE_STEPS.map((n) => (
-            <button
-              key={n}
-              className={`sort-chip ${minCoverage === n ? "on" : ""}`}
-              aria-pressed={minCoverage === n}
-              title={n === 0 ? "打点で絞らない" : `攻撃技が${n}タイプ以上`}
-              onClick={() => setMinCoverage(n)}
-            >
-              {n === 0 ? "すべて" : `${n}タイプ以上`}
-            </button>
-          ))}
-        </div>
-        {/* タイプボタンの意味を切り替える。「覚える技」なら、そのタイプの技を
-            覚える系統だけに絞って技名をカードに出す。「弱点でない」は受け役を探すとき */}
-        <div className="row tight" style={{ marginTop: 8 }}>
-          <span className="small muted">タイプで絞る</span>
-          {TYPE_MODES.map((m) => (
-            <button
-              key={m.key}
-              className={`sort-chip ${typeMode === m.key ? "on" : ""}`}
-              aria-pressed={typeMode === m.key}
-              title={m.title}
-              onClick={() => setTypeMode(m.key)}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <div className="filter-types" style={{ marginTop: 6 }}>
-          {(typeMode === "move" ? TYPES : typeMode === "safe" ? D.weakTypes : D.usedTypes).map((t) => (
-            <button
-              key={t}
-              className={typeFilter.includes(t) ? "on" : ""}
-              style={{ background: TYPE_COLORS[t], color: "#14171c" }}
-              onClick={() => toggleType(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+          {/* 打点の広さ。覚える攻撃技が何タイプあるか（ルカリオ16〜ミミズズ5） */}
+          <div className="row tight" style={{ marginTop: 8 }}>
+            <span className="small muted" title="覚える攻撃技のタイプ数">打点の広さ</span>
+            {COVERAGE_STEPS.map((n) => (
+              <button
+                key={n}
+                className={`sort-chip ${minCoverage === n ? "on" : ""}`}
+                aria-pressed={minCoverage === n}
+                title={n === 0 ? "打点で絞らない" : `攻撃技が${n}タイプ以上`}
+                onClick={() => setMinCoverage(n)}
+              >
+                {n === 0 ? "すべて" : `${n}タイプ以上`}
+              </button>
+            ))}
+          </div>
+          {/* タイプボタンの意味を切り替える。「覚える技」なら、そのタイプの技を
+              覚える系統だけに絞って技名をカードに出す。「弱点でない」は受け役を探すとき */}
+          <div className="row tight" style={{ marginTop: 8 }}>
+            <span className="small muted">タイプで絞る</span>
+            {TYPE_MODES.map((m) => (
+              <button
+                key={m.key}
+                className={`sort-chip ${typeMode === m.key ? "on" : ""}`}
+                aria-pressed={typeMode === m.key}
+                title={m.title}
+                onClick={() => setTypeMode(m.key)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="filter-types" style={{ marginTop: 6 }}>
+            {(typeMode === "move" ? TYPES : typeMode === "safe" ? D.weakTypes : D.usedTypes).map((t) => (
+              <button
+                key={t}
+                className={typeFilter.includes(t) ? "on" : ""}
+                style={{ background: TYPE_COLORS[t], color: "#14171c" }}
+                onClick={() => toggleType(t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+      </Panel>
+
+      <div className="panel">
 
         {/* 表のヘッダーをタップして並べ替える代わりの操作。横スクロールが無くなったぶんここに出す */}
         <div className="sort-bar">

@@ -5,7 +5,9 @@ import { ALL_DEX, DEX_BY_TYPE, DEX_TYPES } from "../data/dex";
 import { dexFitsMainType, emptyEntry, entryFitsMainType, entryFromDex } from "../data/roster";
 import { PRESET_TEAMS } from "../data/teams";
 import { exportJSON, importJSON } from "../storage";
+import { Panel } from "./Panel";
 import { PokemonCard } from "./PokemonCard";
+import { TypeBadges } from "./TypeBadge";
 import { SelectMenu } from "./SelectMenu";
 import { WeaknessTable } from "./WeaknessTable";
 import { CoverageTable } from "./CoverageTable";
@@ -125,8 +127,7 @@ export function TeamTab() {
   return (
     <div>
       {/* チーム選択・管理 */}
-      <div className="panel">
-        <div className="section-title">チーム</div>
+      <Panel id="team.manage" title="チーム" summary={`${teams.length}チーム / ${mainType}統一`}>
         <div className="row">
           <SelectMenu
             style={{ flex: "1 1 200px", minWidth: 0 }}
@@ -182,14 +183,24 @@ export function TeamTab() {
           <br />
           チームは複数保存できます。別チームであれば同じポケモンも使えます（各チーム独立）。全{teams.length}チーム。
         </div>
-      </div>
+      </Panel>
 
       {/* 操作パネル */}
-      <div className="panel">
+      <Panel id="team.ops" title="追加・入出力" summary={`${roster.length}体`}>
         <div className="row">
           <SelectMenu
             style={{ flex: "1 1 200px", minWidth: 0 }}
-            items={addable.map((d) => ({ value: d.name, label: d.name }))}
+            items={addable.map((d) => {
+              // メインタイプを持つフォルムを見せる。メガで初めて付く系統は
+              // 通常フォルムを見せても「なぜ入れられるのか」が分からないため
+              const f = d.forms.find((x) => x.types.includes(mainType)) ?? d.forms[0];
+              return {
+                value: d.name,
+                label: d.name,
+                note: <TypeBadges types={f.types} />,
+                sub: f.form === "通常" ? undefined : `${f.form}で${mainType}`,
+              };
+            })}
             value={addName}
             onChange={setAddName}
             placeholder="＋ 図鑑から追加…"
@@ -231,7 +242,7 @@ export function TeamTab() {
           </div>
         )}
         {!ioOpen && ioMsg && <div className="small amber" style={{ marginTop: 6 }}>{ioMsg}</div>}
-      </div>
+      </Panel>
 
       {/* チーム全体の弱点チェック・攻撃範囲チェック */}
       <WeaknessTable />

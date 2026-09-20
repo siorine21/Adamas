@@ -6,6 +6,7 @@ import { CONFIRMED } from "../data/confirmed";
 import { typeEffectiveness } from "../calc";
 import { displayName } from "../data/roster";
 import { usePersistedState } from "../uiState";
+import { Panel } from "./Panel";
 
 /** 打点の表示ラベル（技が無い／攻撃技を持たない場合は空欄扱い） */
 function mulLabel(m: number | null): string {
@@ -44,7 +45,6 @@ function attackTypes(e: RosterEntry): string[] {
  *  単タイプ18種に対する最大倍率と、内定ポケモン（実際の複合タイプ）への通りの両方を出す。 */
 export function CoverageTable() {
   const { roster } = useStore();
-  const [open, setOpen] = usePersistedState("team.cvOpen", true, (v) => typeof v === "boolean");
   const [onlyWeakSpot, setOnlyWeakSpot] = usePersistedState("team.cvOnly", false, (v) => typeof v === "boolean");
 
   const team = useMemo(() => roster.filter((e) => e.starred), [roster]);
@@ -86,14 +86,11 @@ export function CoverageTable() {
   if (team.length === 0) return null;
 
   return (
-    <div className="panel">
-      <button type="button" className="wk-head" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className={`card-caret ${open ? "open" : ""}`}>▶</span>
-        <span className="section-title" style={{ margin: 0, border: "none", padding: 0 }}>
-          攻撃範囲チェック（★手持ち{team.length}体の技のタイプ）
-        </span>
-      </button>
-
+    <Panel
+      id="team.cv"
+      title="攻撃範囲チェック"
+      summary={`★手持ち${team.length}体の技のタイプ`}
+      always={<>
       {noSuperTypes.length > 0 && (
         <div className="banner warn" style={{ marginTop: 6 }}>
           誰も抜群を取れないタイプ: {noSuperTypes.join(" / ")}
@@ -115,8 +112,9 @@ export function CoverageTable() {
         </div>
       )}
 
-      {open && (
-        <>
+      </>}
+    >
+      <>
           <div className="wk-legend">
             {team.map((e, i) => {
               const form = e.forms[e.activeForm] ?? e.forms[0];
@@ -170,8 +168,7 @@ export function CoverageTable() {
             各個体の攻撃技のうち、最も相性の良い倍率を表示（×4／×2＝抜群、½／¼＝半減、0＝無効、・＝攻撃技なし）。
             単タイプ相手の倍率です。特性（もらいび・ふゆう等）による無効化や、技の威力・実数値は考慮しません。
           </div>
-        </>
-      )}
-    </div>
+      </>
+    </Panel>
   );
 }
