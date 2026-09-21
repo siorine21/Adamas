@@ -1,3 +1,9 @@
+import type { PointerEvent as ReactPointerEvent } from "react";
+
+/** つまみと見なす距離（px）。指の太さぶん広めに取り、
+ *  つまみを狙ったつもりのドラッグが空振りしないようにする。 */
+const THUMB_GRAB = 20;
+
 interface Props {
   value: number;
   min: number;
@@ -37,6 +43,26 @@ export function StepSlider({
   const hardMax = limitMax ?? max;
   const label = format ? format(value) : String(value);
 
+  /* Android Chrome の <input type=range> はトラックを触っただけで つまみが
+     そこへ飛ぶ。そのためスクロール中に指がバーをかすめると値が変わってしまう。
+     iOS Safari は「つまみから始めたドラッグ」しか受け付けないので起きない。
+     そこで指・タッチのときだけ iOS と同じ挙動にする。つまみから離れた場所で
+     始まった操作は既定動作を止めるので、値は動かない。
+     縦スクロールは touch-action: pan-y がブラウザ側で処理するため止まらない。
+     マウスとペンは狙った場所を正確に押せるので、従来どおりトラックで飛ばせる。
+
+     ※ ヘッドレスのブラウザではネイティブの range をタッチで動かせず、
+       この分岐の効きを自動テストで確かめられない。実機で確認すること。
+       効かない／効きすぎる場合でも、同じ行の ＋/− ボタンは常に使える。 */
+  const onPointerDown = (e: ReactPointerEvent<HTMLInputElement>) => {
+    if (e.pointerType !== "touch") return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const ratio = max === min ? 0 : (value - min) / (max - min);
+    // つまみは端で見切れないよう内側に寄るので、その内寄りぶんを差し引いて中心を出す
+    const thumbX = r.left + THUMB_GRAB + (r.width - THUMB_GRAB * 2) * ratio;
+    if (Math.abs(e.clientX - thumbX) > THUMB_GRAB) e.preventDefault();
+  };
+
   const valueEl = (
     <span
       className={`ap-val tnum ${atCap ? "cap" : ""}`}
@@ -69,6 +95,7 @@ export function StepSlider({
           value={value}
           aria-label={ariaLabel}
           disabled={locked}
+          onPointerDown={onPointerDown}
           // 上限を超えてドラッグしても hardMax で止める
           onChange={(e) => onChange(Math.min(hardMax, Number(e.target.value)))}
         />
