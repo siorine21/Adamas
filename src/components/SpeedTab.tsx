@@ -3,6 +3,7 @@ import type { RosterEntry } from "../types";
 import { useStore } from "../store";
 import { usePersistedState } from "../uiState";
 import { CONFIRMED } from "../data/confirmed";
+import { abilitySummary } from "../data/abilities";
 import { RANK_MAX, RANK_MIN, TYPES, TYPE_COLORS, calcStat, rankLabel, rankMul, realStats } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
@@ -148,7 +149,7 @@ export function SpeedTab() {
     }
     return [...count.entries()]
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja"))
-      .map(([name, n]) => ({ value: name, label: name, sub: n > 0 ? `${n}` : undefined }));
+      .map(([name, n]) => ({ value: name, label: name, sub: abilitySummary(name) ?? (n > 0 ? `${n}体` : undefined) }));
   }, [roster]);
 
   /** 内定表に実際に出てくるタイプだけ（18種すべて出るが、将来レギュが変わっても空振りしない） */
@@ -267,6 +268,7 @@ export function SpeedTab() {
             style={{ flex: "1 1 150px", minWidth: 130 }}
             items={[{ value: ANY_ABILITY, label: ANY_ABILITY }, ...abilityOptions]}
             value={ability}
+            stacked /* 効果の説明を名前の下に出す */
             onChange={setAbility}
             searchPlaceholder="特性を絞り込み…"
           />

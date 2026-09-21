@@ -20,6 +20,9 @@ interface Props {
   searchPlaceholder?: string;
   /** 補足（sub）を名前の下の行に出す。説明が長い持ち物の一覧など */
   stacked?: boolean;
+  /** 補足（sub）を候補一覧にだけ出す。選んだ内容の説明を欄の下に別途出すときに使う
+   *  （閉じたボタンにも出すと同じ文が二重になるため） */
+  subInListOnly?: boolean;
   style?: CSSProperties;
   disabled?: boolean;
 }
@@ -27,7 +30,8 @@ interface Props {
 /** ネイティブ<select>の代わりに使う、その場で開く検索付きドロップダウン。
  *  iOS等でフルスクリーンのピッカーが出るのを避け、画面内に収まる小さなメニューにする。 */
 export function SelectMenu({
-  items, value, onChange, placeholder, searchable, searchPlaceholder, stacked, style, disabled,
+  items, value, onChange, placeholder, searchable, searchPlaceholder, stacked,
+  subInListOnly, style, disabled,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -76,7 +80,7 @@ export function SelectMenu({
               ? <span className="tbadge" style={{ background: selected.swatch }}>{selected.label}</span>
               : <span className="mvsel-name">{selected.label}</span>}
             {selected.note}
-            {selected.sub && <span className="mvsel-meta">{selected.sub}</span>}
+            {selected.sub && !subInListOnly && <span className="mvsel-meta">{selected.sub}</span>}
           </span>
         ) : (
           <span className="muted">{placeholder ?? "選択…"}</span>

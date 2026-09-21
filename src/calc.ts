@@ -64,6 +64,20 @@ export interface DamageResult {
   immuneReason?: string;
 }
 
+/** ノーマル技のタイプを変える特性（いわゆる「スキン」系）。
+ *  タイプが変わったうえで威力も1.2倍になる。 */
+const SKIN_TYPE: Record<string, string> = {
+  "スカイスキン": "ひこう",
+  "フェアリースキン": "フェアリー",
+  "フリーズスキン": "こおり",
+  "エレキスキン": "でんき",
+  "ドラゴンスキン": "ドラゴン", // Z-A のメガオーダイル
+};
+
+/** 撃つ技と同じタイプに変身するので、どの技でもタイプ一致（×1.5）になる特性。
+ *  「リベロ／へんげんじざい」は以前まとめて1項目にしていたぶんの互換。 */
+const PROTEAN = ["へんげんじざい", "リベロ", "リベロ／へんげんじざい"];
+
 /** 防御側の特性による無効化。かたやぶりなら無視される */
 function immunityByAbility(defAbility: string, moveType: string, moveName: string): string | null {
   const flags = MOVE_FLAGS[moveName] ?? "";
@@ -99,12 +113,14 @@ export function computeDamage(p: DamageParams): DamageResult | null {
   } = p;
   if (!power || power <= 0) return null;
 
-  // スカイスキン（メガボーマンダ）: ノーマル技がひこう技になる。
-  // 相性・無効化・タイプ一致もひこうで判定するので、ここで型を差し替える。
-  const skin = atkAbility === "スカイスキン" && rawMoveType === "ノーマル";
-  const moveType = skin ? "ひこう" : rawMoveType;
-
   const flags = MOVE_FLAGS[moveName] ?? "";
+
+  // タイプが変わる特性。相性・無効化・タイプ一致をすべて変わったあとの型で見たいので、
+  // いちばん先に差し替える。スキン系はノーマル技が別タイプになり威力も上がる。
+  const skinType = rawMoveType === "ノーマル" ? SKIN_TYPE[atkAbility] : undefined;
+  // うるおいボイス（アシレーヌ）: 音技がみず技になる。こちらは威力が上がらない。
+  const liquidVoice = atkAbility === "うるおいボイス" && flags.includes("sound");
+  const moveType = skinType ?? (liquidVoice ? "みず" : rawMoveType);
   // かたやぶり: 防御側の特性（無効化・軽減）を無視する
   const breaks = atkAbility === "かたやぶり";
   const dAbil = breaks ? "" : defAbility;
@@ -157,7 +173,7 @@ export function computeDamage(p: DamageParams): DamageResult | null {
   if (atkAbility === "そうだいしょう" && alliesFainted > 0) {
     bpMods.push(OVERLORD[Math.min(5, alliesFainted)]);
   }
-  if (skin) bpMods.push(4915); // スカイスキン
+  if (skinType) bpMods.push(4915); // スキン系（うるおいボイスは威力が上がらない）
   if (atkAbility === "すてみ" && RECOIL_MOVES.has(moveName)) bpMods.push(4915);
   if (atkAbility === "てつのこぶし" && flags.includes("punch")) bpMods.push(4915);
   if (dAbil === "たいねつ" && moveType === "ほのお") bpMods.push(M(0.5));
@@ -232,9 +248,10 @@ export function computeDamage(p: DamageParams): DamageResult | null {
   if (extraMul !== 1) finalMods.push(M(extraMul));
   const finalMod = chainMods(finalMods);
 
-  // リベロ／へんげんじざい・スカイスキンは撃つ技のタイプになるので常にタイプ一致
-  const sameType = atkTypes.includes(moveType) || skin
-    || atkAbility === "リベロ／へんげんじざい";
+  // へんげんじざい／リベロは自分が撃つ技のタイプになるので、どの技でも一致する。
+  // スキン系は技のタイプが変わるだけなので、一致かどうかは通常どおり自分のタイプで見る
+  // （メガボーマンダのひこう等、変化後の型を元から持っていれば結局一致になる）。
+  const sameType = atkTypes.includes(moveType) || PROTEAN.includes(atkAbility);
   const stabMod = sameType ? (atkAbility === "てきおうりょく" ? 8192 : 6144) : 4096;
 
   const rolls: number[] = [];
