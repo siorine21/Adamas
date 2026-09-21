@@ -748,6 +748,13 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 }
 .ap-slider:disabled { accent-color: var(--dim); opacity: .5; cursor: not-allowed; }
 .ap-ctl.locked { opacity: .75; }
+/* バー無し（能力ランク）。値を左右のボタンに挟んで中央に置く。
+   バーが無いぶん誤操作の余地が無く、ボタンは押した場所でしか効かない */
+.ap-ctl.nobar { gap: 6px; justify-content: flex-start; }
+.ap-ctl.nobar .ap-val {
+  flex: 0 0 auto; min-width: 42px; text-align: center;
+  padding: 0 2px; font-size: 15px;
+}
 /* AP配分のロック。アイコンだけで状態を示す（解錠=薄いグレーの輪郭 / 施錠=アンバーの塗り） */
 .lock-btn {
   flex: 0 0 auto;
