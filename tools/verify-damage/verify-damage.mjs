@@ -143,5 +143,16 @@ run("複数体攻撃＋リフレクター", { atk: "Excadrill", atkOpts: S, def:
 run("いのちのたま＋たつじんのおび相当（複合最終補正）", { atk: "Scizor", atkOpts: { ...S, item: "Life Orb" }, def: "Klefki", defOpts: { ...D, ability: "Filter" }, move: "Bullet Punch", jpMove: "バレットパンチ", jpItem: "いのちのたま", jpDefAbility: "フィルター／ハードロック／プリズムアーマー" });
 run("かたいツメ＋こだわりハチマキ＋いのちのたま", { atk: "Golisopod", atkOpts: { ...S, ability: "Tough Claws", item: "Life Orb" }, def: "Chandelure", defOpts: D, move: "First Impression", jpMove: "であいがしら", jpAtkAbility: "かたいツメ", jpItem: "いのちのたま" });
 
+/* タイプが変わる特性。撃つ技のタイプが変わるので、相性・無効化・タイプ一致もその型で見る。
+   スキン系はノーマル技のタイプが変わったうえ威力1.2倍。
+   へんげんじざい／リベロは自分がその技のタイプになるので、どの技でも一致になる。 */
+run("へんげんじざい（一致しない技）", { atk: "Greninja", atkOpts: { level: 50, nature: "Timid", evs: { spa: 252 }, ability: "Protean" }, def: "Klefki", defOpts: D, move: "Ice Beam", jpMove: "れいとうビーム", jpAtkAbility: "へんげんじざい" });
+run("へんげんじざい（元から一致の技）", { atk: "Greninja", atkOpts: { level: 50, nature: "Timid", evs: { spa: 252 }, ability: "Protean" }, def: "Klefki", defOpts: D, move: "Surf", jpMove: "なみのり", jpAtkAbility: "へんげんじざい" });
+run("リベロ", { atk: "Cinderace", atkOpts: { ...S, ability: "Libero" }, def: "Klefki", defOpts: D, move: "High Jump Kick", jpMove: "とびひざげり", jpAtkAbility: "リベロ" });
+run("フェアリースキン", { atk: "Sylveon", atkOpts: { level: 50, nature: "Modest", evs: { spa: 252 }, ability: "Pixilate" }, def: "Chandelure", defOpts: D, move: "Hyper Voice", jpMove: "ハイパーボイス", jpAtkAbility: "フェアリースキン" });
+run("フリーズスキン", { atk: "Amaura", atkOpts: { level: 50, nature: "Modest", evs: { spa: 252 }, ability: "Refrigerate" }, def: "Chandelure", defOpts: D, move: "Hyper Voice", jpMove: "ハイパーボイス", jpAtkAbility: "フリーズスキン" });
+run("スカイスキン（ゴーストに当たる）", { atk: "Salamence", atkOpts: { ...S, ability: "Aerilate" }, def: "Chandelure", defOpts: D, move: "Double-Edge", jpMove: "すてみタックル", jpAtkAbility: "スカイスキン" });
+run("うるおいボイス（音技がみず）", { atk: "Primarina", atkOpts: { level: 50, nature: "Modest", evs: { spa: 252 }, ability: "Liquid Voice" }, def: "Chandelure", defOpts: D, move: "Hyper Voice", jpMove: "ハイパーボイス", jpAtkAbility: "うるおいボイス" });
+
 console.log(`一致 ${pass} / 不一致 ${fail}`);
 for (const f of failures) console.log("  NG " + f);

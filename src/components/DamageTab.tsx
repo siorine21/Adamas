@@ -42,8 +42,10 @@ const ATK_ABILITIES = [
   // まもるを貫通する特性（かんつうドリル＝ふかしのこぶしと同効果）
   "ふかしのこぶし", "かんつうドリル",
   // レギュM-Cの追加ポケモンが持つもの（テクニシャンはハッサム等も該当）
-  "テクニシャン", "パンクロック", "スカイスキン", "リベロ／へんげんじざい",
-  "そうだいしょう",
+  "テクニシャン", "パンクロック", "そうだいしょう",
+  // タイプが変わる特性。撃つ技のタイプが変わるので相性・一致も変わる
+  "へんげんじざい", "リベロ",
+  "スカイスキン", "フェアリースキン", "フリーズスキン", "ドラゴンスキン", "うるおいボイス",
 ];
 /** そうだいしょうで選べる「倒れた味方の数」。6体目以降は増えないので5まで */
 const FAINTED = [0, 1, 2, 3, 4, 5];
@@ -54,6 +56,14 @@ const DEF_ABILITIES = [
   "はどうのぼうご", // レギュM-Cで追加（メガルカリオZ・接触技を半減）
   "パンクロック",   // 音技のダメージを半減（ストリンダー）
 ];
+/** ノーマル技が何タイプになるか（注記の文言用。計算の本体は src/calc.ts） */
+const SKIN_NOTE: Record<string, string> = {
+  "スカイスキン": "ひこう", "フェアリースキン": "フェアリー", "フリーズスキン": "こおり",
+  "エレキスキン": "でんき", "ドラゴンスキン": "ドラゴン",
+};
+/** 撃つ技のタイプになる特性（「リベロ／へんげんじざい」は以前の表記の互換） */
+const PROTEAN_NOTE = ["へんげんじざい", "リベロ", "リベロ／へんげんじざい"];
+
 const WEATHERS: Weather[] = ["なし", "にほんばれ", "あまごい", "すなあらし", "ゆき"];
 const FIELDS: Field[] = ["なし", "エレキフィールド", "グラスフィールド", "サイコフィールド", "ミストフィールド"];
 const RIVALRY = ["なし", "同性", "異性"] as const;
@@ -77,10 +87,12 @@ function isMove(v: unknown): boolean {
     && typeof m.power === "number" && typeof m.cat === "string";
 }
 
-function abilityOptionsWith(base: string, extras: string[]): string[] {
+function abilityOptionsWith(base: string, extras: string[], current?: string): string[] {
   const own = base.split("/").map((s) => s.trim()).filter(Boolean);
   const out = ["（補正なし）", ...own];
   for (const e of extras) if (!out.includes(e)) out.push(e);
+  // 保存済みの選択が一覧から外れていても、欄が空に見えないよう残す
+  if (current && !out.includes(current)) out.push(current);
   return [...new Set(out)];
 }
 
@@ -485,7 +497,7 @@ export function DamageTab() {
           <label className="fld wide">
             <span>特性</span>
             <SelectMenu
-              items={abilityOptionsWith(attackerIsSelf ? selfForm.ability : threat.ability, ATK_ABILITIES).map((a) => ({ value: a, label: a, sub: abilitySummary(a) }))}
+              items={abilityOptionsWith(attackerIsSelf ? selfForm.ability : threat.ability, ATK_ABILITIES, atkAbil).map((a) => ({ value: a, label: a, sub: abilitySummary(a) }))}
               value={atkAbil}
               stacked /* 倍率を添えるので名前の下の行に出す */
               subInListOnly /* 選んだあとの説明は欄の下に出す */
@@ -548,7 +560,7 @@ export function DamageTab() {
           <label className="fld wide">
             <span>特性</span>
             <SelectMenu
-              items={abilityOptionsWith(attackerIsSelf ? threat.ability : selfForm.ability, DEF_ABILITIES).map((a) => ({ value: a, label: a, sub: abilitySummary(a) }))}
+              items={abilityOptionsWith(attackerIsSelf ? threat.ability : selfForm.ability, DEF_ABILITIES, defAbil).map((a) => ({ value: a, label: a, sub: abilitySummary(a) }))}
               value={defAbil}
               stacked /* 倍率を添えるので名前の下の行に出す */
               subInListOnly /* 選んだあとの説明は欄の下に出す */
@@ -590,9 +602,20 @@ export function DamageTab() {
             {atkAbil}: まもる／みきりを貫通します（接触技のみ。ダメージ倍率は変わりません）。
           </div>
         )}
-        {atkAbil === "スカイスキン" && (
+        {SKIN_NOTE[atkAbil] && (
           <div className="banner info">
-            スカイスキン: ノーマル技はひこう技として（威力1.2倍・タイプ一致つきで）計算しています。
+            {atkAbil}: ノーマル技は{SKIN_NOTE[atkAbil]}技として（威力1.2倍）計算しています。
+            相性・無効化・タイプ一致も{SKIN_NOTE[atkAbil]}で見ます。
+          </div>
+        )}
+        {atkAbil === "うるおいボイス" && (
+          <div className="banner info">
+            うるおいボイス: 音技はみず技として計算しています（威力は上がりません）。
+          </div>
+        )}
+        {PROTEAN_NOTE.includes(atkAbil) && (
+          <div className="banner info">
+            {atkAbil}: 撃つ技と同じタイプになるので、どの技もタイプ一致（×1.5）で計算しています。
           </div>
         )}
         <div className="small muted">
