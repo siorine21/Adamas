@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Move, StatBlock, Threat } from "../types";
 import { useStore } from "../store";
 import { usePersistedState } from "../uiState";
@@ -301,6 +301,23 @@ export function DamageTab() {
     threat.nature.replace(/（.*/, ""),
     `AP ${apSummary(threat.ap)}`,
   ].join("・");
+
+  /* 結果パネルが画面に入っているか。入っていないときだけ下に要約を貼る
+     （両方出ると同じ数字が二重に見えるため）。
+     タブは display:none で切り替えているので、他タブでは box が無く
+     isIntersecting=false になるが、貼り付く要素も同じ非表示の中にあるので出ない。 */
+  const resultRef = useRef<HTMLDivElement>(null);
+  const [resultOnScreen, setResultOnScreen] = useState(false);
+  useEffect(() => {
+    const el = resultRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([e]) => setResultOnScreen(e.isIntersecting),
+      { threshold: 0.5 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   const condSummary = useMemo(() => {
     const parts: string[] = [];
@@ -661,9 +678,13 @@ export function DamageTab() {
         </div>
       </Panel>
 
-      {/* 結果 */}
+      {/* 結果。画面外にあるときは下に貼り付く要約（dmg-sticky）を出す */}
       <div className="panel">
         <div className="section-title">計算結果</div>
+        {/* 見張るのは判定・ダメージ・HPバーの塊だけにする。パネル全体だと
+            画面が低いとき（横向き等）に threshold に届かず、貼り付く要約が
+            消えなくなるため。 */}
+        <div ref={resultRef}>
         {!move ? (
           <div className="muted">技を選択してください。</div>
         ) : result?.immune ? (
@@ -676,6 +697,7 @@ export function DamageTab() {
         ) : (
           <div className="muted">威力のある技を選択してください。</div>
         )}
+        </div>
         <div className="banner info" style={{ marginTop: 10 }}>
           参考: ステルスロック着地ダメージ（防御側の1/8×相性 = {(typeEffectiveness("いわ", defTypes)).toString()}倍）＝ <b className="tnum">{srInfo}</b>（{defHP > 0 ? ((srInfo / defHP) * 100).toFixed(1) : "0"}%）
         </div>
@@ -683,6 +705,47 @@ export function DamageTab() {
           ※ がんじょう・きあいのタスキ・ばけのかわ等「1発耐え」効果は計算に含みません。威力可変技・連続技も非対応（威力を手動指定してください）。
         </div>
       </div>
+
+      {/* 結果が画面外のときだけ、要点を画面下に貼り付けておく。
+          条件をいじりながら結果を見たいので、スクロール位置に関わらず判定が見える。
+          タップすると結果まで飛ぶ。 */}
+      {!resultOnScreen && move && (result?.immune || (result && ko)) && (
+        <button
+          type="button"
+          className="dmg-sticky"
+          title="計算結果まで移動"
+          onClick={() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        >
+          <span className="dmg-sticky-in">
+            {result?.immune ? (
+              <span className="row tight">
+                <span className="stamp">{result.immuneReason ? `${result.immuneReason}で無効` : "こうかがない（無効）"}</span>
+              </span>
+            ) : ko && (
+              <>
+                <span className="row tight" style={{ alignItems: "center" }}>
+                  <span className={`stamp ${ko.verdict === "確定1発" ? "ko1" : ko.verdict === "確定2発" ? "ko2" : ""}`}>
+                    {ko.verdict}
+                  </span>
+                  {ko.detail && <span className="amber small">{ko.detail}</span>}
+                  <span className="spacer" />
+                  <span className="small muted">
+                    <b className={eff > 1 ? "ok" : eff < 1 ? "warn" : ""}>{effLabel(eff)}</b>
+                  </span>
+                </span>
+                <span className="dmg-sticky-num tnum">
+                  <b>{ko.min} 〜 {ko.max}</b>
+                  <span className="muted"> （{ko.minPct.toFixed(1)}% 〜 {ko.maxPct.toFixed(1)}%）</span>
+                </span>
+                <span className="hpbar slim">
+                  <span className="remain" style={{ width: `${Math.max(0, 100 - ko.maxPct)}%` }} />
+                  <span className="lbl">最大ダメで残りHP {Math.max(0, defHP - ko.max)} / {defHP}</span>
+                </span>
+              </>
+            )}
+          </span>
+        </button>
+      )}
     </div>
   );
 }
