@@ -958,3 +958,38 @@ input.tool-num { width: 62px; text-align: right; }
 .dex-abil { display: flex; gap: 8px; align-items: baseline; margin-top: 6px; }
 .dex-abil > .small { flex: 0 0 auto; white-space: nowrap; }
 .dex-abil > .abil-note { flex: 1 1 auto; min-width: 0; margin-top: 0; }
+
+/* ---------- ダメージ計算: 画面下に貼り付く結果の要約 ----------
+   条件をいじる欄が縦に長く、結果まで戻らないと判定が見えなかった。
+   結果パネルが画面外のときだけ出す（両方見えると数字が二重になるため）。
+   タップで結果まで移動する。 */
+.dmg-sticky {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 30;
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: rgba(28, 33, 41, 0.97);
+  border: none;
+  border-top: 1px solid var(--steel);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+/* 本文と同じ幅・同じ左右余白に揃える。iPhoneのホームバーぶんも空ける */
+.dmg-sticky-in {
+  display: block;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 7px 12px calc(7px + env(safe-area-inset-bottom, 0px));
+}
+.dmg-sticky .stamp { margin: 0; }
+.dmg-sticky-num { display: block; margin-top: 3px; font-size: 15px; }
+.dmg-sticky-num b { font-size: 17px; color: var(--steel-hi); }
+/* 貼り付く側のHPバーは薄くして、画面をなるべく塞がないようにする */
+.hpbar.slim { display: block; height: 15px; margin: 4px 0 0; }
+.hpbar.slim .lbl { font-size: 10px; }
