@@ -295,6 +295,13 @@ export function DamageTab() {
   const srInfo = self ? hazardDamage(defHP, "いわ", defTypes) : 0;
 
   /** 畳んだままでも何が効いているか分かるよう、見出しに出す要約 */
+  // 畳んだときの仮想敵の要約。名前は選択欄（always）に出ているので、それ以外を並べる
+  const threatSummary = [
+    threat.types.join("/"),
+    threat.nature.replace(/（.*/, ""),
+    `AP ${apSummary(threat.ap)}`,
+  ].join("・");
+
   const condSummary = useMemo(() => {
     const parts: string[] = [];
     if (atkRank !== 0) parts.push(`攻撃${rankLabel(atkRank)}`);
@@ -376,30 +383,45 @@ export function DamageTab() {
           </Panel>
         </div>
 
-        {/* 仮想敵 */}
-        <div className="panel">
-          <div className="section-title">仮想敵{attackerIsSelf ? "（防御）" : "（攻撃）"}</div>
-          <SelectMenu
-            items={threatItems}
-            value={threat.name}
-            onChange={pickThreat}
-            searchable
-            searchPlaceholder="内定ポケモンを名前で絞込み…"
-          />
-          <div className="small muted">{CONFIRMED.length}体の内定ポケモンから選択（種族値・特性はシート準拠）</div>
+        {/* 仮想敵。タイプ相性・性格・APと縦に長いので畳めるようにする。
+            畳んでも相手を選び替えられるよう、選択欄と警告は always に置く。
+            被ダメのときの「相手の技」も計算に必須なので always に置く。 */}
+        <Panel
+          id="dmg.threat"
+          title={`仮想敵${attackerIsSelf ? "（防御）" : "（攻撃）"}`}
+          summary={threatSummary}
+          always={(
+            <>
+              <SelectMenu
+                items={threatItems}
+                value={threat.name}
+                onChange={pickThreat}
+                searchable
+                searchPlaceholder="内定ポケモンを名前で絞込み…"
+              />
+              <div className="small muted">{CONFIRMED.length}体の内定ポケモンから選択（種族値・特性はシート準拠）</div>
+              {!threat.typeVerified && (
+                <div className="banner warn">この個体はチャンピオンズ新規メガ等でタイプが未公表です。素の型を仮採用しています（開いて修正可）。</div>
+              )}
+              {threat.ability.includes("マイティチェンジ") && (
+                <div className="banner info">
+                  マイティチェンジ: 一度引っ込めて出し直すとマイティフォルムになります（種族値が大きく上がる）。
+                  強化後を想定するなら「イルカマン(マイティ)」を選んでください。
+                </div>
+              )}
+              {!attackerIsSelf && (
+                <div style={{ marginTop: 8 }}>
+                  <div className="small muted">仮想敵の攻撃技（全ライブラリ＋手動）</div>
+                  <MoveEditor move={threatMove} options={MOVE_LIB} onChange={setThreatMove} />
+                </div>
+              )}
+            </>
+          )}
+        >
           {/* この相手が持ちうる特性。下の「特性」欄は計算に効くものだけの一覧なので、
               そこに出てこない特性（いかく等）もここで分かるようにしておく */}
           <AbilityNote name={threat.ability} withName />
           <div className="small muted" style={{ marginTop: 2 }}>特性はどれか1つを持ちます。</div>
-          {!threat.typeVerified && (
-            <div className="banner warn">この個体はチャンピオンズ新規メガ等でタイプが未公表です。素の型を仮採用しています（下で修正可）。</div>
-          )}
-          {threat.ability.includes("マイティチェンジ") && (
-            <div className="banner info">
-              マイティチェンジ: 一度引っ込めて出し直すとマイティフォルムになります（種族値が大きく上がる）。
-              強化後を想定するなら「イルカマン(マイティ)」を選んでください。
-            </div>
-          )}
           <div className="row tight" style={{ marginTop: 6 }}>
             {threat.types.map((t, i) => (
               <SelectMenu
@@ -457,13 +479,7 @@ export function DamageTab() {
               <ApSlider value={threat.ap[k]} max={threatMaxFor(k)} locked={threatApLocked} onChange={(v) => setThreatAP(k, v)} />
             </div>
           ))}
-          {!attackerIsSelf && (
-            <div style={{ marginTop: 8 }}>
-              <div className="small muted">仮想敵の攻撃技（全ライブラリ＋手動）</div>
-              <MoveEditor move={threatMove} options={MOVE_LIB} onChange={setThreatMove} />
-            </div>
-          )}
-        </div>
+        </Panel>
       </div>
 
       {/* 戦闘条件は項目が多く縦に伸びるので畳めるようにする */}
