@@ -10,6 +10,7 @@ import { displayName } from "../data/roster";
 import { Panel } from "./Panel";
 import { SelectMenu } from "./SelectMenu";
 import { StepSlider } from "./StepSlider";
+import { ApBudgetBar, ApEditor } from "./ApEditor";
 import { kanaMatcher } from "../search";
 
 type RefLine = "最速" | "準速" | "無振り";
@@ -182,11 +183,18 @@ export function SpeedTab() {
       {/* 個体が多いと縦に長くなり、肝心の比較表まで遠くなるので畳めるようにする */}
       <Panel id="spd.roster" title="手持ち・控えの素早さ設定" summary={`${sortedRoster.length}体`}>
         {sortedRoster.length === 0 && <div className="muted small">個体がいません。チーム管理で登録してください。</div>}
+        {sortedRoster.length > 0 && (
+          <div className="small muted" style={{ marginBottom: 4 }}>
+            スカーフ・Sランクはこの画面だけの仮定です。APを変えた場合は、
+            この個体（チーム管理の手持ち・ベンチ）にそのまま保存されます。
+          </div>
+        )}
         {sortedRoster.map((e) => {
           const form = e.forms[e.activeForm];
           const base = realStats(form.base, e.ap, e.nature).S;
           return (
-            <div className="row" key={e.key} style={{ padding: "6px 0", borderBottom: "1px solid var(--line)" }}>
+            <div key={e.key} style={{ padding: "6px 0", borderBottom: "1px solid var(--line)" }}>
+            <div className="row">
               <div style={{ flex: "1 1 160px" }}>
                 <span className={`spd-tag ${e.starred ? "team" : "bench"}`}>{e.starred ? "★手持ち" : "◆控え"}</span>
                 <b style={{ color: "var(--steel-hi)" }}>{displayName(e.name, form.form)}</b>
@@ -210,6 +218,13 @@ export function SpeedTab() {
                   noSlider
                 />
               </div>
+            </div>
+            {/* 「あと何振れば抜けるか」を見ながらその場で振れるようにする。
+                書き込み先は個体そのものなので、手持ち・ベンチにそのまま残る。
+                ここはSしか出さないので、＋が押せない理由（残りAP0）が分かるよう
+                残量バーも添える。振り直しは他の能力も見えるチーム管理で。 */}
+            <ApBudgetBar entry={e} />
+            <ApEditor entry={e} keys={["S"]} />
             </div>
           );
         })}
