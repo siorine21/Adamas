@@ -434,16 +434,35 @@ table.spd tbody tr:hover { background: rgba(127, 168, 207, 0.06); }
   inset: 0;
   background: linear-gradient(90deg, var(--green), #4f9a4f);
 }
-.hpbar .dmg-min {
+/* 乱数しだいで残るかもしれない幅（min〜maxの差）。橙 */
+.hpbar .hp-risk {
   position: absolute;
   top: 0; bottom: 0;
-  background: rgba(217, 164, 65, 0.55);
+  background: rgba(217, 164, 65, 0.75);
 }
-.hpbar .dmg-max {
+/* 最小乱数でも必ず減るぶん。赤 */
+.hpbar .hp-lost {
   position: absolute;
   top: 0; bottom: 0;
-  background: rgba(224, 87, 79, 0.55);
+  background: rgba(224, 87, 79, 0.6);
 }
+/* バーの色の説明。幅が足りなければ折り返す */
+.hp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 2px;
+}
+.hp-legend .sw {
+  display: inline-block;
+  width: 10px; height: 10px;
+  margin-right: 4px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+.hp-legend .sw.remain { background: var(--green); }
+.hp-legend .sw.risk { background: rgba(217, 164, 65, 0.75); }
+.hp-legend .sw.lost { background: rgba(224, 87, 79, 0.6); }
 .hpbar .lbl {
   position: absolute;
   inset: 0;

@@ -737,15 +737,38 @@ export function DamageTab() {
                   <b>{ko.min} 〜 {ko.max}</b>
                   <span className="muted"> （{ko.minPct.toFixed(1)}% 〜 {ko.maxPct.toFixed(1)}%）</span>
                 </span>
-                <span className="hpbar slim">
-                  <span className="remain" style={{ width: `${Math.max(0, 100 - ko.maxPct)}%` }} />
-                  <span className="lbl">最大ダメで残りHP {Math.max(0, defHP - ko.max)} / {defHP}</span>
-                </span>
+                <HpBar
+                  slim
+                  minPct={ko.minPct}
+                  maxPct={ko.maxPct}
+                  label={`最大ダメで残りHP ${Math.max(0, defHP - ko.max)} / ${defHP}`}
+                />
               </>
             )}
           </span>
         </button>
       )}
+    </div>
+  );
+}
+
+/** ダメージのHPバー。左から
+ *    緑   … 最大乱数でも残るHP
+ *    橙   … 乱数しだいで残るかもしれない幅（min〜maxの差）
+ *    赤   … 最小乱数でも必ず減るぶん
+ *  100%を超えるダメージ（確定1発）は緑が0になり、橙が「超えたぶん」の帯になる。 */
+function HpBar({ minPct, maxPct, label, slim }: {
+  minPct: number; maxPct: number; label: string; slim?: boolean;
+}) {
+  const survive = Math.max(0, 100 - maxPct);      // 緑
+  const sure = Math.min(100, Math.max(0, minPct)); // 赤
+  const risk = Math.max(0, 100 - survive - sure);  // 橙
+  return (
+    <div className={`hpbar ${slim ? "slim" : ""}`}>
+      <div className="remain" style={{ width: `${survive}%` }} />
+      <div className="hp-risk" style={{ left: `${survive}%`, width: `${risk}%` }} />
+      <div className="hp-lost" style={{ left: `${survive + risk}%`, width: `${sure}%` }} />
+      <div className="lbl">{label}</div>
     </div>
   );
 }
@@ -764,7 +787,6 @@ function ResultView({ move, ko, eff, rolls, defHP, atkStat, defStat }: {
 }) {
   const stampClass = ko.verdict === "確定1発" ? "ko1" : ko.verdict === "確定2発" ? "ko2" : "";
   const full = moveWithMeta(move); // 命中率・PPを補完した技情報
-  const remainMinPct = Math.max(0, 100 - ko.maxPct); // 最大ダメ時の残り
   return (
     <div>
       <div className="row" style={{ alignItems: "center", marginBottom: 6 }}>
@@ -779,11 +801,16 @@ function ResultView({ move, ko, eff, rolls, defHP, atkStat, defStat }: {
         <span className="muted"> （{ko.minPct.toFixed(1)}% 〜 {ko.maxPct.toFixed(1)}%）</span>
       </div>
 
-      {/* HPバー（最大ダメージ時の残量を表示） */}
-      <div className="hpbar">
-        <div className="remain" style={{ width: `${remainMinPct}%` }} />
-        <div className="dmg-max" style={{ left: `${remainMinPct}%`, width: `${Math.min(100, ko.maxPct) - Math.max(0, remainMinPct + ko.maxPct - 100)}%` }} />
-        <div className="lbl">最大ダメで残りHP {Math.max(0, defHP - ko.max)} / {defHP}</div>
+      {/* HPバー。乱数の幅（橙）と、最小乱数でも必ず減るぶん（赤）を分けて出す */}
+      <HpBar
+        minPct={ko.minPct}
+        maxPct={ko.maxPct}
+        label={`最大ダメで残りHP ${Math.max(0, defHP - ko.max)} / ${defHP}`}
+      />
+      <div className="hp-legend small muted">
+        <span><i className="sw remain" />最大乱数でも残る</span>
+        <span><i className="sw risk" />乱数しだい（{ko.min}〜{ko.max}）</span>
+        <span><i className="sw lost" />必ず減る</span>
       </div>
 
       <div className="small muted">
