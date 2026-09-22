@@ -457,7 +457,7 @@ export function DamageTab() {
             </span>
             <StepSlider
               value={atkRank} min={RANK_MIN} max={RANK_MAX} onChange={setAtkRank}
-              format={rankLabel} ariaLabel="攻撃ランク" valueWidth={34}
+              format={rankLabel} ariaLabel="攻撃ランク" valueWidth={34} noSlider
             />
           </label>
           <label className="fld wide">
@@ -467,7 +467,7 @@ export function DamageTab() {
             </span>
             <StepSlider
               value={defRank} min={RANK_MIN} max={RANK_MAX} onChange={setDefRank}
-              format={rankLabel} ariaLabel="防御ランク" valueWidth={34}
+              format={rankLabel} ariaLabel="防御ランク" valueWidth={34} noSlider
             />
           </label>
           <label className="fld">

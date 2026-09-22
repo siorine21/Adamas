@@ -207,6 +207,7 @@ export function SpeedTab() {
                   format={rankLabel}
                   ariaLabel={`${e.name} のSランク`}
                   valueWidth={34}
+                  noSlider
                 />
               </div>
             </div>
