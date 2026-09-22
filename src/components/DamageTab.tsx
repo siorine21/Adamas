@@ -19,6 +19,7 @@ import { abilitySummary } from "../data/abilities";
 import { AbilityNote } from "./AbilityNote";
 import { TypeMatchup } from "./TypeMatchup";
 import { ApSlider } from "./ApSlider";
+import { ApBudgetBar, ApEditor } from "./ApEditor";
 import { StepSlider } from "./StepSlider";
 import { NumberInput } from "./NumberInput";
 import { LockButton } from "./LockButton";
@@ -85,6 +86,12 @@ function isMove(v: unknown): boolean {
   const m = v as Record<string, unknown>;
   return typeof m.name === "string" && typeof m.type === "string"
     && typeof m.power === "number" && typeof m.cat === "string";
+}
+
+/** 畳んだパネルの見出しに出すAPの要約（0でない能力だけ並べる） */
+function apSummary(ap: StatBlock): string {
+  const parts = STAT_KEYS.filter((k) => ap[k] > 0).map((k) => `${k}${ap[k]}`);
+  return parts.length ? parts.join(" ") : "未配分";
 }
 
 function abilityOptionsWith(base: string, extras: string[], current?: string): string[] {
@@ -353,6 +360,20 @@ export function DamageTab() {
               )}
             </label>
           )}
+          {/* 「あと少しで耐える／落とせる」が見えたその場でAPを振り直せるようにする。
+              書き込み先は個体そのものなので、チーム管理の手持ち・ベンチにそのまま残る。 */}
+          <Panel
+            id="dmg.selfAp"
+            title="AP配分"
+            defaultOpen={false}
+            summary={apSummary(self.ap)}
+          >
+            <div className="small muted" style={{ marginBottom: 6 }}>
+              ここで変えたAPは、この個体（チーム管理の手持ち・ベンチ）にそのまま保存されます。
+            </div>
+            <ApBudgetBar entry={self} />
+            <ApEditor entry={self} />
+          </Panel>
         </div>
 
         {/* 仮想敵 */}

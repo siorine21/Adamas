@@ -1,16 +1,12 @@
 import { useMemo, useState } from "react";
-import type { Move, RosterEntry, StatKey } from "../types";
+import type { Move, RosterEntry } from "../types";
 import { useStore } from "../store";
-import {
-  AP_MAX_EACH, AP_MAX_TOTAL, MAX_MOVES, NATURES, realStats,
-  STAT_KEYS, STAT_LABEL,
-} from "../data/game";
+import { AP_MAX_TOTAL, MAX_MOVES, NATURES, realStats, STAT_KEYS } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
 import { displayName, entryFitsMainType, findDex } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { SelectMenu } from "./SelectMenu";
-import { ApSlider } from "./ApSlider";
-import { LockButton } from "./LockButton";
+import { ApBudgetBar, ApEditor } from "./ApEditor";
 import { ITEM_BY_NAME, ITEM_SUGGESTIONS } from "../data/items";
 import { abilitySummary } from "../data/abilities";
 import { AbilityNote } from "./AbilityNote";
@@ -39,9 +35,6 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
   const form = entry.forms[entry.activeForm] ?? entry.forms[0];
   const real = realStats(form.base, entry.ap, entry.nature);
   const apTotal = STAT_KEYS.reduce((s, k) => s + entry.ap[k], 0);
-  const apOver = apTotal > AP_MAX_TOTAL;
-  const apRemaining = AP_MAX_TOTAL - apTotal;
-  const maxFor = (k: StatKey) => Math.min(AP_MAX_EACH, entry.ap[k] + Math.max(0, apRemaining));
   // 特性の候補は図鑑（マスタ）から取る。個体側の ability は選ぶと1つに確定するので、
   // 個体側だけを見ていると2回目以降にドロップダウンが出せなくなる。
   const dexForms = findDex(entry.name)?.forms;
@@ -70,14 +63,6 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
       ...en,
       forms: en.forms.map((f, i) => (i === en.activeForm ? { ...f, ability: v } : f)),
     }));
-  // 各32まで かつ 合計66まで。残りAPを超える入力は自動で頭打ちにする
-  const setAP = (k: StatKey, v: number) =>
-    updateEntry(entry.key, (e) => {
-      const total = STAT_KEYS.reduce((s, kk) => s + e.ap[kk], 0);
-      const remaining = AP_MAX_TOTAL - total;
-      const max = Math.min(AP_MAX_EACH, e.ap[k] + Math.max(0, remaining));
-      return { ...e, ap: { ...e.ap, [k]: Math.max(0, Math.min(max, v || 0)) } };
-    });
   const setMove = (idx: number, m: Move | undefined) =>
     updateEntry(entry.key, (e) => {
       const moves = [...e.moves];
@@ -234,32 +219,10 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
         </label>
       </div>
 
-      {/* 能力値 / AP */}
+      {/* 能力値 / AP。入力は ApEditor に集約している（ダメージ計算・素早さ比較と共通） */}
       <div className="section-title">能力値・AP配分（HABCDS）</div>
-      <div className={`ap-budget ${apOver ? "over" : ""}`}>
-        <div className="ap-bar">
-          <div className="fill" style={{ width: `${Math.min(100, (apTotal / AP_MAX_TOTAL) * 100)}%` }} />
-        </div>
-        <span className="small nowrap">
-          AP <b className="tnum">{apTotal}</b> / {AP_MAX_TOTAL}
-          <span className="muted">　残り <b className="tnum">{Math.max(0, apRemaining)}</b></span>
-        </span>
-        {/* スクロール中にスライダーへ触れて配分が変わるのを防ぐロック */}
-        <LockButton
-          locked={!!entry.apLocked}
-          onToggle={() => updateEntry(entry.key, { apLocked: !entry.apLocked })}
-        />
-      </div>
-      {STAT_KEYS.map((k) => (
-        <div className="ap-row" key={k}>
-          <div className="ap-head">
-            <span className="ap-k">{k}<span className="small muted"> {STAT_LABEL[k]}</span></span>
-            <span className="small muted">種族 {form.base[k]}</span>
-            <span className="ap-real small">実数 <b>{real[k]}</b></span>
-          </div>
-          <ApSlider value={entry.ap[k]} max={maxFor(k)} locked={entry.apLocked} onChange={(v) => setAP(k, v)} />
-        </div>
-      ))}
+      <ApBudgetBar entry={entry} />
+      <ApEditor entry={entry} />
 
       {/* 技構成 */}
       <div className="section-title">技構成（最大4）</div>
