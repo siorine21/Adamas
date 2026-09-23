@@ -11,3 +11,4 @@ tsconfig.tsbuildinfo
 tools/fetch-pages/out/
 tools/scrape-learnsets/scrape_log.txt
 tools/verify-damage/ours.mjs
+tools/verify-damage/attack.mjs

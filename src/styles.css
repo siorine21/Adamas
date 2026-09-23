@@ -1012,3 +1012,41 @@ input.tool-num { width: 62px; text-align: right; }
 /* 貼り付く側のHPバーは薄くして、画面をなるべく塞がないようにする */
 .hpbar.slim { display: block; height: 15px; margin: 4px 0 0; }
 .hpbar.slim .lbl { font-size: 10px; }
+
+/* 確定数に入れた効果（タスキ・ステロ・連続技など）。ダメージの幅には出ないので明示する */
+.calc-notes {
+  margin: 4px 0 6px;
+  padding-left: 18px;
+  color: var(--amber);
+  line-height: 1.5;
+}
+/* 連続技の回数。そうだいしょうと同じ横一列の選択 */
+.hits-pick { margin-bottom: 8px; }
+.hits-pick .seg { margin-top: 3px; }
+
+/* 登録済みの技の比較。1行=1技。押すとその技の詳細に切り替わる */
+.move-compare { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+.mc-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  width: 100%; padding: 6px 6px; margin: 0 0 4px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 7px;
+  color: var(--ink); text-align: left; cursor: pointer; font: inherit;
+}
+.mc-row.on { border-color: var(--steel); box-shadow: 0 0 0 1px var(--steel) inset; }
+.mc-name { font-size: 13px; font-weight: 700; }
+/* 判定は行の右側。幅が足りなければ次の行に回す */
+.mc-res { margin-left: auto; text-align: right; }
+.mc-verdict { font-weight: 700; font-size: 13px; color: var(--steel-hi); }
+.mc-verdict.ko1 { color: var(--red); }
+.mc-verdict.ko2 { color: var(--amber); }
+
+/* 耐久調整の答え。必要なAPと今の配分を横に並べる */
+.bulk-plan { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.bulk-num { font-size: 17px; font-weight: 700; color: var(--steel-hi); }
+
+/* 素早さの逆算。抜きたい相手の選択と、各個体の「抜くのに要るS」 */
+.spd-target { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+.spd-need { margin-top: 4px; line-height: 1.6; }
+
+/* 仮想敵のお気に入り。呼び出しと保存・上書き・削除を1行に */
+.fav-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }

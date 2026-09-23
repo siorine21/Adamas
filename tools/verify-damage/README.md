@@ -11,6 +11,15 @@ node tools/verify-damage/verify-damage.mjs
 
 16乱数がすべて一致すれば OK です（`一致 59 / 不一致 0`）。
 
+## 確定数・連続技・耐久調整の検証
+
+```bash
+npx esbuild src/attack.ts --bundle --format=esm --outfile=tools/verify-damage/attack.mjs
+node tools/verify-damage/verify-ko.mjs      # 確定数のDP ↔ 総当たり・モンテカルロ（タスキ・がんじょう・ばけのかわ・ステロ）
+node tools/verify-damage/verify-attack.mjs  # 連続技・マルチスケイル込みの確定数 ↔ 本家の1発乱数を畳み込んだもの
+node tools/verify-damage/verify-bulk.mjs    # 耐久調整の逆算 ↔ H×B 全33×33通りの総当たり
+```
+
 ## なぜ必要か
 
 ダメージ計算は「どの順番で補正を掛けるか」で答えが変わります。本家は補正を
