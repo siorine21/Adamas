@@ -49,7 +49,7 @@ export function TeamTab() {
   const [ioOpen, setIoOpen] = useState(false);
   const [ioText, setIoText] = useState("");
   const [ioMsg, setIoMsg] = useState<string | null>(null);
-  // 展開中のカード（key の集合）。既定は全部たたむ＝一覧性を優先。
+  // 展開中のカード（key の集合）。既定は全部畳む＝一覧性を優先。
   const [expanded, setExpanded] = useState<Set<string>>(() => loadExpanded());
 
   useEffect(() => { saveExpanded(expanded); }, [expanded]);
@@ -124,10 +124,38 @@ export function TeamTab() {
     setPresetId("");
   };
 
+  /** 手持ち・控えのカードをまとめて開閉する。グループごとに効く */
+  const setGroupOpen = (list: typeof roster, open: boolean) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      for (const e of list) { if (open) next.add(e.key); else next.delete(e.key); }
+      return next;
+    });
+  const groupActions = (list: typeof roster) => list.length > 0 && (
+    <>
+      <button className="btn small" onClick={() => setGroupOpen(list, true)} disabled={list.every((e) => expanded.has(e.key))}>
+        すべて開く
+      </button>
+      <button className="btn small" onClick={() => setGroupOpen(list, false)} disabled={!list.some((e) => expanded.has(e.key))}>
+        すべて畳む
+      </button>
+    </>
+  );
+  const renderCard = (e: (typeof roster)[number], dup: boolean) => (
+    <PokemonCard
+      key={e.key}
+      entry={e}
+      starDisabled={starDisabled}
+      itemDuplicated={dup}
+      collapsed={!expanded.has(e.key)}
+      onToggle={() => toggleCard(e.key)}
+    />
+  );
+
   return (
     <div>
-      {/* チーム選択・管理 */}
-      <Panel id="team.manage" title="チーム" summary={`${teams.length}チーム / ${mainType}統一`}>
+      {/* チーム選択・管理。よく使う操作だけを表に出し、入出力・削除・初期化は奥の「管理」に */}
+      <Panel id="team.manage" title="チーム" summary={`${activeTeam?.name ?? ""}・${mainType}統一・全${teams.length}チーム`}>
         <div className="row">
           <SelectMenu
             style={{ flex: "1 1 200px", minWidth: 0 }}
@@ -156,14 +184,6 @@ export function TeamTab() {
           >
             名前変更
           </button>
-          <button
-            className="btn danger"
-            disabled={teams.length <= 1}
-            title={teams.length <= 1 ? "最後の1チームは削除できません" : "このチームを削除"}
-            onClick={() => { if (confirm(`チーム「${activeTeam?.name}」を削除します。よろしいですか？`)) removeTeam(); }}
-          >
-            削除
-          </button>
         </div>
         <div className="row" style={{ marginTop: 8 }}>
           <SelectMenu
@@ -181,12 +201,55 @@ export function TeamTab() {
           {" "}です。{mainType}を持たないポケモンは登録できません
           （メガシンカで初めて付く枠は登録できます）。
           <br />
-          チームは複数保存できます。別チームであれば同じポケモンも使えます（各チーム独立）。全{teams.length}チーム。
+          チームは複数保存できます。別チームであれば同じポケモンも使えます（各チーム独立）。
         </div>
+
+        {/* めったに使わず、押し間違えると困る操作はここにまとめて畳んでおく */}
+        <Panel id="team.admin" title="管理" summary="入出力・初期化・チーム削除" defaultOpen={false}>
+          <div className="row">
+            <button className="btn" onClick={doExport}>エクスポート</button>
+            <button className="btn" onClick={() => { setIoOpen((v) => !v); setIoMsg(null); }}>インポート</button>
+          </div>
+          {ioOpen && (
+            <div style={{ marginTop: 10 }}>
+              <div className="small muted">
+                JSONを貼り付けて「読み込む」で復元／端末間移行できます。エクスポート時は自動でクリップボードにコピーされます。
+              </div>
+              <textarea
+                className="json"
+                value={ioText}
+                placeholder='ここにJSONを貼り付け…'
+                onChange={(e) => setIoText(e.target.value)}
+              />
+              <div className="row">
+                <button className="btn primary" onClick={doImport} disabled={!ioText.trim()}>読み込む</button>
+                <button className="btn" onClick={() => { setIoText(""); setIoMsg(null); }}>クリア</button>
+                {ioMsg && <span className="small amber">{ioMsg}</span>}
+              </div>
+            </div>
+          )}
+          {!ioOpen && ioMsg && <div className="small amber" style={{ marginTop: 6 }}>{ioMsg}</div>}
+          <div className="danger-zone">
+            <button
+              className="btn small danger"
+              onClick={() => { if (confirm("初期プリセット（アダマス編成）に戻します。現在の編成は失われます。よろしいですか？")) resetToPreset(); }}
+            >
+              編成を初期化
+            </button>
+            <button
+              className="btn small danger"
+              disabled={teams.length <= 1}
+              title={teams.length <= 1 ? "最後の1チームは削除できません" : "このチームを削除"}
+              onClick={() => { if (confirm(`チーム「${activeTeam?.name}」を削除します。よろしいですか？`)) removeTeam(); }}
+            >
+              このチームを削除
+            </button>
+          </div>
+        </Panel>
       </Panel>
 
-      {/* 操作パネル */}
-      <Panel id="team.ops" title="追加・入出力" summary={`${roster.length}体`}>
+      {/* 個体の追加 */}
+      <Panel id="team.ops" title="ポケモンを追加" summary={`手持ち ${starredCount}/${MAX_STARRED}・登録 ${roster.length}体`}>
         <div className="row">
           <SelectMenu
             style={{ flex: "1 1 200px", minWidth: 0 }}
@@ -209,85 +272,23 @@ export function TeamTab() {
           <button className="btn" onClick={() => addEntry(emptyEntry(mainType))} title={`レギュ変更で増えた新規${mainType}ポケモン等を空欄で作成`}>
             ＋ 手動個体
           </button>
-          <div className="spacer" />
-          <button className="btn" onClick={doExport}>エクスポート</button>
-          <button className="btn" onClick={() => { setIoOpen((v) => !v); setIoMsg(null); }}>インポート</button>
-          <button
-            className="btn danger"
-            onClick={() => { if (confirm("初期プリセット（アダマス編成）に戻します。現在の編成は失われます。よろしいですか？")) resetToPreset(); }}
-          >
-            初期化
-          </button>
         </div>
-        <div className="small muted" style={{ marginTop: 6 }}>
-          ★手持ち {starredCount} / {MAX_STARRED} 体 ・ 登録 {roster.length} 体
-        </div>
+      </Panel>
 
-        {ioOpen && (
-          <div style={{ marginTop: 10 }}>
-            <div className="small muted">
-              JSONを貼り付けて「読み込む」で復元／端末間移行できます。エクスポート時は自動でクリップボードにコピーされます。
-            </div>
-            <textarea
-              className="json"
-              value={ioText}
-              placeholder='ここにJSONを貼り付け…'
-              onChange={(e) => setIoText(e.target.value)}
-            />
-            <div className="row">
-              <button className="btn primary" onClick={doImport} disabled={!ioText.trim()}>読み込む</button>
-              <button className="btn" onClick={() => { setIoText(""); setIoMsg(null); }}>クリア</button>
-              {ioMsg && <span className="small amber">{ioMsg}</span>}
-            </div>
-          </div>
-        )}
-        {!ioOpen && ioMsg && <div className="small amber" style={{ marginTop: 6 }}>{ioMsg}</div>}
+      {/* 個体カード。チームの中身がこの画面の主役なので、分析（弱点・攻撃範囲）より上に置く */}
+      <Panel id="team.starred" title="★ 手持ち" summary={`${starred.length} / ${MAX_STARRED}体`} actions={groupActions(starred)}>
+        {starred.length === 0 && <div className="muted small">まだ★手持ちがいません。カードの☆をタップして登録してください。</div>}
+        {starred.map((e) => renderCard(e, dupItems.has(e.item.trim())))}
+      </Panel>
+
+      <Panel id="team.bench" title="◆ 控え" summary={`${bench.length}体`} actions={groupActions(bench)}>
+        {bench.length === 0 && <div className="muted small">控えは空です。</div>}
+        {bench.map((e) => renderCard(e, false))}
       </Panel>
 
       {/* チーム全体の弱点チェック・攻撃範囲チェック */}
       <WeaknessTable />
       <CoverageTable />
-
-      {/* 一括開閉 */}
-      {roster.length > 0 && (
-        <div className="row" style={{ marginTop: 12 }}>
-          <button className="btn small" onClick={() => setExpanded(new Set(roster.map((e) => e.key)))}>
-            すべて展開
-          </button>
-          <button className="btn small" onClick={() => setExpanded(new Set())} disabled={expanded.size === 0}>
-            すべてたたむ
-          </button>
-          <span className="small muted">カードの名前をタップで開閉できます。</span>
-        </div>
-      )}
-
-      {/* ★手持ち */}
-      <div className="section-title">★ 手持ち（最大6体）</div>
-      {starred.length === 0 && <div className="muted small">まだ★手持ちがいません。カードの☆をタップして登録してください。</div>}
-      {starred.map((e) => (
-        <PokemonCard
-          key={e.key}
-          entry={e}
-          starDisabled={starDisabled}
-          itemDuplicated={dupItems.has(e.item.trim())}
-          collapsed={!expanded.has(e.key)}
-          onToggle={() => toggleCard(e.key)}
-        />
-      ))}
-
-      {/* ベンチ・検討枠 */}
-      <div className="section-title" style={{ marginTop: 16 }}>ベンチ・検討枠</div>
-      {bench.length === 0 && <div className="muted small">ベンチは空です。</div>}
-      {bench.map((e) => (
-        <PokemonCard
-          key={e.key}
-          entry={e}
-          starDisabled={starDisabled}
-          itemDuplicated={false}
-          collapsed={!expanded.has(e.key)}
-          onToggle={() => toggleCard(e.key)}
-        />
-      ))}
     </div>
   );
 }

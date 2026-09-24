@@ -126,14 +126,18 @@ body {
 }
 .card.warn-item { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
 
-.section-title {
+/* カードの見出し。見出しはすべて Panel の「▶＋名前＋要約」の1種類にそろえる
+   （カードの中の小見出しは .sub-head） */
+.panel-title {
+  flex: 0 0 auto;
   font-size: 13px;
-  color: var(--steel);
-  letter-spacing: 0.06em;
-  margin: 4px 0 8px;
-  border-left: 3px solid var(--steel);
-  padding-left: 8px;
+  font-weight: 700;
+  color: var(--steel-hi);
+  letter-spacing: 0.04em;
 }
+/* カードの中のカード（AP配分・管理など）は一段控えめにする */
+.panel .panel { background: var(--panel2); margin: 10px 0 0; padding: 10px; }
+.panel .panel .panel-title { font-size: 12px; color: var(--steel); }
 
 .muted { color: var(--dim); }
 .small { font-size: 11px; }
@@ -383,7 +387,9 @@ table.spd th {
   cursor: pointer;
   user-select: none;
   position: sticky;
-  top: 0;
+  /* 画面上部に貼り付いているヘッダー（タイトル＋タブ）の下に貼り付く。高さは App が測って入れる */
+  top: var(--hdr-h, 0px);
+  z-index: 5;
   background: var(--panel);
 }
 table.spd td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -497,20 +503,12 @@ table.spd tbody tr:hover { background: rgba(127, 168, 207, 0.06); }
 .grid2 > .fld.wide, .grid3 > .fld.wide { grid-column: 1 / -1; }
 /* 欄の中身（特性の説明など）が長くても列が広がらないようにする。
    これが無いと min-width:auto で列が中身の幅まで伸び、画面が横スクロールする */
-.grid2 > .fld, .grid3 > .fld { min-width: 0; }
+.grid2 > *, .grid3 > .fld { min-width: 0; }
 @media (max-width: 560px) {
   .grid2 { grid-template-columns: 1fr; }
 }
 
-/* 戦闘条件のグループ見出し（場・攻撃側・防御側・その他） */
-.cond-group {
-  font-size: 11px;
-  color: var(--steel);
-  letter-spacing: 0.06em;
-  margin: 10px 0 4px;
-  padding-bottom: 3px;
-  border-bottom: 1px solid var(--line);
-}
+/* 戦闘条件のチェックボックス群 */
 .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0; }
 .checks .row.tight { gap: 4px; font-size: 12px; color: var(--dim); }
 .checks label { display: inline-flex; gap: 5px; align-items: center; font-size: 12px; cursor: pointer; }
@@ -725,19 +723,13 @@ textarea.json { min-height: 120px; font-family: ui-monospace, monospace; font-si
 }
 
 /* ---------- フッター（URL表示・インストール案内） ---------- */
-.app-footer {
-  margin-top: 20px;
-  padding: 12px;
-  border-top: 1px solid var(--line);
-  border-radius: 0 0 var(--radius) var(--radius);
-}
-.app-footer .app-url {
+.app-url {
   color: var(--steel-hi);
   font-size: 12px;
   word-break: break-all;
   text-decoration: none;
 }
-.app-footer .app-url:hover { text-decoration: underline; }
+.app-url:hover { text-decoration: underline; }
 
 /* ---------- AP配分（スライダー式） ---------- */
 .ap-budget { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; }
@@ -1050,3 +1042,83 @@ input.tool-num { width: 62px; text-align: right; }
 
 /* 仮想敵のお気に入り。呼び出しと保存・上書き・削除を1行に */
 .fav-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+
+/* ---------- 択一の切替（Segmented） ----------
+   与ダメ／被ダメ・ツールの種類・図鑑のタイプ・メガ絞り込みなど、1つだけ選ぶ切替は
+   すべてこの見た目にそろえる。選択中は見出しのタブと同じ青。
+   複数選べる絞り込み（タイプ等）と並び替えはチップ（黄色枠）のまま。 */
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.segmented button {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 4px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.segmented button.on {
+  color: var(--steel-hi);
+  background: #24384c;
+  border-color: var(--steel);
+  font-weight: 700;
+}
+.segmented button:disabled { opacity: .4; cursor: not-allowed; }
+.segmented button small { font-size: 9px; font-weight: 400; opacity: .8; }
+.segmented.lg button { padding: 8px 6px; font-size: 13px; }
+/* タイプなどの色見本。ラベルと横に並べる */
+.segmented button:has(.seg-swatch) { flex-direction: row; gap: 5px; }
+.seg-swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+
+/* タブのすぐ下に置く、画面内の切替（カードで囲まない） */
+.subnav { margin: 12px 0 0; }
+
+/* カードの中の小見出し。カードそのものの見出し（▶＋名前）と区別する */
+.sub-head {
+  font-size: 11px;
+  color: var(--steel);
+  letter-spacing: 0.06em;
+  margin: 12px 0 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line);
+}
+.sub-head:first-child { margin-top: 2px; }
+
+/* 消す操作はカードの一番下に、右寄せで離して置く */
+.danger-zone {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end;
+  margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--line);
+}
+
+/* 素早さ設定の1体ぶん。畳んだ状態は1〜2行で、要るSの行だけは常に出す */
+.spd-mon { padding: 7px 0; border-bottom: 1px solid var(--line); }
+.spd-mon:last-child { border-bottom: none; }
+.spd-mon-body { margin: 6px 0 0 16px; }
+.spd-mon .spd-need { margin-left: 16px; }
+
+/* 比較表の上の「自分の位置へ」 */
+.spd-jump { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 8px 0; }
+.spd-jump .sort-chip.team { border-color: rgba(127, 168, 207, .5); color: var(--steel-hi); }
+.spd-jump .sort-chip.bench { border-color: rgba(217, 164, 65, .45); color: var(--amber); }
+.spd tr.flash td { animation: spd-flash 1.6s ease-out; }
+@keyframes spd-flash {
+  0%, 30% { background: rgba(127, 168, 207, .35); }
+  100% { background: transparent; }
+}

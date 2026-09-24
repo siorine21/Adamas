@@ -29,7 +29,7 @@ export function useSetAp() {
 }
 
 /** AP の残量バーとロック。個体そのものを書き換えるので、どの画面から触っても
- *  チーム管理の手持ち・ベンチにそのまま反映される。 */
+ *  チーム管理の手持ち・控えにそのまま反映される。 */
 export function ApBudgetBar({ entry }: { entry: RosterEntry }) {
   const { updateEntry } = useStore();
   const { total, remaining, over } = apBudget(entry);
@@ -71,7 +71,7 @@ export function ApEditor({ entry, keys = STAT_KEYS }: Props) {
           <div className="ap-head">
             <span className="ap-k">{k}<span className="small muted"> {STAT_LABEL[k]}</span></span>
             <span className="small muted">種族 {form.base[k]}</span>
-            <span className="ap-real small">実数 <b>{real[k]}</b></span>
+            <span className="ap-real small">実数値 <b>{real[k]}</b></span>
           </div>
           <ApSlider
             value={entry.ap[k]}

@@ -8,6 +8,7 @@ import { RANK_MAX, RANK_MIN, TYPES, TYPE_COLORS, calcStat, rankLabel, rankMul, r
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { Panel } from "./Panel";
+import { Segmented } from "./Segmented";
 import { SelectMenu } from "./SelectMenu";
 import { StepSlider } from "./StepSlider";
 import { ApBudgetBar, ApEditor } from "./ApEditor";
@@ -23,14 +24,14 @@ interface SpeedRow {
   /** 実数値から変えている条件（スカーフ・Sランク）。実効Sが実数値と違う理由なので目立たせる */
   mods?: string;
   types?: string[];
-  /** 特性の候補（絞込み用。個体として選んでいる1つではない） */
+  /** 特性の候補（絞り込み用。個体として選んでいる1つではない） */
   abilities: string[];
   isMega: boolean;
   speed: number;
   kind: Kind;
 }
 
-/** メガ絞込み。はがね図鑑と同じ考え方だが、内定表はメガを別の行として持つので
+/** メガ絞り込み。はがね図鑑と同じ考え方だが、内定表はメガを別の行として持つので
  *  「持つ／持たない」ではなく「その行がメガか」で見る */
 type MegaMode = "all" | "only" | "not";
 const MEGA_MODES: { key: MegaMode; label: string }[] = [
@@ -127,9 +128,14 @@ export function SpeedTab() {
   const [targetLine, setTargetLine] = usePersistedState<RefLine>(
     "spd.targetLine", "最速", (v) => v === "最速" || v === "準速" || v === "無振り");
   const [targetScarf, setTargetScarf] = usePersistedState("spd.targetScarf", false, (v) => typeof v === "boolean");
-  // 絞込みは保存しない（開いた時に何も出ない状態になるのを避ける）
+  // 素早さ設定で開いている個体（key）。既定は全部畳む＝比較表までを短く
+  const [openRows, setOpenRows] = usePersistedState<string[]>(
+    "spd.open", [], (v) => Array.isArray(v) && v.every((x) => typeof x === "string"));
+  const toggleRow = (key: string) =>
+    setOpenRows((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  // 絞り込みは保存しない（開いた時に何も出ない状態になるのを避ける）
   const [q, setQ] = useState("");
-  // はがね図鑑と同じ絞込み。こちらも保存しない（何も出ない状態で開くのを避ける）
+  // はがね図鑑と同じ絞り込み。こちらも保存しない（何も出ない状態で開くのを避ける）
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [megaMode, setMegaMode] = useState<MegaMode>("all");
   const [ability, setAbility] = useState(ANY_ABILITY);
@@ -166,7 +172,7 @@ export function SpeedTab() {
     return {
       key: e.key,
       label: `${displayName(e.name, form.form)}${e.nickname ? `「${e.nickname}」` : ""}`,
-      detail: `実数${base}`,
+      detail: `実数値${base}`,
       mods: mods.length ? mods.join(" ") : undefined,
       types: form.types,
       abilities: splitAbility(form.ability),
@@ -207,7 +213,7 @@ export function SpeedTab() {
     }
     const list = onlyMine ? out.filter((r) => r.kind !== "ref") : out;
 
-    /* 絞込みは内定の行にだけ効かせる。自分の個体は「どこに置かれるか」を見るための
+    /* 絞り込みは内定の行にだけ効かせる。自分の個体は「どこに置かれるか」を見るための
        基準線なので、相手を絞った拍子に消えると比較そのものができなくなる。
        自分の個体だけにしたいときは「自分の個体のみ」を使う。 */
     const hit = kanaMatcher(q);
@@ -225,7 +231,7 @@ export function SpeedTab() {
       .sort((a, b) => b.speed - a.speed);
   }, [sortedRoster, scarf, rank, line, onlyMine, q, typeFilter, megaMode, ability]);
 
-  /** 絞込みに出す特性。内定表＋自分の個体に実際に出てくるものだけを、多い順に */
+  /** 絞り込みに出す特性。内定表＋自分の個体に実際に出てくるものだけを、多い順に */
   const abilityOptions = useMemo(() => {
     const count = new Map<string, number>();
     for (const c of CONFIRMED) for (const a of c.abilities) count.set(a, (count.get(a) ?? 0) + 1);
@@ -266,6 +272,14 @@ export function SpeedTab() {
   const rankedMons = sortedRoster.filter((e) => (rank[e.key] ?? 0) !== 0);
   const resetRanks = () => setRank({});
 
+  /** 比較表の自分の行へ飛び、少しのあいだ光らせる */
+  const [flash, setFlash] = useState<string | null>(null);
+  const jumpTo = (key: string) => {
+    document.getElementById(`spd-row-${key}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlash(key);
+    window.setTimeout(() => setFlash((k) => (k === key ? null : k)), 1600);
+  };
+
   const marker = (k: Kind) => (k === "team" ? "★ " : k === "bench" ? "◆ " : "");
   const rowClass = (k: Kind) => (k === "team" ? "self-row" : k === "bench" ? "bench-row" : "");
 
@@ -286,20 +300,22 @@ export function SpeedTab() {
               value={target}
               onChange={setTarget}
               searchable
-              searchPlaceholder="内定ポケモンを名前で絞込み…"
+              searchPlaceholder="内定ポケモンを名前で絞り込み…"
             />
             {targetMon && (
               <div className="row tight" style={{ marginTop: 6 }}>
-                <div className="seg" style={{ flex: "0 1 220px" }}>
-                  {(["最速", "準速", "無振り"] as RefLine[]).map((l) => (
-                    <button key={l} type="button" className={`sort-chip ${targetLine === l ? "on" : ""}`} onClick={() => setTargetLine(l)}>{l}</button>
-                  ))}
-                </div>
+                <Segmented
+                  ariaLabel="抜きたい相手の素早さライン"
+                  style={{ flex: "0 1 220px" }}
+                  options={(["最速", "準速", "無振り"] as RefLine[]).map((l) => ({ value: l, label: l }))}
+                  value={targetLine}
+                  onChange={setTargetLine}
+                />
                 <label className="row tight small" style={{ cursor: "pointer" }}>
                   <input type="checkbox" checked={targetScarf} onChange={(ev) => setTargetScarf(ev.target.checked)} />
                   スカーフ
                 </label>
-                <span className="small tnum">→ 実数S <b>{targetSpeed}</b></span>
+                <span className="small tnum">→ 実数値S <b>{targetSpeed}</b></span>
               </div>
             )}
           </div>
@@ -307,54 +323,77 @@ export function SpeedTab() {
         {sortedRoster.length > 0 && (
           <div className="small muted" style={{ marginBottom: 4 }}>
             スカーフ・Sランクはこの画面だけの仮定です。APを変えた場合は、
-            この個体（チーム管理の手持ち・ベンチ）にそのまま保存されます。
+            この個体（チーム管理の手持ち・控え）にそのまま保存されます。
           </div>
         )}
+        {/* 1体を1行にまとめ、スカーフ・Sランク・APはタップで開いて変える。
+            全部開いたままだと7体で画面3枚ぶんになり、比較表まで遠かった。
+            抜きたい相手を選んでいるときの「要るS」は、畳んでいても出す。 */}
         {sortedRoster.map((e) => {
           const form = e.forms[e.activeForm];
           const base = realStats(form.base, e.ap, e.nature).S;
+          const isOpen = openRows.includes(e.key);
+          const r = rank[e.key] ?? 0;
+          const mods = [scarf[e.key] && "スカーフ×1.5", r !== 0 && `S${rankLabel(r)}(${rankMulLabel(r)})`].filter(Boolean).join(" ");
           return (
-            <div key={e.key} style={{ padding: "6px 0", borderBottom: "1px solid var(--line)" }}>
-            <div className="row">
-              <div style={{ flex: "1 1 160px" }}>
-                <span className={`spd-tag ${e.starred ? "team" : "bench"}`}>{e.starred ? "★手持ち" : "◆控え"}</span>
-                <b style={{ color: "var(--steel-hi)" }}>{displayName(e.name, form.form)}</b>
-                {e.nickname && <span className="small muted">「{e.nickname}」</span>}
-                <span className="small muted tnum"> 実数S {base}</span>
-              </div>
-              <label className="row tight small" style={{ cursor: "pointer" }}>
-                <input type="checkbox" checked={!!scarf[e.key]} onChange={(ev) => setScarf((p) => ({ ...p, [e.key]: ev.target.checked }))} />
-                こだわりスカーフ
-              </label>
-              <div className="row tight small spd-rank">
-                <span>Sランク</span>
-                <StepSlider
-                  value={rank[e.key] ?? 0}
-                  min={RANK_MIN}
-                  max={RANK_MAX}
-                  onChange={(v) => setRank((p) => ({ ...p, [e.key]: v }))}
-                  format={rankLabel}
-                  ariaLabel={`${e.name} のSランク`}
-                  valueWidth={34}
-                  noSlider
+            <div key={e.key} className="spd-mon">
+              <button
+                type="button"
+                className="card-toggle"
+                aria-expanded={isOpen}
+                onClick={() => toggleRow(e.key)}
+              >
+                <span className={`card-caret ${isOpen ? "open" : ""}`}>▶</span>
+                <span className="card-head">
+                  <span>
+                    <span className={`spd-tag ${e.starred ? "team" : "bench"}`}>{e.starred ? "★手持ち" : "◆控え"}</span>
+                    <b style={{ color: "var(--steel-hi)" }}>{displayName(e.name, form.form)}</b>
+                    {e.nickname && <span className="small muted">「{e.nickname}」</span>}
+                  </span>
+                  <span className="small muted tnum">
+                    実数値S {base}・AP {e.ap.S}
+                    {mods && <span className="amber"> → {mods} ＝ {effSpeed(e, e.ap.S)}</span>}
+                  </span>
+                </span>
+              </button>
+              {isOpen && (
+                <div className="spd-mon-body">
+                  <div className="row">
+                    <label className="row tight small" style={{ cursor: "pointer" }}>
+                      <input type="checkbox" checked={!!scarf[e.key]} onChange={(ev) => setScarf((p) => ({ ...p, [e.key]: ev.target.checked }))} />
+                      こだわりスカーフ
+                    </label>
+                    <div className="row tight small spd-rank">
+                      <span>Sランク</span>
+                      <StepSlider
+                        value={r}
+                        min={RANK_MIN}
+                        max={RANK_MAX}
+                        onChange={(v) => setRank((p) => ({ ...p, [e.key]: v }))}
+                        format={rankLabel}
+                        ariaLabel={`${e.name} のSランク`}
+                        valueWidth={34}
+                        noSlider
+                      />
+                    </div>
+                  </div>
+                  {/* 「あと何振れば抜けるか」を見ながらその場で振れるようにする。
+                      書き込み先は個体そのものなので、手持ち・控えにそのまま残る。
+                      ここはSしか出さないので、＋が押せない理由（残りAP0）が分かるよう
+                      残量バーも添える。振り直しは他の能力も見えるチーム管理で。 */}
+                  <ApBudgetBar entry={e} />
+                  <ApEditor entry={e} keys={["S"]} />
+                </div>
+              )}
+              {targetMon && (
+                <SpeedNeed
+                  entry={e}
+                  targetName={`${targetMon.name}（${targetLine}${targetScarf ? "・スカーフ" : ""}）`}
+                  targetSpeed={targetSpeed}
+                  speedAt={(k) => effSpeed(e, k)}
+                  onApply={(k) => updateEntry(e.key, (en) => ({ ...en, ap: { ...en.ap, S: k } }))}
                 />
-              </div>
-            </div>
-            {/* 「あと何振れば抜けるか」を見ながらその場で振れるようにする。
-                書き込み先は個体そのものなので、手持ち・ベンチにそのまま残る。
-                ここはSしか出さないので、＋が押せない理由（残りAP0）が分かるよう
-                残量バーも添える。振り直しは他の能力も見えるチーム管理で。 */}
-            <ApBudgetBar entry={e} />
-            <ApEditor entry={e} keys={["S"]} />
-            {targetMon && (
-              <SpeedNeed
-                entry={e}
-                targetName={`${targetMon.name}（${targetLine}${targetScarf ? "・スカーフ" : ""}）`}
-                targetSpeed={targetSpeed}
-                speedAt={(k) => effSpeed(e, k)}
-                onApply={(k) => updateEntry(e.key, (en) => ({ ...en, ap: { ...en.ap, S: k } }))}
-              />
-            )}
+              )}
             </div>
           );
         })}
@@ -367,46 +406,44 @@ export function SpeedTab() {
         summary={narrowing ? filterSummary : "未設定"}
       >
         <div className="row" style={{ gap: 12 }}>
-          <label className="row tight small">
+          <div className="row tight small" style={{ flex: "1 1 260px" }}>
             内定の素早さライン
-            <SelectMenu
-              style={{ width: 180 }}
-              items={[
-                { value: "最速", label: "最速(S↑/AP32)" },
-                { value: "準速", label: "準速(無補正/AP32)" },
-                { value: "無振り", label: "無振り(AP0)" },
-              ]}
+            <Segmented
+              ariaLabel="内定の素早さライン"
+              style={{ flex: "1 1 200px" }}
+              options={[
+                { value: "最速", label: "最速", sub: "S↑/AP32" },
+                { value: "準速", label: "準速", sub: "無補正/AP32" },
+                { value: "無振り", label: "無振り", sub: "AP0" },
+              ] as { value: RefLine; label: string; sub: string }[]}
               value={line}
-              onChange={(v) => setLine(v as RefLine)}
+              onChange={setLine}
             />
-          </label>
+          </div>
           <label className="row tight small" style={{ cursor: "pointer" }}>
             <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} />
             自分の個体のみ
           </label>
           <input
             type="text"
-            placeholder="名前で絞込み…"
+            placeholder="名前で絞り込み…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ flex: "1 1 140px" }}
           />
-          {filtered && <button className="btn small" onClick={clearFilters}>絞込みを解除</button>}
+          {filtered && <button className="btn small" onClick={clearFilters}>絞り込みを解除</button>}
         </div>
 
-        {/* 以下ははがね図鑑と同じ絞込み */}
+        {/* 以下ははがね図鑑と同じ絞り込み */}
         <div className="row tight" style={{ marginTop: 8 }}>
           <span className="small muted">メガシンカ</span>
-          {MEGA_MODES.map((m) => (
-            <button
-              key={m.key}
-              className={`sort-chip ${megaMode === m.key ? "on" : ""}`}
-              aria-pressed={megaMode === m.key}
-              onClick={() => setMegaMode(m.key)}
-            >
-              {m.label}
-            </button>
-          ))}
+          <Segmented
+            ariaLabel="メガシンカ"
+            style={{ flex: "1 1 220px" }}
+            options={MEGA_MODES.map((m) => ({ value: m.key, label: m.label }))}
+            value={megaMode}
+            onChange={setMegaMode}
+          />
         </div>
         <div className="row tight" style={{ marginTop: 8 }}>
           <span className="small muted">特性</span>
@@ -438,16 +475,33 @@ export function SpeedTab() {
         </div>
       </Panel>
 
-      <div className="panel table-scroll">
-        <div className="section-title">
-          素早さ比較（{rows.length}件・降順）
-          {narrowing && <span className="small muted">　内定{CONFIRMED.length}体から絞込み中</span>}
-        </div>
+      {/* 比較表。353行と長いので、自分の個体の行へ飛ぶボタンを上に置く。
+          見出し行は画面上部に貼り付く（横スクロールの箱に入れると貼り付かないので入れない） */}
+      <Panel
+        id="spd.table"
+        title="素早さ比較"
+        summary={`${rows.length}件・降順・内定は${line}${narrowing ? "・絞り込み中" : ""}`}
+      >
+        {rows.some((r) => r.kind !== "ref") && (
+          <div className="spd-jump">
+            <span className="small muted">自分の位置へ</span>
+            {rows.filter((r) => r.kind !== "ref").map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                className={`sort-chip ${r.kind}`}
+                onClick={() => jumpTo(r.key)}
+              >
+                {marker(r.kind)}{r.label.replace(/「.*」$/, "")} <b className="tnum">{r.speed}</b>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="small muted" style={{ marginBottom: 6 }}>
           <span className="spd-tag team">★手持ち</span>
           <span className="spd-tag bench">◆控え</span>
           は自分の構成（実数値）。それ以外は内定ポケモンの{line}ライン。
-          {narrowing && "　絞込みは内定ポケモンにだけ効きます（自分の個体は基準線として常に表示）。"}
+          {narrowing && "　絞り込みは内定ポケモンにだけ効きます（自分の個体は基準線として常に表示）。"}
         </div>
         {rankedMons.length > 0 && (
           <div className="banner warn row tight" style={{ marginBottom: 6 }}>
@@ -468,7 +522,7 @@ export function SpeedTab() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.key} className={rowClass(r.kind)}>
+              <tr key={r.key} id={`spd-row-${r.key}`} className={`${rowClass(r.kind)} ${flash === r.key ? "flash" : ""}`}>
                 <td className="num"><b className={r.kind !== "ref" ? "me" : ""}>{r.speed}</b></td>
                 <td>
                   <div className={r.kind !== "ref" ? "me" : ""}>{marker(r.kind)}{r.label}</div>
@@ -482,7 +536,7 @@ export function SpeedTab() {
             ))}
           </tbody>
         </table>
-      </div>
+      </Panel>
     </div>
   );
 }

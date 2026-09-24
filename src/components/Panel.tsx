@@ -19,7 +19,7 @@ interface Props {
 
 /** 畳めるパネル。
  *
- *  スマホだと1画面が狭く、絞込みや設定が縦に伸びると肝心の一覧まで遠くなる。
+ *  スマホだと1画面が狭く、絞り込みや設定が縦に伸びると肝心の一覧まで遠くなる。
  *  中身を隠せるようにして、使わない区画は畳んでおけるようにする。
  *  開閉状態は localStorage に残すので、次に開いたときも同じ形になる。
  *
@@ -40,9 +40,7 @@ export function Panel({
           onClick={() => setOpen(!open)}
         >
           <span className={`card-caret ${open ? "open" : ""}`}>▶</span>
-          <span className="section-title" style={{ margin: 0, border: "none", padding: 0 }}>
-            {title}
-          </span>
+          <span className="panel-title">{title}</span>
           {summary && <span className="small muted panel-sum">{summary}</span>}
         </button>
         {actions && <span className="panel-actions">{actions}</span>}

@@ -9,6 +9,7 @@ import type { Move } from "../types";
 import { dexFitsMainType, displayName, entryFromDex } from "../data/roster";
 import { usePersistedState } from "../uiState";
 import { Panel } from "./Panel";
+import { Segmented } from "./Segmented";
 import { SelectMenu } from "./SelectMenu";
 import { kanaMatcher } from "../search";
 import { abilitySummary } from "../data/abilities";
@@ -48,7 +49,7 @@ const SORT_LABEL: Record<SortKey, string> = {
   H: "H", A: "A", B: "B", C: "C", D: "D", S: "S",
 };
 
-/** メガ絞込み。has=メガを持つ / none=持たない / steel=メガで初めてはがねが付く */
+/** メガ絞り込み。has=メガを持つ / none=持たない / steel=メガで初めてはがねが付く */
 type MegaMode = "all" | "has" | "none" | "steel";
 const MEGA_MODES: { key: MegaMode; label: string; title: string }[] = [
   { key: "all", label: "すべて", title: "メガの有無で絞らない" },
@@ -89,7 +90,7 @@ interface Dataset {
   statMax: number;
   usedTypes: string[];
   weakTypes: string[];
-  /** 習得技データを持つ系統の数。0なら技での絞込みは出さない */
+  /** 習得技データを持つ系統の数。0なら技での絞り込みは出さない */
   withLearnset: number;
 }
 
@@ -180,7 +181,7 @@ function buildDataset(dex: DexEntry[]): Dataset {
     allForms,
     /** 種族値バーの基準。図鑑内の最大値に合わせると差が見やすい */
     statMax: Math.max(...allForms.flatMap((f) => STAT_KEYS.map((k) => f.stats[k]))),
-    /** 図鑑に実際に出てくるタイプだけを絞込みボタンに出す（18個並べても押せないタイプが大半なので） */
+    /** 図鑑に実際に出てくるタイプだけを絞り込みボタンに出す（18個並べても押せないタイプが大半なので） */
     usedTypes: TYPES.filter((t) => allForms.some((f) => f.types.includes(t))),
     /** 誰かの弱点になりうるタイプ。「弱点でない」で絞るときはこれだけ出す
      *  （誰の弱点でもないタイプを押しても全員が残るだけなので） */
@@ -264,7 +265,7 @@ export function DexTab() {
     return s;
   }, [roster]);
 
-  /** 検索・絞込みを通したうえで、系統ごとに表示するフォルムを決めて並べ替える。
+  /** 検索・絞り込みを通したうえで、系統ごとに表示するフォルムを決めて並べ替える。
    *  表示フォルム＝手動で選んだもの。未選択なら、能力順ならその能力が最も高いフォルム。
    *  並び替えは「表示しているフォルムの値」で行うので、見えている数字と順位が一致する。 */
   const list = useMemo(() => {
@@ -282,7 +283,7 @@ export function DexTab() {
       if (ability !== ANY_ABILITY) forms = forms.filter((f) => f.abilities.includes(ability));
       // 覚える技で絞るときはフォルムではなく系統で判定する（習得技は系統で共通）
       const hitMoves: Move[] = [];
-      // 技名での絞込み。複数選んだら「すべて覚える」系統だけ残す
+      // 技名での絞り込み。複数選んだら「すべて覚える」系統だけ残す
       if (moveFilter.length > 0) {
         const set = D.moveSet[sp.name];
         if (!moveFilter.every((n) => set?.has(n))) continue;
@@ -362,72 +363,65 @@ export function DexTab() {
 
   return (
     <div>
-      <div className="panel">
-        {/* 図鑑のタイプ。はがね統一が主目的だが、あく統一でも同じ道具が使える */}
-        <div className="row tight" style={{ marginBottom: 8 }}>
-          <span className="small muted">図鑑</span>
-          {DEX_TYPES.map((t) => (
-            <button
-              key={t}
-              className={`tbadge dex-type ${dexType === t ? "on" : ""}`}
-              style={{ background: TYPE_COLORS[t], color: "#14171c" }}
-              aria-pressed={dexType === t}
-              onClick={() => setDexType(t)}
-            >
-              {t}
-            </button>
-          ))}
-          <span className="small muted">
-            {D.species.length}系統 / {D.allForms.length}フォルム
-            {D.withLearnset < D.species.length
-              && `　習得技データ ${D.withLearnset}/${D.species.length}系統`}
-          </span>
-        </div>
-        <div className="row">
-          <input
-            type="text"
-            placeholder="名前で検索…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            style={{ flex: "1 1 160px" }}
-          />
-          <label className="row tight small" style={{ cursor: "pointer" }} title="自軍にまだ1体も入れていない系統だけ">
-            <input type="checkbox" checked={unowned} onChange={(e) => setUnowned(e.target.checked)} />
-            未追加のみ
-          </label>
-          <label className="row tight small" style={{ cursor: "pointer" }} title="バーと余白を省いて一度に多く見る">
-            <input type="checkbox" checked={compact} onChange={(e) => setCompact(e.target.checked)} />
-            コンパクト
-          </label>
-          {filtered && (
-            <button className="btn small" onClick={clearFilters}>絞込みを解除</button>
-          )}
-        </div>
-      </div>
-
-      {/* 絞込みは項目が増えて縦に伸びたので畳めるようにする。
-            スマホだと開きっぱなしでは一覧が画面の下半分に追いやられる。 */}
+      {/* 検索・絞り込み・並び替えを1枚にまとめる。以前は3枚に分かれていて、
+          一覧までのスクロールが長かった。図鑑の切替と名前検索は畳んでも出しておく */}
       <Panel
-        id="dex.filters"
-        title="絞り込み"
+        id="dex.search"
+        title="検索・絞り込み"
         defaultOpen={false}
-        summary={filterSummary}
+        summary={`${filterSummary}・${SORT_LABEL[sortKey]}${asc ? "▲" : "▼"}`}
+        always={(
+          <>
+            {/* 図鑑のタイプ。はがね統一が主目的だが、あく統一でも同じ道具が使える */}
+            <div className="row tight" style={{ margin: "8px 0" }}>
+              <Segmented
+                ariaLabel="図鑑のタイプ"
+                style={{ flex: "0 1 200px" }}
+                options={DEX_TYPES.map((t) => ({ value: t, label: t, swatch: TYPE_COLORS[t] }))}
+                value={dexType}
+                onChange={setDexType}
+              />
+              <span className="small muted">
+                {D.species.length}系統 / {D.allForms.length}フォルム
+                {D.withLearnset < D.species.length
+                  && `　習得技データ ${D.withLearnset}/${D.species.length}系統`}
+              </span>
+            </div>
+            <div className="row">
+              <input
+                type="text"
+                placeholder="名前で検索…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                style={{ flex: "1 1 160px" }}
+              />
+              <label className="row tight small" style={{ cursor: "pointer" }} title="自軍にまだ1体も入れていない系統だけ">
+                <input type="checkbox" checked={unowned} onChange={(e) => setUnowned(e.target.checked)} />
+                未追加のみ
+              </label>
+              <label className="row tight small" style={{ cursor: "pointer" }} title="バーと余白を省いて一度に多く見る">
+                <input type="checkbox" checked={compact} onChange={(e) => setCompact(e.target.checked)} />
+                コンパクト
+              </label>
+              {filtered && (
+                <button className="btn small" onClick={clearFilters}>絞り込みを解除</button>
+              )}
+            </div>
+          </>
+        )}
       >
+        <div className="sub-head">絞り込み</div>
           {/* メガシンカで絞る。チャンピオンズはメガを1体しか入れられないので、
               「あり」だけでなく「なし」も要る（メガ枠を空けた構成を組むとき） */}
           <div className="row tight" style={{ marginTop: 8 }}>
             <span className="small muted">メガシンカ</span>
-            {MEGA_MODES.map((m) => (
-              <button
-                key={m.key}
-                className={`sort-chip ${megaMode === m.key ? "on" : ""}`}
-                aria-pressed={megaMode === m.key}
-                title={m.title}
-                onClick={() => setMegaMode(m.key)}
-              >
-                {m.label}
-              </button>
-            ))}
+            <Segmented
+              ariaLabel="メガシンカ"
+              style={{ flex: "1 1 220px" }}
+              options={MEGA_MODES.map((m) => ({ value: m.key, label: m.label, title: m.title }))}
+              value={megaMode}
+              onChange={setMegaMode}
+            />
           </div>
           {/* 特性と打点。特性は図鑑に出てくるものだけ、持つフォルム数の多い順 */}
           <div className="row tight" style={{ marginTop: 8 }}>
@@ -441,7 +435,7 @@ export function DexTab() {
               searchPlaceholder="特性を絞り込み…"
             />
           </div>
-          {/* 技名で絞る。タイプ絞込みと違い「この技が使える枠を探す」用 */}
+          {/* 技名で絞る。タイプ絞り込みと違い「この技が使える枠を探す」用 */}
           <div className="row tight" style={{ marginTop: 8 }}>
             <span className="small muted" title="複数選ぶと、すべて覚える系統だけが残ります">
               覚える技{moveFilter.length > 1 && "（すべて覚える）"}
@@ -477,33 +471,29 @@ export function DexTab() {
           {/* 打点の広さ。覚える攻撃技が何タイプあるか（ルカリオ16〜ミミズズ5） */}
           <div className="row tight" style={{ marginTop: 8 }}>
             <span className="small muted" title="覚える攻撃技のタイプ数">打点の広さ</span>
-            {COVERAGE_STEPS.map((n) => (
-              <button
-                key={n}
-                className={`sort-chip ${minCoverage === n ? "on" : ""}`}
-                aria-pressed={minCoverage === n}
-                title={n === 0 ? "打点で絞らない" : `攻撃技が${n}タイプ以上`}
-                onClick={() => setMinCoverage(n)}
-              >
-                {n === 0 ? "すべて" : `${n}タイプ以上`}
-              </button>
-            ))}
+            <Segmented
+              ariaLabel="打点の広さ"
+              style={{ flex: "1 1 220px" }}
+              options={COVERAGE_STEPS.map((n) => ({
+                value: n,
+                label: n === 0 ? "すべて" : `${n}タイプ以上`,
+                title: n === 0 ? "打点で絞らない" : `攻撃技が${n}タイプ以上`,
+              }))}
+              value={minCoverage}
+              onChange={setMinCoverage}
+            />
           </div>
           {/* タイプボタンの意味を切り替える。「覚える技」なら、そのタイプの技を
               覚える系統だけに絞って技名をカードに出す。「弱点でない」は受け役を探すとき */}
           <div className="row tight" style={{ marginTop: 8 }}>
             <span className="small muted">タイプで絞る</span>
-            {TYPE_MODES.map((m) => (
-              <button
-                key={m.key}
-                className={`sort-chip ${typeMode === m.key ? "on" : ""}`}
-                aria-pressed={typeMode === m.key}
-                title={m.title}
-                onClick={() => setTypeMode(m.key)}
-              >
-                {m.label}
-              </button>
-            ))}
+            <Segmented
+              ariaLabel="タイプで絞る意味"
+              style={{ flex: "1 1 220px" }}
+              options={TYPE_MODES.map((m) => ({ value: m.key, label: m.label, title: m.title }))}
+              value={typeMode}
+              onChange={setTypeMode}
+            />
           </div>
           <div className="filter-types" style={{ marginTop: 6 }}>
             {(typeMode === "move" ? TYPES : typeMode === "safe" ? D.weakTypes : D.usedTypes).map((t) => (
@@ -517,13 +507,9 @@ export function DexTab() {
               </button>
             ))}
           </div>
-      </Panel>
-
-      <div className="panel">
-
+        <div className="sub-head">並び替え</div>
         {/* 表のヘッダーをタップして並べ替える代わりの操作。横スクロールが無くなったぶんここに出す */}
         <div className="sort-bar">
-          <span className="small muted">並び替え</span>
           {SORT_KEYS.map((k) => (
             <button
               key={k}
@@ -541,15 +527,17 @@ export function DexTab() {
           )}
         </div>
 
-        <div className="small muted" style={{ marginTop: 6 }}>
-          {list.length} 系統 / {shownForms} フォルム（全 {D.species.length} 系統・{D.allForms.length} フォルム）
-          {typeFilter.length > 0 && `　絞込み: ${typeFilter.join("・")}${
-            typeMode === "move" ? "の技を覚える" : typeMode === "safe" ? "が弱点でない" : "を含む"}`}
-          {moveFilter.length > 0 && `　${moveFilter.join("・")}を覚える`}
-        </div>
-      </div>
+      </Panel>
 
-      <div className={`panel dex-list ${compact ? "compact" : ""}`}>
+      <Panel id="dex.list" title="一覧" summary={`${list.length}系統 / ${shownForms}フォルム`}>
+        {(typeFilter.length > 0 || moveFilter.length > 0) && (
+          <div className="small muted" style={{ margin: "6px 0" }}>
+            {typeFilter.length > 0 && `　絞り込み: ${typeFilter.join("・")}${
+            typeMode === "move" ? "の技を覚える" : typeMode === "safe" ? "が弱点でない" : "を含む"}`}
+            {moveFilter.length > 0 && `　${moveFilter.join("・")}を覚える`}
+          </div>
+        )}
+        <div className={`dex-list ${compact ? "compact" : ""}`}>
         {list.map(({ sp, forms, sel, hitMoves }) => {
           const isOpen = open.includes(sp.name);
           const isOwned = owned.has(`${sp.name}/${sel.form}`);
@@ -576,11 +564,11 @@ export function DexTab() {
                   </button>
                   <button
                     className="btn small"
-                    title={offType ? offReason : "ベンチへ追加"}
+                    title={offType ? offReason : "控えへ追加"}
                     disabled={offType}
                     onClick={() => add(sp.name, sel.form, false)}
                   >
-                    ＋ベンチ
+                    ＋控え
                   </button>
                 </span>
               </div>
@@ -679,7 +667,8 @@ export function DexTab() {
           );
         })}
         {list.length === 0 && <div className="small muted">条件に合うポケモンがいません。</div>}
-      </div>
+        </div>
+      </Panel>
     </div>
   );
 }

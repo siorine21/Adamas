@@ -3,6 +3,7 @@ import type { KoResult } from "../calc";
 import { searchBulk, type BulkPlan } from "../attack";
 import { usePersistedState } from "../uiState";
 import { Panel } from "./Panel";
+import { Segmented } from "./Segmented";
 
 interface Props {
   moveName: string;
@@ -48,13 +49,13 @@ export function BulkTuner(p: Props) {
       <div className="small muted" style={{ marginBottom: 6 }}>
         {p.moveName} を確定で耐えるのに要る H と {k} のAP。ほかの能力と性格はそのまま、今の戦闘条件で探します。
       </div>
-      <div className="seg" style={{ maxWidth: 240, marginBottom: 8 }}>
-        {[1, 2].map((v) => (
-          <button key={v} type="button" className={`sort-chip ${n === v ? "on" : ""}`} onClick={() => setN(v)}>
-            {v}発耐え
-          </button>
-        ))}
-      </div>
+      <Segmented
+        ariaLabel="何発耐えるか"
+        style={{ maxWidth: 240, marginBottom: 8 }}
+        options={[1, 2].map((v) => ({ value: v, label: `${v}発耐え` }))}
+        value={n}
+        onChange={setN}
+      />
 
       {!plan ? (
         <div className="banner warn">

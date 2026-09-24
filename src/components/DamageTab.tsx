@@ -14,6 +14,7 @@ import { displayName } from "../data/roster";
 import { MoveEditor, moveOptionsFor } from "./MoveEditor";
 import { MoveSelect } from "./MoveSelect";
 import { Panel } from "./Panel";
+import { Segmented } from "./Segmented";
 import { SelectMenu } from "./SelectMenu";
 import { abilitySummary } from "../data/abilities";
 import { AbilityNote } from "./AbilityNote";
@@ -142,7 +143,7 @@ export function DamageTab() {
     () => ({ name: DEFAULT_THREAT.name, base: { ...DEFAULT_THREAT.base }, types: [...DEFAULT_THREAT.types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: DEFAULT_THREAT.abilities.join("/"), typeVerified: DEFAULT_THREAT.typeVerified }),
     isThreatState,
   );
-  // 内定全体を検索付きドロップダウンで選ぶ（旧: 絞込み入力＋200件のネイティブselect）
+  // 内定全体を検索付きドロップダウンで選ぶ（旧: 絞り込み入力＋200件のネイティブselect）
   const threatItems = useMemo(
     () => CONFIRMED.map((t) => ({
       value: t.name,
@@ -297,27 +298,6 @@ export function DamageTab() {
     return () => io.disconnect();
   }, [resultEl]);
 
-  const condSummary = useMemo(() => {
-    const parts: string[] = [];
-    if (atkRank !== 0) parts.push(`攻撃${rankLabel(atkRank)}`);
-    if (defRank !== 0) parts.push(`防御${rankLabel(defRank)}`);
-    if (weather !== "なし") parts.push(weather);
-    if (field !== "なし") parts.push(field);
-    if (crit) parts.push("急所");
-    if (burn) parts.push("やけど");
-    if (helpingHand) parts.push("てだすけ");
-    if (spread) parts.push("複数体");
-    if (wall) parts.push("壁");
-    if (protect) parts.push("まもる");
-    if (atkItem !== "（なし）") parts.push(atkItem);
-    if (defItem !== "（なし）") parts.push(defItem);
-    if (atkAbil !== "（補正なし）") parts.push(atkAbil);
-    if (defAbil !== "（補正なし）") parts.push(defAbil);
-    if (extraMul !== 100) parts.push(`補正${extraMul}%`);
-    if (withSR) parts.push("ステロ込み");
-    return parts.length > 0 ? parts.join(" / ") : "既定（補正なし）";
-  }, [atkRank, defRank, weather, field, crit, burn, helpingHand, spread, wall, protect,
-      atkItem, defItem, atkAbil, defAbil, extraMul, withSR]);
 
   if (!self || !selfForm) {
     return <div className="panel muted">先に「チーム管理」でポケモンを登録してください。</div>;
@@ -453,6 +433,44 @@ export function DamageTab() {
   const srInfo = self ? hazardDamage(defHP, "いわ", defTypes) : 0;
 
   /** 畳んだままでも何が効いているか分かるよう、見出しに出す要約 */
+  // 結果の要約。判定そのものは畳んでも出ているので、技の比較の件数を添える
+  const resultSummary = moveRows.length > 1 ? `登録技${moveRows.length}つの比較・参考` : "参考情報";
+  // 戦闘条件の要約。攻撃側・防御側・場ごとに、既定から変えているものだけを並べる
+  const joinOr = (parts: (string | false)[]) => parts.filter(Boolean).join(" / ") || "既定（補正なし）";
+  const atkCondSummary = joinOr([
+    atkRank !== 0 && `ランク${rankLabel(atkRank)}`,
+    atkItem !== "（なし）" && atkItem,
+    atkAbil !== "（補正なし）" && (atkAbil === "そうだいしょう" ? `そうだいしょう${alliesFainted}体` : atkAbil),
+    rivalry !== "なし" && `とうそうしん${rivalry}`,
+    crit && "急所",
+    helpingHand && "てだすけ",
+    burn && "やけど",
+    atkStatused && "状態異常",
+    atkPinch && "HP1/3以下",
+    atkMovesLast && "後攻",
+  ]);
+  const defCondSummary = joinOr([
+    defRank !== 0 && `ランク${rankLabel(defRank)}`,
+    defItem !== "（なし）" && defItem,
+    defAbil !== "（補正なし）" && defAbil,
+    wall && "壁",
+    !defHPFull && "HP満タンでない",
+    withSR && "ステロ込み",
+    defStatused && "状態異常",
+    protect && "まもる",
+  ]);
+  const fieldCondSummary = joinOr([
+    weather !== "なし" && weather,
+    field !== "なし" && field,
+    spread && "複数体",
+    extraMul !== 100 && `補正${extraMul}%`,
+  ]);
+  // 自軍の要約。名前は選択欄（always）に出ているので、それ以外を並べる
+  const selfSummary = [
+    selfForm.types.join("/"),
+    self.item || "持ち物なし",
+    `AP ${apSummary(self.ap)}`,
+  ].join("・");
   // 畳んだときの仮想敵の要約。名前は選択欄（always）に出ているので、それ以外を並べる
   const threatSummary = [
     threat.types.join("/"),
@@ -463,50 +481,58 @@ export function DamageTab() {
 
   return (
     <div>
-      {/* 方向切替 */}
-      <div className="panel">
-        <div className="row">
-          <button className={`btn ${dir === "toThreat" ? "primary" : ""}`} onClick={() => setDir("toThreat")}>
-            与ダメ（自軍 → 仮想敵）
-          </button>
-          <button className={`btn ${dir === "toSelf" ? "primary" : ""}`} onClick={() => setDir("toSelf")}>
-            被ダメ（仮想敵 → 自軍）
-          </button>
-        </div>
-      </div>
+      {/* 方向切替。画面内の切替はカードで囲まず、タブのすぐ下に置く */}
+      <Segmented
+        size="lg"
+        ariaLabel="計算の向き"
+        style={{ margin: "12px 0 0" }}
+        options={[
+          { value: "toThreat", label: "与ダメ", sub: "自軍 → 仮想敵" },
+          { value: "toSelf", label: "被ダメ", sub: "仮想敵 → 自軍" },
+        ]}
+        value={dir}
+        onChange={setDir}
+      />
 
       <div className="grid2">
-        {/* 自軍 */}
-        <div className="panel">
-          <div className="section-title">自軍{attackerIsSelf ? "（攻撃）" : "（防御）"}</div>
-          <SelectMenu
-            items={selfItems}
-            value={self.key}
-            onChange={(v) => { setSelfKey(v); setSelfMoveName(""); }}
-          />
+        {/* 自軍。個体と技の選択は計算に必須なので畳んでも出しておく（always） */}
+        <Panel
+          id="dmg.self"
+          title={`自軍${attackerIsSelf ? "（攻撃）" : "（防御）"}`}
+          summary={selfSummary}
+          always={(
+            <>
+              <SelectMenu
+                items={selfItems}
+                value={self.key}
+                onChange={(v) => { setSelfKey(v); setSelfMoveName(""); }}
+              />
+              {attackerIsSelf && (
+                <label className="fld">
+                  <span>使用技（この種族が覚える攻撃技）</span>
+                  {selfDamaging.length === 0 ? (
+                    <div className="banner warn">この個体・種族に攻撃技が見つかりません。チーム管理で技を追加してください。</div>
+                  ) : (
+                    <MoveSelect moves={selfDamaging} value={selfMove?.name ?? ""} onChange={setSelfMoveName} />
+                  )}
+                  {selfVarPower && (
+                    <div className="row tight" style={{ marginTop: 6 }}>
+                      <span className="small muted">威力変動技 — 威力を入力:</span>
+                      <NumberInput value={selfPow} style={{ width: 90 }} onChange={setSelfPow} />
+                    </div>
+                  )}
+                </label>
+              )}
+            </>
+          )}
+        >
           <div className="row tight" style={{ marginTop: 6 }}>
             <TypeBadges types={selfForm.types} />
             <span className="small muted">{self.nature.replace(/（.*/, "")} / {self.item || "持ち物なし"}</span>
           </div>
           <StatLine real={selfReal} />
-          {attackerIsSelf && (
-            <label className="fld">
-              <span>使用技（この種族が覚える攻撃技）</span>
-              {selfDamaging.length === 0 ? (
-                <div className="banner warn">この個体・種族に攻撃技が見つかりません。チーム管理で技を追加してください。</div>
-              ) : (
-                <MoveSelect moves={selfDamaging} value={selfMove?.name ?? ""} onChange={setSelfMoveName} />
-              )}
-              {selfVarPower && (
-                <div className="row tight" style={{ marginTop: 6 }}>
-                  <span className="small muted">威力変動技 — 威力を入力:</span>
-                  <NumberInput value={selfPow} style={{ width: 90 }} onChange={setSelfPow} />
-                </div>
-              )}
-            </label>
-          )}
           {/* 「あと少しで耐える／落とせる」が見えたその場でAPを振り直せるようにする。
-              書き込み先は個体そのものなので、チーム管理の手持ち・ベンチにそのまま残る。 */}
+              書き込み先は個体そのものなので、チーム管理の手持ち・控えにそのまま残る。 */}
           <Panel
             id="dmg.selfAp"
             title="AP配分"
@@ -514,12 +540,12 @@ export function DamageTab() {
             summary={apSummary(self.ap)}
           >
             <div className="small muted" style={{ marginBottom: 6 }}>
-              ここで変えたAPは、この個体（チーム管理の手持ち・ベンチ）にそのまま保存されます。
+              ここで変えたAPは、この個体（チーム管理の手持ち・控え）にそのまま保存されます。
             </div>
             <ApBudgetBar entry={self} />
             <ApEditor entry={self} />
           </Panel>
-        </div>
+        </Panel>
 
         {/* 仮想敵。タイプ相性・性格・APと縦に長いので畳めるようにする。
             畳んでも相手を選び替えられるよう、選択欄と警告は always に置く。
@@ -535,7 +561,7 @@ export function DamageTab() {
                 value={threat.name}
                 onChange={pickThreat}
                 searchable
-                searchPlaceholder="内定ポケモンを名前で絞込み…"
+                searchPlaceholder="内定ポケモンを名前で絞り込み…"
               />
               <div className="small muted">{CONFIRMED.length}体の内定ポケモンから選択（種族値・特性はシート準拠）</div>
               {/* よく使う相手は、性格・AP・技ごと保存して呼び出せる */}
@@ -626,7 +652,7 @@ export function DamageTab() {
                     onChange={(v) => setThreat((p) => ({ ...p, base: { ...p.base, [k]: v } }))}
                   />
                 </label>
-                <span className="ap-real small">実数 <b>{threatReal[k]}</b></span>
+                <span className="ap-real small">実数値 <b>{threatReal[k]}</b></span>
               </div>
               <ApSlider value={threat.ap[k]} max={threatMaxFor(k)} locked={threatApLocked} onChange={(v) => setThreatAP(k, v)} />
             </div>
@@ -634,10 +660,9 @@ export function DamageTab() {
         </Panel>
       </div>
 
-      {/* 戦闘条件は項目が多く縦に伸びるので畳めるようにする */}
-      <Panel id="dmg.cond" title="戦闘条件" summary={condSummary}>
-
-        <div className="cond-group">場・ランク</div>
+      {/* 戦闘条件。項目が多く1枚だと縦に長すぎるので、攻撃側・防御側・場の3枚に分け、
+          それぞれ既定から変えているものだけを見出しに出す */}
+      <Panel id="dmg.condAtk" title={`攻撃側の条件（${attackerIsSelf ? "自軍" : "仮想敵"}）`} summary={atkCondSummary}>
         <div className="grid3">
           <label className="fld wide">
             <span>
@@ -649,36 +674,6 @@ export function DamageTab() {
               format={rankLabel} ariaLabel="攻撃ランク" valueWidth={34} noSlider
             />
           </label>
-          <label className="fld wide">
-            <span>
-              防御ランク <b className="tnum">{rankMulLabel(move?.ignoreDefRank ? 0 : defRank)}</b>
-              {move?.ignoreDefRank ? "（無視技のため無効）" : ""}
-            </span>
-            <StepSlider
-              value={defRank} min={RANK_MIN} max={RANK_MAX} onChange={setDefRank}
-              format={rankLabel} ariaLabel="防御ランク" valueWidth={34} noSlider
-            />
-          </label>
-          <label className="fld">
-            <span>天候</span>
-            <SelectMenu
-              items={WEATHERS.map((w) => ({ value: w, label: w }))}
-              value={weather}
-              onChange={(v) => setWeather(v as Weather)}
-            />
-          </label>
-          <label className="fld">
-            <span>フィールド</span>
-            <SelectMenu
-              items={FIELDS.map((f) => ({ value: f, label: f }))}
-              value={field}
-              onChange={(v) => setField(v as Field)}
-            />
-          </label>
-        </div>
-
-        <div className="cond-group">攻撃側</div>
-        <div className="grid3">
           <label className="fld">
             <span>持ち物</span>
             <SelectMenu items={ATK_ITEMS.map((i) => ({ value: i, label: i }))} value={atkItem} onChange={setAtkItem} />
@@ -706,19 +701,12 @@ export function DamageTab() {
           {atkAbil === "そうだいしょう" && (
             <div className="fld wide">
               <span className="fld-label">そうだいしょう（倒れた味方）</span>
-              <div className="seg">
-                {FAINTED.map((n) => (
-                  <button
-                    type="button"
-                    key={n}
-                    className={`sort-chip ${alliesFainted === n ? "on" : ""}`}
-                    aria-pressed={alliesFainted === n}
-                    onClick={() => setAlliesFainted(n)}
-                  >
-                    {n}体<i>×{(1 + n * 0.1).toFixed(1)}</i>
-                  </button>
-                ))}
-              </div>
+              <Segmented
+                ariaLabel="倒れた味方の数"
+                options={FAINTED.map((n) => ({ value: n, label: `${n}体`, sub: `×${(1 + n * 0.1).toFixed(1)}` }))}
+                value={alliesFainted}
+                onChange={setAlliesFainted}
+              />
             </div>
           )}
         </div>
@@ -740,8 +728,44 @@ export function DamageTab() {
           </label>
         </div>
 
-        <div className="cond-group">防御側</div>
+        {atkAbil === "かたやぶり" && (
+          <div className="banner info">かたやぶり: 防御側の特性（軽減・無効化）を無視して計算しています。</div>
+        )}
+        {(atkAbil === "ふかしのこぶし" || atkAbil === "かんつうドリル") && (
+          <div className="banner info">
+            {atkAbil}: まもる／みきりを貫通します（接触技のみ。ダメージ倍率は変わりません）。
+          </div>
+        )}
+        {SKIN_NOTE[atkAbil] && (
+          <div className="banner info">
+            {atkAbil}: ノーマル技は{SKIN_NOTE[atkAbil]}技として（威力1.2倍）計算しています。
+            相性・無効化・タイプ一致も{SKIN_NOTE[atkAbil]}で見ます。
+          </div>
+        )}
+        {atkAbil === "うるおいボイス" && (
+          <div className="banner info">
+            うるおいボイス: 音技はみず技として計算しています（威力は上がりません）。
+          </div>
+        )}
+        {PROTEAN_NOTE.includes(atkAbil) && (
+          <div className="banner info">
+            {atkAbil}: 撃つ技と同じタイプになるので、どの技もタイプ一致（×1.5）で計算しています。
+          </div>
+        )}
+      </Panel>
+
+      <Panel id="dmg.condDef" title={`防御側の条件（${attackerIsSelf ? "仮想敵" : "自軍"}）`} summary={defCondSummary}>
         <div className="grid3">
+          <label className="fld wide">
+            <span>
+              防御ランク <b className="tnum">{rankMulLabel(move?.ignoreDefRank ? 0 : defRank)}</b>
+              {move?.ignoreDefRank ? "（無視技のため無効）" : ""}
+            </span>
+            <StepSlider
+              value={defRank} min={RANK_MIN} max={RANK_MAX} onChange={setDefRank}
+              format={rankLabel} ariaLabel="防御ランク" valueWidth={34} noSlider
+            />
+          </label>
           <label className="fld">
             <span>持ち物</span>
             <SelectMenu items={DEF_ITEMS.map((i) => ({ value: i, label: i }))} value={defItem} onChange={setDefItem} />
@@ -772,7 +796,27 @@ export function DamageTab() {
           </label>
         </div>
 
-        <div className="cond-group">その他</div>
+      </Panel>
+
+      <Panel id="dmg.condField" title="場・その他" summary={fieldCondSummary}>
+        <div className="grid3">
+          <label className="fld">
+            <span>天候</span>
+            <SelectMenu
+              items={WEATHERS.map((w) => ({ value: w, label: w }))}
+              value={weather}
+              onChange={(v) => setWeather(v as Weather)}
+            />
+          </label>
+          <label className="fld">
+            <span>フィールド</span>
+            <SelectMenu
+              items={FIELDS.map((f) => ({ value: f, label: f }))}
+              value={field}
+              onChange={(v) => setField(v as Field)}
+            />
+          </label>
+        </div>
         <div className="checks">
           <label title="ダブルで2体以上に当てる技は0.75倍。壁の軽減も 1/2 → 2732/4096 に変わる">
             <input type="checkbox" checked={spread} onChange={(e) => setSpread(e.target.checked)} />
@@ -784,57 +828,40 @@ export function DamageTab() {
             %
           </label>
         </div>
-        {atkAbil === "かたやぶり" && (
-          <div className="banner info">かたやぶり: 防御側の特性（軽減・無効化）を無視して計算しています。</div>
-        )}
-        {(atkAbil === "ふかしのこぶし" || atkAbil === "かんつうドリル") && (
-          <div className="banner info">
-            {atkAbil}: まもる／みきりを貫通します（接触技のみ。ダメージ倍率は変わりません）。
-          </div>
-        )}
-        {SKIN_NOTE[atkAbil] && (
-          <div className="banner info">
-            {atkAbil}: ノーマル技は{SKIN_NOTE[atkAbil]}技として（威力1.2倍）計算しています。
-            相性・無効化・タイプ一致も{SKIN_NOTE[atkAbil]}で見ます。
-          </div>
-        )}
-        {atkAbil === "うるおいボイス" && (
-          <div className="banner info">
-            うるおいボイス: 音技はみず技として計算しています（威力は上がりません）。
-          </div>
-        )}
-        {PROTEAN_NOTE.includes(atkAbil) && (
-          <div className="banner info">
-            {atkAbil}: 撃つ技と同じタイプになるので、どの技もタイプ一致（×1.5）で計算しています。
-          </div>
-        )}
         <div className="small muted">
           壁の軽減はシングル基準（1/2）。「複数体に攻撃」を選んだときだけ、ダブルの値（2732/4096）で計算します。
           未対応の条件・独自特性は「補正%」で掛けてください。
         </div>
       </Panel>
 
-      {/* 結果。画面外にあるときは下に貼り付く要約（dmg-sticky）を出す */}
-      <div className="panel">
-        <div className="section-title">計算結果</div>
-        {/* 見張るのは判定・ダメージ・HPバーの塊だけにする。パネル全体だと
-            画面が低いとき（横向き等）に threshold に届かず、貼り付く要約が
-            消えなくなるため。 */}
-        <div ref={setResultEl}>
-        {!move ? (
-          <div className="muted">技を選択してください。</div>
-        ) : result?.immune ? (
-          <div className="stamp">
-            {result.immuneReason ? `${result.immuneReason}で無効` : "こうかがない（無効）"}
+      {/* 結果。判定・ダメージ・HPバーは畳んでも出しておき（always）、
+          技の比較と参考情報だけを畳めるようにする。
+          画面外にあるときは下に貼り付く要約（dmg-sticky）を出す */}
+      <Panel
+        id="dmg.result"
+        title="計算結果"
+        summary={resultSummary}
+        always={(
+          /* 見張るのは判定・ダメージ・HPバーの塊だけにする。パネル全体だと
+             画面が低いとき（横向き等）に threshold に届かず、貼り付く要約が
+             消えなくなるため。 */
+          <div ref={setResultEl}>
+          {!move ? (
+            <div className="muted">技を選択してください。</div>
+          ) : result?.immune ? (
+            <div className="stamp">
+              {result.immuneReason ? `${result.immuneReason}で無効` : "こうかがない（無効）"}
+            </div>
+          ) : result && ko ? (
+            <ResultView move={move} ko={ko} eff={eff} rolls={result.rolls} defHP={defHP}
+              atkStat={atkStatUsed} defStat={defStatUsed}
+              analysis={analysis!} hitsChoice={hitsChoice} onHits={setHitsChoice} />
+          ) : (
+            <div className="muted">威力のある技を選択してください。</div>
+          )}
           </div>
-        ) : result && ko ? (
-          <ResultView move={move} ko={ko} eff={eff} rolls={result.rolls} defHP={defHP}
-            atkStat={atkStatUsed} defStat={defStatUsed}
-            analysis={analysis!} hitsChoice={hitsChoice} onHits={setHitsChoice} />
-        ) : (
-          <div className="muted">威力のある技を選択してください。</div>
         )}
-        </div>
+      >
         {moveRows.length > 1 && (
           <MoveCompare rows={moveRows} onPick={setSelfMoveName} defName={threat.name} />
         )}
@@ -845,12 +872,9 @@ export function DamageTab() {
         )}
         <div className="banner info" style={{ marginTop: 10 }}>
           参考: ステルスロック着地ダメージ（防御側の1/8×相性 = {(typeEffectiveness("いわ", defTypes)).toString()}倍）＝ <b className="tnum">{srInfo}</b>（{defHP > 0 ? ((srInfo / defHP) * 100).toFixed(1) : "0"}%）
-          {!withSR && <>。戦闘条件の「ステルスロック込み」で確定数に入ります</>}
+          {!withSR && <>。防御側の条件の「ステルスロック込み」で確定数に入ります</>}
         </div>
-        <div className="banner info">
-          ※ がんじょう・きあいのタスキ・ばけのかわ等「1発耐え」効果は計算に含みません。威力可変技・連続技も非対応（威力を手動指定してください）。
-        </div>
-      </div>
+      </Panel>
 
       {!attackerIsSelf && move && ko && (
         <BulkTuner
@@ -1063,16 +1087,16 @@ function HitsPicker({ hits, auto, choice, onChange, moveName }: {
   return (
     <div className="hits-pick">
       <span className="small muted">連続技の回数</span>
-      <div className="seg">
-        <button type="button" className={`sort-chip ${choice === "auto" ? "on" : ""}`} onClick={() => onChange("auto")}>
-          {autoLabel}
-        </button>
-        {counts.map((k) => (
-          <button key={k} type="button" className={`sort-chip ${choice === k ? "on" : ""}`} onClick={() => onChange(k)}>
-            {k}
-          </button>
-        ))}
-      </div>
+      <Segmented<HitsChoice>
+        ariaLabel="連続技の回数"
+        style={{ marginTop: 3 }}
+        options={[
+          { value: "auto", label: autoLabel },
+          ...counts.map((k) => ({ value: k, label: `${k}回` })),
+        ]}
+        value={choice}
+        onChange={onChange}
+      />
     </div>
   );
 }
