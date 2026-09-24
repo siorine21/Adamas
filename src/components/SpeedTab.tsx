@@ -4,7 +4,7 @@ import { useStore } from "../store";
 import { usePersistedState } from "../uiState";
 import { CONFIRMED } from "../data/confirmed";
 import { abilitySummary } from "../data/abilities";
-import { RANK_MAX, RANK_MIN, TYPES, TYPE_COLORS, calcStat, rankLabel, rankMul, realStats } from "../data/game";
+import { RANK_MAX, RANK_MIN, TYPES, TYPE_COLORS, calcStat, rankLabel, rankMul, rankMulLabel, realStats } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { Panel } from "./Panel";
@@ -20,6 +20,8 @@ interface SpeedRow {
   key: string;
   label: string;
   detail: string;
+  /** 実数値から変えている条件（スカーフ・Sランク）。実効Sが実数値と違う理由なので目立たせる */
+  mods?: string;
   types?: string[];
   /** 特性の候補（絞込み用。個体として選んでいる1つではない） */
   abilities: string[];
@@ -157,13 +159,15 @@ export function SpeedTab() {
     let s = base;
     if (scarf[e.key]) s = Math.floor(s * 1.5);
     s = rankMul(s, rank[e.key] ?? 0);
-    const tags: string[] = [`実数${base}`];
-    if (scarf[e.key]) tags.push("スカーフ");
-    if ((rank[e.key] ?? 0) !== 0) tags.push(`S${(rank[e.key] ?? 0) > 0 ? "+" : ""}${rank[e.key]}`);
+    const mods: string[] = [];
+    if (scarf[e.key]) mods.push("スカーフ×1.5");
+    const r = rank[e.key] ?? 0;
+    if (r !== 0) mods.push(`S${rankLabel(r)}(${rankMulLabel(r)})`);
     return {
       key: e.key,
       label: `${displayName(e.name, form.form)}${e.nickname ? `「${e.nickname}」` : ""}`,
-      detail: tags.join(" / "),
+      detail: `実数${base}`,
+      mods: mods.length ? mods.join(" ") : undefined,
       types: form.types,
       abilities: splitAbility(form.ability),
       isMega: form.form.startsWith("メガ"),
@@ -257,13 +261,22 @@ export function SpeedTab() {
   const toggleType = (t: string) =>
     setTypeFilter((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
+  /** Sランクを0以外にしている個体。ランクは保存されるので、いつ変えたか忘れていても
+   *  「実数値が高いのに下にいる」理由が分かるよう、表の上に出して一括で戻せるようにする */
+  const rankedMons = sortedRoster.filter((e) => (rank[e.key] ?? 0) !== 0);
+  const resetRanks = () => setRank({});
+
   const marker = (k: Kind) => (k === "team" ? "★ " : k === "bench" ? "◆ " : "");
   const rowClass = (k: Kind) => (k === "team" ? "self-row" : k === "bench" ? "bench-row" : "");
 
   return (
     <div>
       {/* 個体が多いと縦に長くなり、肝心の比較表まで遠くなるので畳めるようにする */}
-      <Panel id="spd.roster" title="手持ち・控えの素早さ設定" summary={`${sortedRoster.length}体`}>
+      <Panel
+        id="spd.roster"
+        title="手持ち・控えの素早さ設定"
+        summary={`${sortedRoster.length}体${rankedMons.length ? `・Sランク変更${rankedMons.length}体` : ""}`}
+      >
         {sortedRoster.length === 0 && <div className="muted small">個体がいません。チーム管理で登録してください。</div>}
         {sortedRoster.length > 0 && (
           <div className="spd-target">
@@ -436,6 +449,15 @@ export function SpeedTab() {
           は自分の構成（実数値）。それ以外は内定ポケモンの{line}ライン。
           {narrowing && "　絞込みは内定ポケモンにだけ効きます（自分の個体は基準線として常に表示）。"}
         </div>
+        {rankedMons.length > 0 && (
+          <div className="banner warn row tight" style={{ marginBottom: 6 }}>
+            <span style={{ flex: "1 1 200px" }}>
+              Sランクを変えている個体があります（実効Sはランク込み）：
+              {rankedMons.map((e) => `${displayName(e.name, e.forms[e.activeForm].form)} S${rankLabel(rank[e.key])}`).join("、")}
+            </span>
+            <button type="button" className="btn small" onClick={resetRanks}>Sランクをすべて0に戻す</button>
+          </div>
+        )}
         {/* スマホでも横スクロール無しで読めるよう、条件/タイプは名前の下に重ねる2列構成 */}
         <table className="spd">
           <thead>
@@ -452,6 +474,7 @@ export function SpeedTab() {
                   <div className={r.kind !== "ref" ? "me" : ""}>{marker(r.kind)}{r.label}</div>
                   <div className="row tight spd-meta">
                     <span className="small muted">{r.detail}</span>
+                    {r.mods && <span className="small amber">→ {r.mods}</span>}
                     {r.types && <TypeBadges types={r.types} />}
                   </div>
                 </td>
