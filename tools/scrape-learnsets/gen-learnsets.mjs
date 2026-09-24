@@ -27,6 +27,9 @@ const EXTRA = {
   "ドドゲザン": ["きりさく"],
   "ブリジュラス": ["きりさく"],
   "メタグロス": ["でんじふゆう"], // 2026/9 実機確認（AppMediaは「でんじは」と誤記）
+  // きりさく: 上と同じレギュM-C解禁。ギルガルドは以前 GameWith のページを引けず
+  // 突き合わせていなかったが、内定全種族の取得（scrape-threats.cjs）で GameWith に載っていると判明
+  "ギルガルド": ["きりさく"],
 };
 
 /* AppMedia の表にあるが、実機では覚えない技。
@@ -55,10 +58,17 @@ const DARK = ["アローラペルシアン","ブラッキー","ヘルガー","�
  "ゴロンダ","カラマネロ","ガオガエン","フォクスライ","オーロンゲ","モルペコ","マスカーニャ","マフィティフ",
  "ヒスイダイケンキ","ハリーマン","ギャラドス"];
 
-/** GameWith 由来（裏取り用・あくの主データ） */
+/** GameWith 由来（裏取り用・あくの主データ）。
+ *  scrape-gamewith.cjs で引けなかった系統（アローラペルシアン等）は、
+ *  内定全種族の取得（scrape-threats.cjs → gamewith_threat_moves.json）で補う */
 const gw = (() => {
-  const p = "tools/scrape-learnsets/gamewith_moves.json";
-  return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {};
+  const read = (p) => (fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {});
+  const base = read("tools/scrape-learnsets/gamewith_moves.json");
+  const threats = read("tools/scrape-learnsets/gamewith_threat_moves.json");
+  for (const [t, v] of Object.entries(threats)) {
+    if (!(base[t]?.length) && v.moves?.length) base[t] = v.moves;
+  }
+  return base;
 })();
 
 const clean = (names, t) => {
@@ -72,7 +82,7 @@ const blocks = [
   ...STEEL.map((t) => {
     const mv = clean([...(cm[t] || []), ...(EXTRA[t] || [])], t);
     const src = EXTRA[t] || EXCLUDE[t]
-      ? "AppMedia個別ページ＋実機確認（チャンピオンズ覚えるワザ）2026/9"
+      ? "AppMedia個別ページ＋補正（GameWith・実機確認）2026/9"
       : "AppMedia個別ページ（チャンピオンズ覚えるワザ）2026/9";
     return `  "${t}": { status: "full", source: "${src}", moves: [${mv.map((m) => `"${m}"`).join(", ")}] },`;
   }),
