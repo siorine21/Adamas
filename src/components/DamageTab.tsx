@@ -11,7 +11,7 @@ import {
 } from "../calc";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
-import { MoveEditor, moveOptionsFor } from "./MoveEditor";
+import { MoveEditor, moveOptionsFor, threatMoveOptions } from "./MoveEditor";
 import { MoveSelect } from "./MoveSelect";
 import { Panel } from "./Panel";
 import { Segmented } from "./Segmented";
@@ -157,6 +157,13 @@ export function DamageTab() {
     if (!t) return;
     setThreat({ name: t.name, base: { ...t.base }, types: [...t.types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: t.abilities.join("/"), typeVerified: t.typeVerified });
     setFavId("");
+    // 今の技をその相手が覚えないなら、覚える技から「主力らしい技」に替える
+    // （覚えない技のまま被ダメを出しても意味が無いため）
+    const opts = threatMoveOptions(t.name);
+    if (opts.verified && !(threatMove && opts.options.some((o) => o.name === threatMove.name))) {
+      const best = mainAttack(opts.options, t.types, t.base);
+      setThreatMove(best ? { ...best } : undefined);
+    }
   };
 
   /* ---------- お気に入りの仮想敵 ---------- */
@@ -465,6 +472,8 @@ export function DamageTab() {
     spread && "複数体",
     extraMul !== 100 && `補正${extraMul}%`,
   ]);
+  // 仮想敵が覚える攻撃技（被ダメで使う）
+  const threatOpts = threatMoveOptions(threat.name);
   // 自軍の要約。名前は選択欄（always）に出ているので、それ以外を並べる
   const selfSummary = [
     selfForm.types.join("/"),
@@ -589,8 +598,14 @@ export function DamageTab() {
               )}
               {!attackerIsSelf && (
                 <div style={{ marginTop: 8 }}>
-                  <div className="small muted">仮想敵の攻撃技（全ライブラリ＋手動）</div>
-                  <MoveEditor move={threatMove} options={MOVE_LIB} onChange={setThreatMove} />
+                  <div className="small muted">
+                    仮想敵の攻撃技（{threatOpts.verified ? `${threat.name}が覚える技 ${threatOpts.options.length}個` : "全技ライブラリ"}）
+                  </div>
+                  {/* 相手を替えたら「覚える技以外も選ぶ」の状態は戻す */}
+                  <MoveEditor key={threat.name} move={threatMove} options={threatOpts.options} onChange={setThreatMove} />
+                  {!threatOpts.verified && (
+                    <div className="small amber">この相手の習得技は未収録のため、全技から選べます。</div>
+                  )}
                 </div>
               )}
             </>
@@ -1099,4 +1114,26 @@ function HitsPicker({ hits, auto, choice, onChange, moveName }: {
       />
     </div>
   );
+}
+
+/** 自爆・反動で動けなくなる技・条件つきの技など、主力として普段は撃たない技 */
+const NOT_MAIN = new Set([
+  "だいばくはつ", "じばく", "ミストバースト", // 自分が倒れる
+  "はかいこうせん", "ギガインパクト", "すてみタックル", // 反動・次のターン動けない
+  "アイアンローラー", // フィールドが無いと失敗する
+  "きあいパンチ", // 先に攻撃を受けると失敗する
+  "ソーラービーム", "ソーラーブレード", "ゴッドバード", // 溜めが要る
+]);
+
+/** 覚える技のうち、主力らしい技を1つ選ぶ。
+ *  威力 × タイプ一致(1.5) × 攻撃・特攻の高い方に合う分類か、で比べる。威力変動技は除く */
+function mainAttack(moves: Move[], types: string[], base: StatBlock): Move | undefined {
+  const physical = base.A >= base.C;
+  const score = (m: Move) =>
+    m.power
+    * (types.includes(m.type) ? 1.5 : 1)
+    * ((m.cat === "物理") === physical ? 1 : 0.6);
+  return moves
+    .filter((m) => m.power > 0 && !NOT_MAIN.has(m.name))
+    .sort((a, b) => score(b) - score(a))[0];
 }
