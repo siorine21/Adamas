@@ -267,46 +267,136 @@ export function computeDamage(p: DamageParams): DamageResult | null {
 }
 
 export interface KoResult {
+  /** 1回の行動で与えるダメージの下限・上限（連続技は全発の合計） */
   min: number;
   max: number;
   verdict: string;
   detail: string;
   minPct: number;
   maxPct: number;
+  /** 何発目まで行動したらどれだけの確率で倒れるか（累積）。逆算などで使う */
+  cum: number[];
 }
 
-/* 確定数解析：16分岐一様乱数のDP（残存HP分布、確率は全体基準） */
-export function koAnalysis(rolls: number[], hp: number): KoResult | null {
-  if (!rolls.length) return null;
-  const min = rolls[0], max = rolls[rolls.length - 1];
-  let dist = new Map<number, number>([[hp, 1]]);
-  const result: { n: number; cum: number }[] = [];
-  let cumKO = 0;
-  for (let n = 1; n <= 10; n++) {
-    const next = new Map<number, number>();
-    let ko = 0;
-    for (const [rem, prob] of dist) {
-      for (const d of rolls) {
-        const nr = rem - d;
-        const pp = prob / 16;
-        if (nr <= 0) ko += pp;
-        else next.set(nr, (next.get(nr) || 0) + pp);
-      }
+/** 1回の行動の中身。連続技は「発ごとの乱数」を順に並べる。
+ *  回数が乱数で決まる技（2〜5回）は、回数ごとの候補を重み付きで並べる。 */
+export interface KoAction {
+  weight: number;
+  hits: number[][];
+}
+
+export interface KoOptions {
+  /** 1回の行動。省略すると rolls を1発だけ当てる（単発技） */
+  actions?: KoAction[];
+  /** HP満タンで受ける1発目だけ乱数が変わるとき（マルチスケイル等）の、その1発目の乱数 */
+  fullHpFirst?: number[];
+  /** 最初の行動の前に受けるダメージ（ステルスロック） */
+  preDamage?: number;
+  /** HP満タンから倒れる一撃を1で耐える（きあいのタスキ／がんじょう） */
+  sturdy?: boolean;
+  /** 最初の1発を無効化し、代わりに最大HPの1/8を受ける（ばけのかわ） */
+  disguise?: boolean;
+  /** 何回の行動まで調べるか（既定10）。逆算で何度も回すときは小さくして速くする */
+  maxActions?: number;
+}
+
+/** 1発ぶん当てる。残りHPの分布を受け取り、当てたあとの分布と、この1発で倒れた確率を返す */
+function applyHit(
+  dist: Map<number, number>, rolls: number[], hp: number,
+  o: { sturdy: boolean; fullHp?: number[]; disguiseDmg?: number },
+): { next: Map<number, number>; ko: number } {
+  const next = new Map<number, number>();
+  let ko = 0;
+  const add = (r: number, p: number) => {
+    if (r <= 0) ko += p;
+    else next.set(r, (next.get(r) || 0) + p);
+  };
+  for (const [rem, prob] of dist) {
+    // ばけのかわ: 乱数に関係なく最大HPの1/8だけ受ける
+    if (o.disguiseDmg !== undefined) { add(rem - o.disguiseDmg, prob); continue; }
+    // HP満タンで受ける1発だけ乱数が変わる（マルチスケイル等）
+    const rs = rem === hp && o.fullHp ? o.fullHp : rolls;
+    const pp = prob / rs.length;
+    for (const d of rs) {
+      let nr = rem - d;
+      // タスキ／がんじょう: 満タンから倒れる一撃は1で耐える
+      if (o.sturdy && rem === hp && nr <= 0) nr = 1;
+      add(nr, pp);
     }
+  }
+  return { next, ko };
+}
+
+/* 確定数解析：16分岐一様乱数のDP（残存HP分布、確率は全体基準）。
+ *
+ * 1回の行動＝1発とは限らない（連続技）ので、行動の中身は actions で渡す。
+ * 「最初の1発」だけ扱いが変わるもの（ばけのかわ・マルチスケイル・タスキ）は、
+ * 全体で最初に当たる1発かどうか、あるいはその時点でHP満タンかどうかで判定する。
+ * ダメージは必ず1以上入るので、HP満タンで受けられるのは最初の1発だけになる。 */
+export function koAnalysis(rolls: number[], hp: number, opts: KoOptions = {}): KoResult | null {
+  if (!rolls.length || hp <= 0) return null;
+  const actions: KoAction[] = opts.actions ?? [{ weight: 1, hits: [rolls] }];
+  const sturdy = !!opts.sturdy;
+  const start = Math.max(0, hp - (opts.preDamage ?? 0));
+
+  // 1回の行動で与えるダメージの幅（最初の行動の見た目どおり。ばけのかわは含めない）
+  const sumOf = (a: KoAction, pick: (r: number[]) => number) =>
+    a.hits.reduce((s, r, i) => {
+      const rr = i === 0 && start === hp && opts.fullHpFirst ? opts.fullHpFirst : r;
+      return s + pick(rr);
+    }, 0);
+  const min = Math.min(...actions.map((a) => sumOf(a, (r) => r[0])));
+  const max = Math.max(...actions.map((a) => sumOf(a, (r) => r[r.length - 1])));
+  const pct = { minPct: (min / hp) * 100, maxPct: (max / hp) * 100 };
+
+  // 設置ダメージだけで倒れる
+  if (start <= 0) {
+    return { min, max, verdict: "設置で倒れる", detail: "", ...pct, cum: [1] };
+  }
+
+  let dist = new Map<number, number>([[start, 1]]);
+  let disguise = !!opts.disguise;
+  let first = true;
+  const cum: number[] = [];
+  let cumKO = 0;
+  const limit = opts.maxActions ?? 10;
+  for (let n = 1; n <= limit; n++) {
+    const merged = new Map<number, number>();
+    let ko = 0;
+    const disguiseNow = disguise;
+    for (const a of actions) {
+      let d = dist;
+      for (let i = 0; i < a.hits.length; i++) {
+        const isFirst = first && i === 0;
+        const r = applyHit(d, a.hits[i], hp, {
+          sturdy,
+          fullHp: isFirst ? opts.fullHpFirst : undefined,
+          disguiseDmg: isFirst && disguiseNow ? Math.floor(hp / 8) : undefined,
+        });
+        ko += r.ko * a.weight;
+        d = r.next;
+      }
+      for (const [rem, p] of d) merged.set(rem, (merged.get(rem) || 0) + p * a.weight);
+    }
+    first = false;
+    disguise = false;
     cumKO += ko;
-    result.push({ n, cum: cumKO });
-    dist = next;
+    cum.push(Math.min(1, cumKO));
+    dist = merged;
     if (cumKO >= 0.999999) break;
   }
   let verdict = "", detail = "";
-  for (const r of result) if (r.cum >= 0.999999) { verdict = `確定${r.n}発`; break; }
-  const firstChance = result.find((r) => r.cum > 0);
-  if (firstChance && verdict !== `確定${firstChance.n}発`) {
-    detail = `乱数${firstChance.n}発（${(firstChance.cum * 100).toFixed(1)}%）`;
+  cum.forEach((c, i) => { if (!verdict && c >= 0.999999) verdict = `確定${i + 1}発`; });
+  const firstChance = cum.findIndex((c) => c > 0);
+  if (firstChance >= 0 && verdict !== `確定${firstChance + 1}発`) {
+    detail = `乱数${firstChance + 1}発（${(cum[firstChance] * 100).toFixed(1)}%）`;
   }
-  if (!verdict) verdict = "確定10発超";
-  return { min, max, verdict, detail, minPct: (min / hp) * 100, maxPct: (max / hp) * 100 };
+  if (!verdict) verdict = `確定${limit}発超`;
+  return { min, max, verdict, detail, ...pct, cum };
 }
+
+/** 2〜5回の連続技で、回数ごとの出る確率（本編と同じ 35/35/15/15%） */
+export const MULTI_HIT_WEIGHTS: Record<number, number> = { 2: 0.35, 3: 0.35, 4: 0.15, 5: 0.15 };
 
 /* タイプ相性倍率（表示・ステロ計算共用） */
 export function typeEffectiveness(moveType: string, defTypes: string[]): number {

@@ -6,7 +6,7 @@ import { AP_MAX_EACH, AP_MAX_TOTAL, NATURES, RANK_MAX, RANK_MIN, STAT_KEYS, STAT
 import { CONFIRMED } from "../data/confirmed";
 import { MOVE_BY_NAME, MOVE_LIB, accLabel, moveWithMeta, sortMovesByType } from "../data/moves";
 import {
-  computeDamage, effLabel, hazardDamage, koAnalysis, typeEffectiveness,
+  effLabel, hazardDamage, typeEffectiveness, type KoResult,
   type Field, type Weather,
 } from "../calc";
 import { TypeBadges } from "./TypeBadge";
@@ -23,6 +23,8 @@ import { ApBudgetBar, ApEditor } from "./ApEditor";
 import { StepSlider } from "./StepSlider";
 import { NumberInput } from "./NumberInput";
 import { LockButton } from "./LockButton";
+import { analyzeAttack, koChanceWithin, type AttackAnalysis, type HitsChoice, type HitsInfo } from "../attack";
+import { BulkTuner } from "./BulkTuner";
 
 type Dir = "toThreat" | "toSelf";
 
@@ -33,6 +35,7 @@ const ATK_ITEMS = [
 const DEF_ITEMS = [
   "（なし）", "とつげきチョッキ", "しんかのきせき",
   "ふうせん", // レギュM-Cで解禁（じめん技を無効化）
+  "きあいのタスキ", // HP満タンから倒れる一撃を1で耐える（確定数に反映）
 ];
 /* 内定352フォルムが持つ特性のうち、ダメージに影響するもの（tools で棚卸し済み） */
 const ATK_ABILITIES = [
@@ -44,6 +47,7 @@ const ATK_ABILITIES = [
   "ふかしのこぶし", "かんつうドリル",
   // レギュM-Cの追加ポケモンが持つもの（テクニシャンはハッサム等も該当）
   "テクニシャン", "パンクロック", "そうだいしょう",
+  "スキルリンク", // 連続技が必ず最大回数（メガヘラクロス・ドデカバシ）
   // タイプが変わる特性。撃つ技のタイプが変わるので相性・一致も変わる
   "へんげんじざい", "リベロ",
   "スカイスキン", "フェアリースキン", "フリーズスキン", "ドラゴンスキン", "うるおいボイス",
@@ -56,6 +60,8 @@ const DEF_ABILITIES = [
   "ふゆう", "もらいび", "ちくでん", "ちょすい", "そうしょく", "ぼうおん", "ぼうだん",
   "はどうのぼうご", // レギュM-Cで追加（メガルカリオZ・接触技を半減）
   "パンクロック",   // 音技のダメージを半減（ストリンダー）
+  // ダメージは変えず、確定数の判定に効くもの
+  "がんじょう", "ばけのかわ",
 ];
 /** ノーマル技が何タイプになるか（注記の文言用。計算の本体は src/calc.ts） */
 const SKIN_NOTE: Record<string, string> = {
@@ -68,6 +74,11 @@ const PROTEAN_NOTE = ["へんげんじざい", "リベロ", "リベロ／へん�
 const WEATHERS: Weather[] = ["なし", "にほんばれ", "あまごい", "すなあらし", "ゆき"];
 const FIELDS: Field[] = ["なし", "エレキフィールド", "グラスフィールド", "サイコフィールド", "ミストフィールド"];
 const RIVALRY = ["なし", "同性", "異性"] as const;
+
+/** 仮想敵の中身（内定表からのコピーを、性格・AP・種族値・タイプまで手直しできる） */
+type ThreatState = Threat & { nature: string; ap: StatBlock; item: string; ability: string; typeVerified: boolean };
+/** お気に入りの仮想敵。仮想敵そのものと、被ダメのときの攻撃技をまとめて持つ */
+interface FavThreat { id: string; label: string; threat: ThreatState; move?: Move }
 
 /** 保存済みの仮想敵データが今の形かどうか（古い保存値は既定値に戻す） */
 function isThreatState(v: unknown): boolean {
@@ -104,7 +115,7 @@ function abilityOptionsWith(base: string, extras: string[], current?: string): s
 }
 
 export function DamageTab() {
-  const { roster } = useStore();
+  const { roster, updateEntry } = useStore();
   // 画面の入力は localStorage に保存し、リロード後も同じ条件から再開できるようにする
   const [dir, setDir] = usePersistedState<Dir>(
     "dmg.dir", "toThreat", (v) => v === "toThreat" || v === "toSelf");
@@ -126,7 +137,7 @@ export function DamageTab() {
 
   // 仮想敵（内定ポケモンから選択・編集可能なコピー）
   const DEFAULT_THREAT = CONFIRMED.find((c) => c.name === "ガブリアス") ?? CONFIRMED[0];
-  const [threat, setThreat] = usePersistedState<Threat & { nature: string; ap: StatBlock; item: string; ability: string; typeVerified: boolean }>(
+  const [threat, setThreat] = usePersistedState<ThreatState>(
     "dmg.threat",
     () => ({ name: DEFAULT_THREAT.name, base: { ...DEFAULT_THREAT.base }, types: [...DEFAULT_THREAT.types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: DEFAULT_THREAT.abilities.join("/"), typeVerified: DEFAULT_THREAT.typeVerified }),
     isThreatState,
@@ -144,6 +155,42 @@ export function DamageTab() {
     const t = CONFIRMED.find((x) => x.name === name);
     if (!t) return;
     setThreat({ name: t.name, base: { ...t.base }, types: [...t.types], nature: "がんばりや（無補正）", ap: { H: 0, A: 0, B: 0, C: 0, D: 0, S: 0 }, item: "（なし）", ability: t.abilities.join("/"), typeVerified: t.typeVerified });
+    setFavId("");
+  };
+
+  /* ---------- お気に入りの仮想敵 ---------- */
+  const favLabel = () => {
+    const nat = threat.nature.replace(/（.*/, "");
+    const ap = apSummary(threat.ap);
+    return `${threat.name}（${nat}${ap === "未配分" ? "" : `・${ap}`}）`;
+  };
+  const favSub = (f: FavThreat) =>
+    [f.threat.name, f.move?.name].filter(Boolean).join("・");
+  const loadFav = (id: string) => {
+    const f = favThreats.find((x) => x.id === id);
+    if (!f) return;
+    setThreat(structuredClone(f.threat));
+    if (f.move) setThreatMove({ ...f.move });
+    setFavId(id);
+  };
+  const saveFav = () => {
+    const label = prompt("お気に入りの名前", favLabel());
+    if (!label) return;
+    const id = `${Date.now()}`;
+    setFavThreats((p) => [...p, { id, label, threat: structuredClone(threat), move: threatMove && { ...threatMove } }]);
+    setFavId(id);
+  };
+  const overwriteFav = () => {
+    const f = favThreats.find((x) => x.id === favId);
+    if (!f || !confirm(`「${f.label}」を今の内容で上書きします。よろしいですか？`)) return;
+    setFavThreats((p) => p.map((x) => (x.id === favId
+      ? { ...x, threat: structuredClone(threat), move: threatMove && { ...threatMove } } : x)));
+  };
+  const deleteFav = () => {
+    const f = favThreats.find((x) => x.id === favId);
+    if (!f || !confirm(`「${f.label}」をお気に入りから消します。よろしいですか？`)) return;
+    setFavThreats((p) => p.filter((x) => x.id !== favId));
+    setFavId("");
   };
 
   // 技選択：その種族がチャンピオンズで覚える攻撃技すべて＋この個体に設定済みの攻撃技を候補にする
@@ -175,6 +222,13 @@ export function DamageTab() {
     prevMoveName.current = name;
   }, [selfMove?.name]);
   const selfMoveEff = selfMove && selfVarPower ? { ...selfMove, power: selfPow } : selfMove;
+  // お気に入りの仮想敵（壊れた保存値は捨てる）。favId は今呼び出しているもの
+  const [favThreats, setFavThreats] = usePersistedState<FavThreat[]>(
+    "dmg.favThreats", [],
+    (v) => Array.isArray(v) && v.every((f) =>
+      !!f && typeof f.id === "string" && typeof f.label === "string" && isThreatState(f.threat)
+      && (f.move === undefined || isMove(f.move))));
+  const [favId, setFavId] = useState("");
   const [threatMove, setThreatMove] = usePersistedState<Move | undefined>(
     "dmg.threatMove", () => ({ ...MOVE_LIB[0] }), isMove);
 
@@ -208,6 +262,18 @@ export function DamageTab() {
     "dmg.alliesFainted", 0, (v) => typeof v === "number" && FAINTED.includes(v));
   const [protect, setProtect] = usePersistedState("dmg.protect", false, isBool);
   const [extraMul, setExtraMul] = usePersistedState("dmg.extraMul", 100, isNum); // %で保持
+  // ステルスロックを踏んでから受ける（確定数に入れる）
+  const [withSR, setWithSR] = usePersistedState("dmg.sr", false, isBool);
+  // 連続技の回数。"auto" は技の既定（固定回数・2〜5回は確率込み・スキルリンクなら最大）
+  const [hitsChoice, setHitsChoice] = usePersistedState<HitsChoice>(
+    "dmg.hits", "auto", (v) => v === "auto" || (typeof v === "number" && v >= 1 && v <= 10));
+  // 技を変えたら回数の指定は既定に戻す（5回を選んだまま2回技に替えると紛らわしい）
+  const curMoveName = dir === "toThreat" ? selfMove?.name : threatMove?.name;
+  const prevHitsMove = useRef(curMoveName);
+  useEffect(() => {
+    if (prevHitsMove.current !== curMoveName) setHitsChoice("auto");
+    prevHitsMove.current = curMoveName;
+  }, [curMoveName]);
   // 仮想敵のAPもスクロール中の誤操作を防げるようロックできるようにする
   const [threatApLocked, setThreatApLocked] = usePersistedState("dmg.threatApLock", false, isBool);
 
@@ -248,9 +314,10 @@ export function DamageTab() {
     if (atkAbil !== "（補正なし）") parts.push(atkAbil);
     if (defAbil !== "（補正なし）") parts.push(defAbil);
     if (extraMul !== 100) parts.push(`補正${extraMul}%`);
+    if (withSR) parts.push("ステロ込み");
     return parts.length > 0 ? parts.join(" / ") : "既定（補正なし）";
   }, [atkRank, defRank, weather, field, crit, burn, helpingHand, spread, wall, protect,
-      atkItem, defItem, atkAbil, defAbil, extraMul]);
+      atkItem, defItem, atkAbil, defAbil, extraMul, withSR]);
 
   if (!self || !selfForm) {
     return <div className="panel muted">先に「チーム管理」でポケモンを登録してください。</div>;
@@ -282,56 +349,106 @@ export function DamageTab() {
   const defReal = attackerIsSelf ? threatReal : selfReal;
   const defHP = defReal.H;
 
-  let result = null as ReturnType<typeof computeDamage>;
-  let ko = null as ReturnType<typeof koAnalysis>;
+  /** 技と攻守の実数値から、計算に渡す条件を組み立てる。
+   *  結果表示・技の一括計算・耐久の逆算がすべてこれを通るので、同じ条件なら同じ答えになる */
+  const buildParams = (m: Move, atkR: StatBlock, defR: StatBlock) => {
+    const cat = m.cat === "特殊" ? "特殊" : "物理";
+    // 攻撃側能力値: ボディプレスは自分のB、イカサマは相手のA
+    const atkStat = m.useDef ? atkR.B
+      : m.useTargetAtk ? defR.A
+      : cat === "物理" ? atkR.A : atkR.C;
+    // 防御側能力値: 物理 or 対B技(サイコショック系)は相手B、それ以外はD
+    const defStat = cat === "物理" || m.targetB ? defR.B : defR.D;
+    return {
+      atkStat,
+      defStat,
+      params: {
+        power: m.power,
+        moveName: m.name,
+        atkStat,
+        defStat,
+        atkRank,
+        defRank: m.ignoreDefRank ? 0 : defRank,
+        moveType: m.type,
+        atkTypes,
+        defTypes,
+        category: cat as "物理" | "特殊",
+        item: atkItem === "（なし）" ? "" : atkItem,
+        defItem: defItem === "（なし）" ? "" : defItem,
+        crit,
+        weather,
+        field,
+        burn,
+        wall,
+        contact: !!m.contact,
+        atkAbility: atkAbil === "（補正なし）" ? "" : atkAbil,
+        defAbility: defAbil === "（補正なし）" ? "" : defAbil,
+        helpingHand,
+        spread,
+        atkStatused,
+        defStatused,
+        atkPinch,
+        atkMovesLast,
+        rivalry,
+        alliesFainted,
+        protect,
+        extraMul: extraMul / 100,
+      },
+    };
+  };
+  const attackExtras = { startFull: defHPFull, stealthRock: withSR, hits: hitsChoice };
+
+  let analysis: AttackAnalysis | null = null;
+  let result: AttackAnalysis["result"] = null;
+  let ko: KoResult | null = null;
   let atkStatUsed = 0;
   let defStatUsed = 0;
   let eff = 1;
 
   if (move) {
-    const cat = move.cat === "特殊" ? "特殊" : "物理";
-    // 攻撃側能力値: ボディプレスは自分のB、イカサマは相手のA
-    atkStatUsed = move.useDef ? atkReal.B
-      : move.useTargetAtk ? defReal.A
-      : cat === "物理" ? atkReal.A : atkReal.C;
-    // 防御側能力値: 物理 or 対B技(サイコショック系)は相手B、それ以外はD
-    defStatUsed = cat === "物理" || move.targetB ? defReal.B : defReal.D;
-    eff = typeEffectiveness(move.type, defTypes);
-    result = computeDamage({
-      power: move.power,
-      moveName: move.name,
-      atkStat: atkStatUsed,
-      defStat: defStatUsed,
-      atkRank,
-      defRank: move.ignoreDefRank ? 0 : defRank,
-      moveType: move.type,
-      atkTypes,
-      defTypes,
-      category: cat,
-      item: atkItem === "（なし）" ? "" : atkItem,
-      defItem: defItem === "（なし）" ? "" : defItem,
-      crit,
-      weather,
-      field,
-      burn,
-      wall,
-      contact: !!move.contact,
-      atkAbility: atkAbil === "（補正なし）" ? "" : atkAbil,
-      defAbility: defAbil === "（補正なし）" ? "" : defAbil,
-      defHPFull,
-      helpingHand,
-      spread,
-      atkStatused,
-      defStatused,
-      atkPinch,
-      atkMovesLast,
-      rivalry,
-      alliesFainted,
-      protect,
-      extraMul: extraMul / 100,
-    });
-    if (result && !result.immune) ko = koAnalysis(result.rolls, defHP);
+    const b = buildParams(move, atkReal, defReal);
+    atkStatUsed = b.atkStat;
+    defStatUsed = b.defStat;
+    analysis = analyzeAttack(b.params, defHP, attackExtras);
+    result = analysis.result;
+    ko = analysis.ko;
+    // 相性の表示は計算と同じ値を使う（スキン系でタイプが変わると素の相性と違うため）
+    eff = result ? result.eff : typeEffectiveness(move.type, defTypes);
   }
+
+  /* 耐久調整の逆算（被ダメのときだけ）。自軍の H と B（特殊なら D）を仮に変えて、
+     結果表示と同じ analyzeAttack で確定耐えかを判定する。ほかの能力のAPと性格はそのまま */
+  const bulkDefKey: "B" | "D" = move && (move.cat === "物理" || move.targetB) ? "B" : "D";
+  const bulkBudget = AP_MAX_TOTAL - STAT_KEYS
+    .filter((k) => k !== "H" && k !== bulkDefKey)
+    .reduce((sum, k) => sum + self.ap[k], 0);
+  const bulkEval = (h: number, d: number, maxActions: number) => {
+    const ap = { ...self.ap, H: h, [bulkDefKey]: d };
+    const dr = realStats(selfForm.base, ap, self.nature);
+    const b = buildParams(move as Move, atkReal, dr);
+    return analyzeAttack(b.params, dr.H, { ...attackExtras, maxActions });
+  };
+  const bulkKey = move ? JSON.stringify({
+    c: buildParams(move, atkReal, defReal).params, base: selfForm.base, ap: self.ap,
+    nat: self.nature, ex: attackExtras, key: self.key,
+  }) : "";
+
+  /* 登録している攻撃技を、この相手に対して一度に比べる（与ダメのときだけ）。
+     条件はすべて今の戦闘条件のまま。選んでいる技だけは連続技の回数指定も合わせ、
+     ほかの技は既定（2〜5回なら確率込み）で出す。 */
+  const moveRows = attackerIsSelf
+    ? self.moves
+      .map((mv) => selfDamaging.find((d) => d.name === mv.name.trim()))
+      .filter((m): m is Move => !!m && m.cat !== "変化")
+      .map((m) => {
+        const cur = m.name === move?.name;
+        const eff0 = cur ? (move as Move) : m; // 威力可変技は今入力している威力を使う
+        if (!eff0.power) return { move: m, cur, varPower: true as const };
+        const b = buildParams(eff0, atkReal, defReal);
+        const a = analyzeAttack(b.params, defHP, { ...attackExtras, hits: cur ? hitsChoice : "auto" });
+        return { move: m, cur, varPower: false as const, a };
+      })
+    : [];
 
   const srInfo = self ? hazardDamage(defHP, "いわ", defTypes) : 0;
 
@@ -421,6 +538,20 @@ export function DamageTab() {
                 searchPlaceholder="内定ポケモンを名前で絞込み…"
               />
               <div className="small muted">{CONFIRMED.length}体の内定ポケモンから選択（種族値・特性はシート準拠）</div>
+              {/* よく使う相手は、性格・AP・技ごと保存して呼び出せる */}
+              <div className="fav-row">
+                <SelectMenu
+                  style={{ flex: "1 1 170px", minWidth: 0 }}
+                  items={favThreats.map((f) => ({ value: f.id, label: f.label, sub: favSub(f) }))}
+                  value={favId}
+                  placeholder={favThreats.length ? "★お気に入りから呼び出す" : "★お気に入りはまだありません"}
+                  disabled={favThreats.length === 0}
+                  onChange={loadFav}
+                />
+                <button type="button" className="btn small" onClick={saveFav} title="今の仮想敵（性格・AP・技まで）を保存">☆保存</button>
+                {favId && <button type="button" className="btn small" onClick={overwriteFav}>上書き</button>}
+                {favId && <button type="button" className="btn small danger" onClick={deleteFav}>削除</button>}
+              </div>
               {!threat.typeVerified && (
                 <div className="banner warn">この個体はチャンピオンズ新規メガ等でタイプが未公表です。素の型を仮採用しています（開いて修正可）。</div>
               )}
@@ -629,7 +760,8 @@ export function DamageTab() {
         </div>
         <div className="checks">
           <label><input type="checkbox" checked={wall} onChange={(e) => setWall(e.target.checked)} />壁(リフレク/ひかりのかべ)</label>
-          <label><input type="checkbox" checked={defHPFull} onChange={(e) => setDefHPFull(e.target.checked)} />HP満タン(マルチスケイル)</label>
+          <label title="マルチスケイル・きあいのタスキ・がんじょうの条件"><input type="checkbox" checked={defHPFull} onChange={(e) => setDefHPFull(e.target.checked)} />HP満タン(マルチスケイル・タスキ)</label>
+          <label title="交代で出てきたときにステルスロックを踏んだ前提で確定数を出す"><input type="checkbox" checked={withSR} onChange={(e) => setWithSR(e.target.checked)} />ステルスロック込み</label>
           <label title="ふしぎなうろこの条件">
             <input type="checkbox" checked={defStatused} onChange={(e) => setDefStatused(e.target.checked)} />
             状態異常(ふしぎなうろこ)
@@ -697,18 +829,44 @@ export function DamageTab() {
           </div>
         ) : result && ko ? (
           <ResultView move={move} ko={ko} eff={eff} rolls={result.rolls} defHP={defHP}
-            atkStat={atkStatUsed} defStat={defStatUsed} />
+            atkStat={atkStatUsed} defStat={defStatUsed}
+            analysis={analysis!} hitsChoice={hitsChoice} onHits={setHitsChoice} />
         ) : (
           <div className="muted">威力のある技を選択してください。</div>
         )}
         </div>
+        {moveRows.length > 1 && (
+          <MoveCompare rows={moveRows} onPick={setSelfMoveName} defName={threat.name} />
+        )}
+        {attackerIsSelf && self.moves.length === 0 && (
+          <div className="small muted" style={{ marginTop: 8 }}>
+            チーム管理で技を登録すると、登録した技をこの相手に対して一度に比べられます。
+          </div>
+        )}
         <div className="banner info" style={{ marginTop: 10 }}>
           参考: ステルスロック着地ダメージ（防御側の1/8×相性 = {(typeEffectiveness("いわ", defTypes)).toString()}倍）＝ <b className="tnum">{srInfo}</b>（{defHP > 0 ? ((srInfo / defHP) * 100).toFixed(1) : "0"}%）
+          {!withSR && <>。戦闘条件の「ステルスロック込み」で確定数に入ります</>}
         </div>
         <div className="banner info">
           ※ がんじょう・きあいのタスキ・ばけのかわ等「1発耐え」効果は計算に含みません。威力可変技・連続技も非対応（威力を手動指定してください）。
         </div>
       </div>
+
+      {!attackerIsSelf && move && ko && (
+        <BulkTuner
+          moveName={move.name}
+          defKey={bulkDefKey}
+          current={{ h: self.ap.H, d: self.ap[bulkDefKey] }}
+          budget={bulkBudget}
+          survive={(h, d, n) => koChanceWithin(bulkEval(h, d, n).ko, n) === 0}
+          koFor={(h, d) => bulkEval(h, d, 10).ko}
+          memoKey={bulkKey}
+          locked={!!self.apLocked}
+          onApply={(plan) => updateEntry(self.key, (e) => ({
+            ...e, ap: { ...e.ap, H: plan.h, [bulkDefKey]: plan.d },
+          }))}
+        />
+      )}
 
       {/* 結果が画面外のときだけ、要点を画面下に貼り付けておく。
           条件をいじりながら結果を見たいので、スクロール位置に関わらず判定が見える。
@@ -785,14 +943,20 @@ function StatLine({ real }: { real: StatBlock }) {
   );
 }
 
-function ResultView({ move, ko, eff, rolls, defHP, atkStat, defStat }: {
-  move: Move; ko: NonNullable<ReturnType<typeof koAnalysis>>; eff: number;
+function ResultView({ move, ko, eff, rolls, defHP, atkStat, defStat, analysis, hitsChoice, onHits }: {
+  move: Move; ko: KoResult; eff: number;
   rolls: number[]; defHP: number; atkStat: number; defStat: number;
+  analysis: AttackAnalysis; hitsChoice: HitsChoice; onHits: (v: HitsChoice) => void;
 }) {
   const stampClass = ko.verdict === "確定1発" ? "ko1" : ko.verdict === "確定2発" ? "ko2" : "";
   const full = moveWithMeta(move); // 命中率・PPを補完した技情報
+  const hits = analysis.hits;
   return (
     <div>
+      {hits && analysis.hitsAuto && (
+        <HitsPicker hits={hits} auto={analysis.hitsAuto} choice={hitsChoice} onChange={onHits} moveName={move.name} />
+      )}
+
       <div className="row" style={{ alignItems: "center", marginBottom: 6 }}>
         <span className={`stamp ${stampClass}`}>{ko.verdict}</span>
         {ko.detail && <span className="amber">{ko.detail}</span>}
@@ -801,7 +965,8 @@ function ResultView({ move, ko, eff, rolls, defHP, atkStat, defStat }: {
       </div>
 
       <div className="tnum">
-        ダメージ <b style={{ fontSize: 18, color: "var(--steel-hi)" }}>{ko.min} 〜 {ko.max}</b>
+        ダメージ{hits ? <span className="small muted">（{hits.random ? `${hits.min}〜${hits.max}回` : `${hits.fixed}回`}の合計）</span> : null}{" "}
+        <b style={{ fontSize: 18, color: "var(--steel-hi)" }}>{ko.min} 〜 {ko.max}</b>
         <span className="muted"> （{ko.minPct.toFixed(1)}% 〜 {ko.maxPct.toFixed(1)}%）</span>
       </div>
 
@@ -817,14 +982,96 @@ function ResultView({ move, ko, eff, rolls, defHP, atkStat, defStat }: {
         <span><i className="sw lost" />必ず減る</span>
       </div>
 
+      {/* 確定数に入れた効果。ダメージの幅には出ないものがあるので、何を見たかを明示する */}
+      {analysis.notes.length > 0 && (
+        <ul className="calc-notes small">
+          {analysis.notes.map((n) => <li key={n}>{n}</li>)}
+        </ul>
+      )}
+
       <div className="small muted">
         使用実数値: {move.useDef ? "防御B" : move.useTargetAtk ? "相手の攻撃A" : move.cat === "物理" ? "攻撃A" : "特攻C"} <b className="tnum">{atkStat}</b> → 相手{move.cat === "物理" || move.targetB ? "防御B" : "特防D"} <b className="tnum">{defStat}</b>
-        （威力{move.power} / {move.type} / {move.cat} / {accLabel(full.acc)} / PP{full.pp ?? "—"}{full.critUp ? " / 急所+1" : ""}）
+        （威力{move.power}{hits?.escalating ? "→×2→×3" : ""} / {move.type} / {move.cat} / {accLabel(full.acc)} / PP{full.pp ?? "—"}{full.critUp ? " / 急所+1" : ""}）
       </div>
 
-      <div className="small muted" style={{ marginTop: 6 }}>16乱数（85〜100%）:</div>
+      <div className="small muted" style={{ marginTop: 6 }}>
+        {hits ? `1発目の16乱数（85〜100%）${hits.escalating ? "。2発目以降は威力が上がる" : ""}:` : "16乱数（85〜100%）:"}
+      </div>
       <div className="rolls">
         {rolls.map((d, i) => <span key={i}>{d}</span>)}
+      </div>
+    </div>
+  );
+}
+
+type MoveRow =
+  | { move: Move; cur: boolean; varPower: true }
+  | { move: Move; cur: boolean; varPower: false; a: AttackAnalysis };
+
+/** 登録済みの攻撃技を並べて比べる。行を押すとその技の詳細（上の結果）に切り替わる */
+function MoveCompare({ rows, onPick, defName }: {
+  rows: MoveRow[]; onPick: (name: string) => void; defName: string;
+}) {
+  return (
+    <div className="move-compare">
+      <div className="small muted" style={{ marginBottom: 4 }}>
+        登録している技で比べる（対 {defName}・今の戦闘条件）
+      </div>
+      {rows.map((r) => {
+        const ko = !r.varPower ? r.a.ko : null;
+        const immune = !r.varPower && r.a.result?.immune;
+        const cls = ko?.verdict === "確定1発" ? "ko1" : ko?.verdict === "確定2発" ? "ko2" : "";
+        return (
+          <button
+            type="button"
+            key={r.move.name}
+            className={`mc-row ${r.cur ? "on" : ""}`}
+            onClick={() => onPick(r.move.name)}
+            title="この技の詳細を見る"
+          >
+            <span className="tbadge" style={{ background: TYPE_COLORS[r.move.type] }}>{r.move.type}</span>
+            <span className="mc-name">{r.move.name}</span>
+            <span className="mc-res">
+              {r.varPower ? <span className="muted small">威力可変（選んで威力を入力）</span>
+                : immune ? <span className="muted small">{r.a.result?.immuneReason ? `${r.a.result.immuneReason}で無効` : "効果なし"}</span>
+                : ko ? (
+                  <>
+                    <span className={`mc-verdict ${cls}`}>{ko.verdict}</span>
+                    {ko.detail && <span className="amber small"> {ko.detail}</span>}
+                    <span className="muted small tnum"> {ko.minPct.toFixed(1)}〜{ko.maxPct.toFixed(1)}%</span>
+                  </>
+                ) : <span className="muted small">—</span>}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 連続技の回数を選ぶ。2〜5回の技は「確率込み」（35/35/15/15%）が既定 */
+function HitsPicker({ hits, auto, choice, onChange, moveName }: {
+  hits: HitsInfo; auto: HitsInfo; choice: HitsChoice; onChange: (v: HitsChoice) => void; moveName: string;
+}) {
+  const counts = Array.from({ length: hits.max - hits.min + 1 }, (_, i) => hits.min + i);
+  // 回数が固定で選びようがない技（ダブルウイング等）は、回数を示すだけにする
+  if (counts.length === 1) {
+    return <div className="small muted" style={{ marginBottom: 6 }}>連続技: {moveName}（{hits.max}回）</div>;
+  }
+  // 「既定」の中身は技と特性で決まる（今どれを選んでいるかでは変わらない）
+  const autoLabel = auto.random ? "確率込み" : `${auto.fixed}回（既定）`;
+  return (
+    <div className="hits-pick">
+      <span className="small muted">連続技の回数</span>
+      <div className="seg">
+        <button type="button" className={`sort-chip ${choice === "auto" ? "on" : ""}`} onClick={() => onChange("auto")}>
+          {autoLabel}
+        </button>
+        {counts.map((k) => (
+          <button key={k} type="button" className={`sort-chip ${choice === k ? "on" : ""}`} onClick={() => onChange(k)}>
+            {k}
+          </button>
+        ))}
       </div>
     </div>
   );

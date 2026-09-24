@@ -4,7 +4,7 @@ import { useStore } from "../store";
 import { usePersistedState } from "../uiState";
 import { CONFIRMED } from "../data/confirmed";
 import { abilitySummary } from "../data/abilities";
-import { RANK_MAX, RANK_MIN, TYPES, TYPE_COLORS, calcStat, rankLabel, rankMul, realStats } from "../data/game";
+import { RANK_MAX, RANK_MIN, TYPES, TYPE_COLORS, calcStat, rankLabel, rankMul, rankMulLabel, realStats } from "../data/game";
 import { TypeBadges } from "./TypeBadge";
 import { displayName } from "../data/roster";
 import { Panel } from "./Panel";
@@ -20,6 +20,8 @@ interface SpeedRow {
   key: string;
   label: string;
   detail: string;
+  /** 実数値から変えている条件（スカーフ・Sランク）。実効Sが実数値と違う理由なので目立たせる */
+  mods?: string;
   types?: string[];
   /** 特性の候補（絞込み用。個体として選んでいる1つではない） */
   abilities: string[];
@@ -46,8 +48,71 @@ function refSpeed(baseS: number, line: RefLine): number {
   return calcStat(baseS, 0, 1.0); // 無振り
 }
 
+/** 抜きたい相手に対して、Sに何AP振れば抜けるか（同速はいくつか）を出す。
+ *  スカーフ・Sランクは比較表と同じくこの画面の仮定を使う。性格は個体のまま */
+function SpeedNeed({ entry, targetName, targetSpeed, speedAt, onApply }: {
+  entry: RosterEntry;
+  targetName: string;
+  targetSpeed: number;
+  speedAt: (sAp: number) => number;
+  onApply: (sAp: number) => void;
+}) {
+  const cur = entry.ap.S;
+  // 0〜32 を順に見るだけ（33通り）。素早さは振るほど上がるので最初に超えた値が最小
+  let faster: number | null = null, tie: number | null = null;
+  for (let k = 0; k <= 32; k++) {
+    const sp = speedAt(k);
+    if (tie === null && sp === targetSpeed) tie = k;
+    if (sp > targetSpeed) { faster = k; break; }
+  }
+  const others = (Object.keys(entry.ap) as (keyof typeof entry.ap)[])
+    .filter((k) => k !== "S").reduce((sum, k) => sum + entry.ap[k], 0);
+  const room = 66 - others; // S に回せる上限
+  const nowSpeed = speedAt(cur);
+
+  let text: string;
+  let cls = "";
+  if (faster === null) {
+    text = `S32でも ${speedAt(32)} で届きません`;
+    cls = "warn";
+  } else if (nowSpeed > targetSpeed) {
+    text = `今のまま抜けます（最小 S${faster}${faster < cur ? `、${cur - faster} AP 浮く` : ""}）`;
+    cls = "ok";
+  } else if (faster > room) {
+    text = `S${faster} 必要。ほかに ${others} 振っているので S は ${room} まで（あと ${faster - room} 足りない）`;
+    cls = "warn";
+  } else {
+    text = `S${faster} で抜けます（今 S${cur} → あと ${faster - cur}）`;
+  }
+  const canApply = faster !== null && faster <= room && faster !== cur && !entry.apLocked;
+  return (
+    <div className="spd-need small">
+      <span className="muted">{targetName}（{targetSpeed}）を抜く: </span>
+      <span className={cls}>{text}</span>
+      {/* 抜けないときも、同速までは届くなら知らせる（同速は半々で先手） */}
+      {tie !== null && (faster === null || tie < faster) && (
+        <span className="muted">。S{tie} だと同速</span>
+      )}
+      {canApply && (
+        <button
+          type="button"
+          className="btn small"
+          style={{ marginLeft: 6 }}
+          onClick={() => {
+            if (faster === null) return;
+            if (faster < cur && !confirm(`S の AP を ${cur}→${faster} に下げます。よろしいですか？`)) return;
+            onApply(faster);
+          }}
+        >
+          S{faster}にする
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function SpeedTab() {
-  const { roster } = useStore();
+  const { roster, updateEntry } = useStore();
   // 個体ごとの スカーフ / ランク設定（リロードしても残す）
   const isObj = (v: unknown) => !!v && typeof v === "object" && !Array.isArray(v);
   const [scarf, setScarf] = usePersistedState<Record<string, boolean>>("spd.scarf", {}, isObj);
@@ -56,6 +121,12 @@ export function SpeedTab() {
   const [line, setLine] = usePersistedState<RefLine>(
     "spd.line", "最速", (v) => v === "最速" || v === "準速" || v === "無振り");
   const [onlyMine, setOnlyMine] = usePersistedState("spd.onlyMine", false, (v) => typeof v === "boolean");
+  // 抜きたい相手（素早さの逆算）。空文字なら未設定
+  const [target, setTarget] = usePersistedState<string>(
+    "spd.target", "", (v) => typeof v === "string" && (v === "" || CONFIRMED.some((c) => c.name === v)));
+  const [targetLine, setTargetLine] = usePersistedState<RefLine>(
+    "spd.targetLine", "最速", (v) => v === "最速" || v === "準速" || v === "無振り");
+  const [targetScarf, setTargetScarf] = usePersistedState("spd.targetScarf", false, (v) => typeof v === "boolean");
   // 絞込みは保存しない（開いた時に何も出ない状態になるのを避ける）
   const [q, setQ] = useState("");
   // はがね図鑑と同じ絞込み。こちらも保存しない（何も出ない状態で開くのを避ける）
@@ -69,19 +140,34 @@ export function SpeedTab() {
     [roster],
   );
 
+  /** 個体の素早さ。S の AP だけ差し替えて計算できる（逆算用）。
+   *  スカーフ・Sランクはこの画面の設定を使う（比較表と同じ数え方） */
+  const effSpeed = (e: RosterEntry, sAp: number): number => {
+    const form = e.forms[e.activeForm];
+    let s = realStats(form.base, { ...e.ap, S: sAp }, e.nature).S;
+    if (scarf[e.key]) s = Math.floor(s * 1.5);
+    return rankMul(s, rank[e.key] ?? 0);
+  };
+  const targetMon = CONFIRMED.find((c) => c.name === target);
+  const targetSpeed = targetMon
+    ? (targetScarf ? Math.floor(refSpeed(targetMon.base.S, targetLine) * 1.5) : refSpeed(targetMon.base.S, targetLine))
+    : 0;
+
   const rosterRow = (e: RosterEntry): SpeedRow => {
     const form = e.forms[e.activeForm];
     const base = realStats(form.base, e.ap, e.nature).S;
     let s = base;
     if (scarf[e.key]) s = Math.floor(s * 1.5);
     s = rankMul(s, rank[e.key] ?? 0);
-    const tags: string[] = [`実数${base}`];
-    if (scarf[e.key]) tags.push("スカーフ");
-    if ((rank[e.key] ?? 0) !== 0) tags.push(`S${(rank[e.key] ?? 0) > 0 ? "+" : ""}${rank[e.key]}`);
+    const mods: string[] = [];
+    if (scarf[e.key]) mods.push("スカーフ×1.5");
+    const r = rank[e.key] ?? 0;
+    if (r !== 0) mods.push(`S${rankLabel(r)}(${rankMulLabel(r)})`);
     return {
       key: e.key,
       label: `${displayName(e.name, form.form)}${e.nickname ? `「${e.nickname}」` : ""}`,
-      detail: tags.join(" / "),
+      detail: `実数${base}`,
+      mods: mods.length ? mods.join(" ") : undefined,
       types: form.types,
       abilities: splitAbility(form.ability),
       isMega: form.form.startsWith("メガ"),
@@ -175,14 +261,49 @@ export function SpeedTab() {
   const toggleType = (t: string) =>
     setTypeFilter((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
+  /** Sランクを0以外にしている個体。ランクは保存されるので、いつ変えたか忘れていても
+   *  「実数値が高いのに下にいる」理由が分かるよう、表の上に出して一括で戻せるようにする */
+  const rankedMons = sortedRoster.filter((e) => (rank[e.key] ?? 0) !== 0);
+  const resetRanks = () => setRank({});
+
   const marker = (k: Kind) => (k === "team" ? "★ " : k === "bench" ? "◆ " : "");
   const rowClass = (k: Kind) => (k === "team" ? "self-row" : k === "bench" ? "bench-row" : "");
 
   return (
     <div>
       {/* 個体が多いと縦に長くなり、肝心の比較表まで遠くなるので畳めるようにする */}
-      <Panel id="spd.roster" title="手持ち・控えの素早さ設定" summary={`${sortedRoster.length}体`}>
+      <Panel
+        id="spd.roster"
+        title="手持ち・控えの素早さ設定"
+        summary={`${sortedRoster.length}体${rankedMons.length ? `・Sランク変更${rankedMons.length}体` : ""}`}
+      >
         {sortedRoster.length === 0 && <div className="muted small">個体がいません。チーム管理で登録してください。</div>}
+        {sortedRoster.length > 0 && (
+          <div className="spd-target">
+            <div className="small muted">抜きたい相手（各個体に、抜くのに要るSのAPを出します）</div>
+            <SelectMenu
+              items={[{ value: "", label: "（選ばない）" }, ...CONFIRMED.map((c) => ({ value: c.name, label: c.name, sub: `S${c.base.S}` }))]}
+              value={target}
+              onChange={setTarget}
+              searchable
+              searchPlaceholder="内定ポケモンを名前で絞込み…"
+            />
+            {targetMon && (
+              <div className="row tight" style={{ marginTop: 6 }}>
+                <div className="seg" style={{ flex: "0 1 220px" }}>
+                  {(["最速", "準速", "無振り"] as RefLine[]).map((l) => (
+                    <button key={l} type="button" className={`sort-chip ${targetLine === l ? "on" : ""}`} onClick={() => setTargetLine(l)}>{l}</button>
+                  ))}
+                </div>
+                <label className="row tight small" style={{ cursor: "pointer" }}>
+                  <input type="checkbox" checked={targetScarf} onChange={(ev) => setTargetScarf(ev.target.checked)} />
+                  スカーフ
+                </label>
+                <span className="small tnum">→ 実数S <b>{targetSpeed}</b></span>
+              </div>
+            )}
+          </div>
+        )}
         {sortedRoster.length > 0 && (
           <div className="small muted" style={{ marginBottom: 4 }}>
             スカーフ・Sランクはこの画面だけの仮定です。APを変えた場合は、
@@ -225,6 +346,15 @@ export function SpeedTab() {
                 残量バーも添える。振り直しは他の能力も見えるチーム管理で。 */}
             <ApBudgetBar entry={e} />
             <ApEditor entry={e} keys={["S"]} />
+            {targetMon && (
+              <SpeedNeed
+                entry={e}
+                targetName={`${targetMon.name}（${targetLine}${targetScarf ? "・スカーフ" : ""}）`}
+                targetSpeed={targetSpeed}
+                speedAt={(k) => effSpeed(e, k)}
+                onApply={(k) => updateEntry(e.key, (en) => ({ ...en, ap: { ...en.ap, S: k } }))}
+              />
+            )}
             </div>
           );
         })}
@@ -319,6 +449,15 @@ export function SpeedTab() {
           は自分の構成（実数値）。それ以外は内定ポケモンの{line}ライン。
           {narrowing && "　絞込みは内定ポケモンにだけ効きます（自分の個体は基準線として常に表示）。"}
         </div>
+        {rankedMons.length > 0 && (
+          <div className="banner warn row tight" style={{ marginBottom: 6 }}>
+            <span style={{ flex: "1 1 200px" }}>
+              Sランクを変えている個体があります（実効Sはランク込み）：
+              {rankedMons.map((e) => `${displayName(e.name, e.forms[e.activeForm].form)} S${rankLabel(rank[e.key])}`).join("、")}
+            </span>
+            <button type="button" className="btn small" onClick={resetRanks}>Sランクをすべて0に戻す</button>
+          </div>
+        )}
         {/* スマホでも横スクロール無しで読めるよう、条件/タイプは名前の下に重ねる2列構成 */}
         <table className="spd">
           <thead>
@@ -335,6 +474,7 @@ export function SpeedTab() {
                   <div className={r.kind !== "ref" ? "me" : ""}>{marker(r.kind)}{r.label}</div>
                   <div className="row tight spd-meta">
                     <span className="small muted">{r.detail}</span>
+                    {r.mods && <span className="small amber">→ {r.mods}</span>}
                     {r.types && <TypeBadges types={r.types} />}
                   </div>
                 </td>
