@@ -137,3 +137,27 @@ GameWith の PP 列はチャンピオンズの値と判断しています。
   チャンピオンズ値・自動生成）→ `CHAMP_META`（実機確認などの手動上書き・最優先）。
   手で直すときは `src/data/moves.ts` の `CHAMP_META` に書きます
   （`moveMeta.ts` と `champStats.ts` は再生成されるため直接書かない）。
+
+## 内定ポケモン全種族の習得技（被ダメ計算用）
+
+被ダメ計算で仮想敵の技を「実際に覚える技」から選べるよう、内定352フォルムの習得技を
+GameWith の個別ページから取得しています（`src/data/threatLearnsets.ts`）。
+
+```text
+Actions → Scrape Champ Data → Run workflow → target: threats
+  → bot/threat-learnsets に gamewith_threat_moves.json / gamewith_links.json / scrape_threats_log.txt
+取れなかった種族があれば target: threats-missing で、その種族だけ取り直す
+node tools/scrape-learnsets/gen-threat-learnsets.mjs   # threatLearnsets.ts を生成
+node tools/scrape-learnsets/gen-learnsets.mjs          # あく系統の穴も同じデータで埋まる
+```
+
+- 取得対象は `threat-targets.cjs` が内定表から作る270種族。メガは元の姿に寄せる
+  （`メガニウム` のように名前が「メガ」で始まるだけの種族は別扱い）。
+- 個別ページのURLは、内定一覧・1〜9世代一覧・メガ一覧・M-C追加一覧のリンクを集め、
+  括弧や「のすがた」の表記ゆれを吸収して引く。フォルムでページを共有する種族
+  （パンプジン・イキリンコ等）やメガのページしか無い種族（ニャオニクス等）にも対応。
+- 2026/9 時点で **270/270種族** を取得。はがね・あく47系統は既存の習得表（実機確認の補正つき）と
+  突き合わせて46系統が完全一致し、差はギルガルドの `きりさく`（M-C解禁）だけだった
+  → `gen-learnsets.mjs` の `EXTRA` に追加済み。
+- アプリでは、はがね・あく系統は `LEARNSETS`（補正つき）を優先し、それ以外を
+  `THREAT_LEARNSETS` から引く（`src/components/MoveEditor.tsx` の `threatMoveOptions`）。
