@@ -6,14 +6,27 @@ name: Scrape Champ Data
 #   learnsets  … AppMedia の個別ページから「チャンピオンズで覚える技」を取得し
 #                LEARNSETS を再生成 → bot/champ-learnsets
 #   pages      … レギュレーション情報のページ本文を取得 → bot/regulation-pages
+#   threats    … 内定ポケモン全種族の「チャンピオンズで覚える技」を GameWith から取得
+#                → bot/threat-learnsets（被ダメ計算で仮想敵の技を絞るため）
+#                threats-missing は、前回取れなかった種族だけを取り直す
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: 取得するもの
+        type: choice
+        default: steel-dark
+        options:
+          - steel-dark
+          - threats
+          - threats-missing
 
 permissions:
   contents: write
 
 jobs:
   learnsets:
+    if: ${{ inputs.target == 'steel-dark' || inputs.target == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +56,7 @@ jobs:
           git push -f origin bot/champ-learnsets
 
   pages:
+    if: ${{ inputs.target == 'steel-dark' || inputs.target == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,3 +77,35 @@ jobs:
           git add -f tools/fetch-pages/out
           git commit -q -m "chore: fetch regulation pages" || echo "no changes"
           git push -f origin bot/regulation-pages
+
+  threats:
+    if: ${{ startsWith(inputs.target, 'threats') }}
+    runs-on: ubuntu-latest
+    # 270種族を順番に（ページ間に待機を入れて）取るので長めにとる
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright (ad-hoc, not saved to package.json)
+        run: |
+          npm i --no-save playwright@1.49
+          npx playwright install --with-deps chromium
+      - name: Restore previous result (threats-missing only)
+        if: ${{ inputs.target == 'threats-missing' }}
+        run: |
+          git fetch origin bot/threat-learnsets
+          git checkout origin/bot/threat-learnsets -- tools/scrape-learnsets/gamewith_threat_moves.json
+      - name: Scrape
+        env:
+          ONLY_MISSING: ${{ inputs.target == 'threats-missing' && '1' || '0' }}
+        run: node tools/scrape-learnsets/scrape-threats.cjs
+      - name: Push result branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B bot/threat-learnsets
+          git add -f tools/scrape-learnsets/gamewith_threat_moves.json tools/scrape-learnsets/gamewith_links.json tools/scrape-learnsets/scrape_threats_log.txt
+          git commit -q -m "chore: fetch learnsets of all confirmed Pokemon" || echo "no changes"
+          git push -f origin bot/threat-learnsets

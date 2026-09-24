@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Move } from "../types";
 import { BANNED_MOVES, LEARNSETS, MOVE_BY_NAME, MOVE_LIB } from "../data/moves";
+import { MEGA_BASE, THREAT_LEARNSETS } from "../data/threatLearnsets";
 import { TYPES, TYPE_COLORS } from "../data/game";
 import { MoveSelect } from "./MoveSelect";
 import { SelectMenu } from "./SelectMenu";
@@ -25,6 +26,32 @@ export function moveOptionsFor(speciesName: string): {
     return { options, verified: true, status: ls.status, source: ls.source, banned };
   }
   return { options: MOVE_LIB, verified: false, banned };
+}
+
+/** 仮想敵（内定ポケモン）の攻撃技の候補。被ダメ計算で「実際に覚える技」から選べるようにする。
+ *
+ *  引く順番:
+ *    1. メガは元の姿に寄せる（習得技は同じ）
+ *    2. はがね・あく系統は LEARNSETS（AppMedia＋実機確認の手当てつき）を優先
+ *       （内定表は「ギルガルド(シールドフォルム)」のようにフォルム名が付くので、外しても引く）
+ *    3. それ以外は THREAT_LEARNSETS（GameWith から全種族を取得）
+ *  どれにも無ければ全技ライブラリ（verified: false）。変化技は計算に使わないので外す。 */
+export function threatMoveOptions(confirmedName: string): {
+  options: Move[];
+  verified: boolean;
+  source?: string;
+} {
+  const base = MEGA_BASE[confirmedName] ?? confirmedName;
+  const noForm = base.replace(/[(（].*$/, "");
+  const damaging = (names: string[]) => names
+    .filter((n) => !(BANNED_MOVES[base] ?? BANNED_MOVES[noForm] ?? []).includes(n))
+    .map((n) => MOVE_BY_NAME[n])
+    .filter((m): m is Move => !!m && m.cat !== "変化");
+  const ls = LEARNSETS[base] ?? LEARNSETS[noForm];
+  if (ls) return { options: damaging(ls.moves), verified: true, source: ls.source };
+  const gw = THREAT_LEARNSETS[base];
+  if (gw) return { options: damaging(gw.split(" ")), verified: true, source: "GameWith個別ページ（チャンピオンズで覚える技）" };
+  return { options: MOVE_LIB.filter((m) => m.cat !== "変化"), verified: false };
 }
 
 interface Props {
