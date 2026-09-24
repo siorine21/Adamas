@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useStore } from "./store";
 import { usePersistedState } from "./uiState";
 import { TeamTab } from "./components/TeamTab";
@@ -38,9 +38,20 @@ export default function App() {
     "tab", "team",
     (v) => typeof v === "string" && TABS.some((t) => t.id === v),
   );
+  // 貼り付くヘッダーの高さを CSS 変数に入れる。表の見出し行をその下に貼り付けるため
+  const headerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const set = () => document.documentElement.style.setProperty("--hdr-h", `${el.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
     <div className="app">
-      <header className="app-header">
+      <header className="app-header" ref={headerRef}>
         <div className="app-title">
           <h1>アダマス工房</h1>
           <span className="sub">はがね／あく統一チーム構成支援 ／ レギュM-C・Lv50</span>
@@ -66,65 +77,6 @@ export default function App() {
         <div style={{ display: tab === "speed" ? "block" : "none" }}><SpeedTab /></div>
         <div style={{ display: tab === "tools" ? "block" : "none" }}><ToolsTab /></div>
       </main>
-      <InstallFooter />
     </div>
-  );
-}
-
-// ページ末尾: このアプリのURL表示＋ホーム画面追加(インストール)の案内
-function InstallFooter() {
-  const url = `${window.location.origin}${import.meta.env.BASE_URL}`;
-  const [copied, setCopied] = useState(false);
-  const [deferred, setDeferred] = useState<{ prompt: () => void; userChoice: Promise<unknown> } | null>(null);
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const standalone =
-    window.matchMedia?.("(display-mode: standalone)").matches ||
-    (navigator as unknown as { standalone?: boolean }).standalone === true;
-
-  useEffect(() => {
-    const onBip = (e: Event) => {
-      e.preventDefault();
-      setDeferred(e as unknown as { prompt: () => void; userChoice: Promise<unknown> });
-    };
-    window.addEventListener("beforeinstallprompt", onBip);
-    return () => window.removeEventListener("beforeinstallprompt", onBip);
-  }, []);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* クリップボード不可の環境では無視（URLは表示済み） */
-    }
-  };
-
-  const install = async () => {
-    if (!deferred) return;
-    deferred.prompt();
-    try { await deferred.userChoice; } catch { /* noop */ }
-    setDeferred(null);
-  };
-
-  return (
-    <footer className="app-footer">
-      <div className="row tight">
-        <span className="small muted">このアプリのURL</span>
-        <a className="app-url" href={url}>{url}</a>
-        <button className="btn small" onClick={copy}>{copied ? "コピー済" : "コピー"}</button>
-      </div>
-      {!standalone && (
-        <div className="small muted" style={{ marginTop: 6 }}>
-          {deferred ? (
-            <button className="btn small primary" onClick={install}>📲 アプリとしてインストール</button>
-          ) : isIOS ? (
-            <>ホーム画面に追加: 共有メニュー →「ホーム画面に追加」でアプリのように使えます。</>
-          ) : (
-            <>ホーム画面に追加: ブラウザメニュー →「アプリをインストール／ホーム画面に追加」でアプリのように使えます。</>
-          )}
-        </div>
-      )}
-    </footer>
   );
 }

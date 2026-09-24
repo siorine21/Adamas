@@ -10,6 +10,9 @@ import { usePersistedState } from "../uiState";
 import { NumberInput } from "./NumberInput";
 import { SelectMenu } from "./SelectMenu";
 import { TypeMatchup, matchupOf } from "./TypeMatchup";
+import { Panel } from "./Panel";
+import { Segmented } from "./Segmented";
+import { AppInfo } from "./AppInfo";
 
 /* ============================================================
    汎用ツール。特定のチームや図鑑に紐づかない、タイプ相性・実数値まわりの
@@ -61,21 +64,16 @@ export function ToolsTab() {
 
   return (
     <div>
-      <div className="panel">
-        <div className="row tight">
-          {TOOLS.map((t) => (
-            <button
-              key={t.id}
-              className={`sort-chip ${tool === t.id ? "on" : ""}`}
-              aria-pressed={tool === t.id}
-              onClick={() => setTool(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="small muted" style={{ marginTop: 6 }}>{current.desc}</div>
-      </div>
+      {/* 画面内の切替はカードで囲まず、タブのすぐ下に置く（ダメージ計算の与ダメ／被ダメと同じ） */}
+      <Segmented
+        size="lg"
+        ariaLabel="ツールの種類"
+        style={{ margin: "12px 0 0" }}
+        options={TOOLS.map((t) => ({ value: t.id, label: t.label }))}
+        value={tool}
+        onChange={setTool}
+      />
+      <div className="small muted" style={{ margin: "6px 2px 0" }}>{current.desc}</div>
 
       {/* 各ツールは常時マウントせず、選ばれたものだけ描く。
           入力は usePersistedState で保存しているので切り替えても消えない */}
@@ -83,6 +81,8 @@ export function ToolsTab() {
       {tool === "defense" && <DefenseTool />}
       {tool === "chart" && <ChartTool />}
       {tool === "stats" && <StatsTool />}
+
+      <AppInfo />
     </div>
   );
 }
@@ -151,8 +151,7 @@ function CoverageTool() {
   const blind = rows.filter((r) => r.best <= 1).map((r) => r.type);
 
   return (
-    <div className="panel">
-      <div className="section-title">攻撃範囲チェック（単体）</div>
+    <Panel id="tools.coverage" title="攻撃範囲チェック（単体）" summary={picked.length ? picked.join("・") : "未選択"}>
       <div className="row tight">
         <span className="small muted">技のタイプ（最大{MAX_ATK_TYPES}）</span>
         <span className="small">{picked.length} / {MAX_ATK_TYPES}</span>
@@ -214,7 +213,7 @@ function CoverageTool() {
           </div>
         </>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -235,8 +234,7 @@ function DefenseTool() {
   );
 
   return (
-    <div className="panel">
-      <div className="section-title">防御相性チェック</div>
+    <Panel id="tools.defense" title="防御相性チェック" summary={picked.length ? picked.join("・") : "未選択"}>
       <div className="row tight">
         <span className="small muted">自分のタイプ（最大{MAX_DEF_TYPES}）</span>
         <span className="small">{picked.length} / {MAX_DEF_TYPES}</span>
@@ -262,15 +260,14 @@ function DefenseTool() {
           </div>
         </>
       )}
-    </div>
+    </Panel>
   );
 }
 
 /* ---------- ③ タイプ相性表 ---------- */
 function ChartTool() {
   return (
-    <div className="panel">
-      <div className="section-title">タイプ相性表</div>
+    <Panel id="tools.chart" title="タイプ相性表" summary="18タイプ">
       <div className="small muted">縦＝攻撃側、横＝防御側。空欄は等倍。</div>
       <div className="table-scroll" style={{ marginTop: 6 }}>
         <table className="wk cv chart">
@@ -301,7 +298,7 @@ function ChartTool() {
           </tbody>
         </table>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -326,8 +323,7 @@ function StatsTool() {
   ) => (v: number) => setter((prev) => ({ ...prev, [k]: Math.min(max, Math.max(0, v)) }));
 
   return (
-    <div className="panel">
-      <div className="section-title">実数値計算（Lv50・個体値31）</div>
+    <Panel id="tools.stats" title="実数値計算" summary={`Lv50・個体値31・${nature.replace(/（.*/, "")}`}>
       <label className="fld">
         <span>性格</span>
         <SelectMenu
@@ -371,6 +367,6 @@ function StatsTool() {
         チャンピオンズの配分（AP 各{AP_MAX_EACH}・合計{AP_MAX_TOTAL}まで）で計算します。
         性格補正は攻撃〜素早さに ×1.1／×0.9。HPには掛かりません。
       </div>
-    </div>
+    </Panel>
   );
 }

@@ -90,7 +90,7 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
           type="button"
           className="card-toggle"
           aria-expanded={!collapsed}
-          title={collapsed ? "開く" : "たたむ"}
+          title={collapsed ? "開く" : "畳む"}
           onClick={onToggle}
         >
           <span className={`card-caret ${collapsed ? "" : "open"}`}>▶</span>
@@ -122,16 +122,6 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
               </span>
             )}
           </span>
-        </button>
-        <button
-          className="btn small danger"
-          title="削除"
-          onClick={() => {
-            // AP・技まで組んだ個体が誤タップ1回で消えないよう確認する
-            if (confirm(`「${displayName(entry.name, form.form)}」を削除します。よろしいですか？`)) removeEntry(entry.key);
-          }}
-        >
-          削除
         </button>
       </div>
 
@@ -220,12 +210,12 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
       </div>
 
       {/* 能力値 / AP。入力は ApEditor に集約している（ダメージ計算・素早さ比較と共通） */}
-      <div className="section-title">能力値・AP配分（HABCDS）</div>
+      <div className="sub-head">能力値・AP配分（HABCDS）</div>
       <ApBudgetBar entry={entry} />
       <ApEditor entry={entry} />
 
       {/* 技構成 */}
-      <div className="section-title">技構成（最大4）</div>
+      <div className="sub-head">技構成（最大4）</div>
       {!verified && (
         <div className="banner warn">習得可否 未検証の種族です。全技ライブラリを表示しています。実機・攻略サイトで要確認。</div>
       )}
@@ -269,6 +259,20 @@ export function PokemonCard({ entry, starDisabled, itemDuplicated, collapsed, on
         <span>メモ</span>
         <textarea rows={2} value={entry.note} onChange={(e) => updateEntry(entry.key, { note: e.target.value })} />
       </label>
+
+      {/* 削除は開いたカードの一番下だけに置く。畳んだカードに並んでいると、
+          スクロール中に触れやすかった */}
+      <div className="danger-zone">
+        <button
+          className="btn small danger"
+          onClick={() => {
+            // AP・技まで組んだ個体が誤タップ1回で消えないよう確認する
+            if (confirm(`「${displayName(entry.name, form.form)}」を削除します。よろしいですか？`)) removeEntry(entry.key);
+          }}
+        >
+          この個体を削除
+        </button>
+      </div>
       </>
       )}
     </div>
