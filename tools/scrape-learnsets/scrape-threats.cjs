@@ -137,24 +137,30 @@ const lineup = (text) => text.split("\n").map((s) => s.trim());
 
   // ① リンクを集める。画像リンク（alt が「〜のアイコン」）を図鑑ページとみなして優先する
   const links = new Map(); // href → { text, alt }
+  const collect = async (src, wait) => {
+    await page.goto(src, { waitUntil: "domcontentloaded", timeout: 90000 });
+    await page.waitForTimeout(wait);
+    await scrollAll(page, 14);
+    const got = await page.$$eval("a", (as) => as.map((a) => ({
+      href: a.href.split("#")[0],
+      text: (a.textContent || "").trim().replace(/\s+/g, " "),
+      alt: a.querySelector("img")?.getAttribute("alt")?.trim() || "",
+    })));
+    let n = 0;
+    for (const l of got) {
+      if (!/pokemon-champions\/\d+$/.test(l.href)) continue;
+      const cur = links.get(l.href) ?? { text: "", alt: "" };
+      links.set(l.href, { text: cur.text || l.text, alt: cur.alt || l.alt });
+      n++;
+    }
+    return { n, all: got.length, title: await page.title() };
+  };
   for (const src of LINK_SOURCES) {
     try {
-      await page.goto(src, { waitUntil: "domcontentloaded", timeout: 60000 });
-      await page.waitForTimeout(4000);
-      await scrollAll(page, 14);
-      const got = await page.$$eval("a", (as) => as.map((a) => ({
-        href: a.href.split("#")[0],
-        text: (a.textContent || "").trim().replace(/\s+/g, " "),
-        alt: a.querySelector("img")?.getAttribute("alt")?.trim() || "",
-      })));
-      let n = 0;
-      for (const l of got) {
-        if (!/pokemon-champions\/\d+$/.test(l.href)) continue;
-        const cur = links.get(l.href) ?? { text: "", alt: "" };
-        links.set(l.href, { text: cur.text || l.text, alt: cur.alt || l.alt });
-        n++;
-      }
-      log.push(`${src}: 個別ページらしきリンク ${n}件`);
+      let r = await collect(src, 4000);
+      // 読み込みが遅くてリンクが0件のことがある（7世代で発生）。待ち時間を延ばして1回だけやり直す
+      if (r.n === 0) { await page.waitForTimeout(3000); r = await collect(src, 12000); r.retried = true; }
+      log.push(`${src}: 個別ページらしきリンク ${r.n}件（a要素 ${r.all}・「${r.title}」${r.retried ? "・再試行" : ""}）`);
     } catch (e) { log.push(`${src}: ERROR ${e.message}`); }
     await page.waitForTimeout(1500);
   }
@@ -195,8 +201,13 @@ const lineup = (text) => text.split("\n").map((s) => s.trim());
         await page.waitForTimeout(3000);
         await scrollAll(page);
         const lines = lineup(await page.evaluate(() => document.body.innerText));
-        const start = lines.findIndex((s) => /が覚える技$/.test(s));
-        if (start < 0) got = { heading: "", moves: [] };
+        // 見出しは「〜が覚える技」が基本だが「〜の覚える技」のページもありうる
+        const start = lines.findIndex((s) => /^.{1,24}[がの]覚える技(一覧)?$/.test(s));
+        if (start < 0) {
+          got = { heading: "", moves: [] };
+          // 見出しの形が違うページを直せるよう、「覚える」を含む行をログに残す
+          log.push(`  （${t}: 見出し候補 ${lines.filter((x) => x.includes("覚える") && x.length < 40).slice(0, 5).join(" / ") || "なし"}）`);
+        }
         else {
           let end = lines.findIndex((s, i) => i > start && s === "関連ページ");
           if (end < 0) end = lines.length;
