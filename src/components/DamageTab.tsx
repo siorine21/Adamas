@@ -211,6 +211,47 @@ export function DamageTab() {
   // 仮想敵のAPもスクロール中の誤操作を防げるようロックできるようにする
   const [threatApLocked, setThreatApLocked] = usePersistedState("dmg.threatApLock", false, isBool);
 
+  // ※ フックはすべてこの早期 return より前に置くこと。空のチームでここを通ると
+  //   フックの数が変わり、React が「Rendered fewer hooks」で画面ごと落ちる。
+  /* 結果パネルが画面に入っているか。入っていないときだけ下に要約を貼る
+     （両方出ると同じ数字が二重に見えるため）。
+     タブは display:none で切り替えているので、他タブでは box が無く
+     isIntersecting=false になるが、貼り付く要素も同じ非表示の中にあるので出ない。
+     要素はコールバック ref で受け取る。空のチームで開いた直後は結果パネルが
+     無いので、useRef＋[] の effect だと後から出てきたパネルを見張れないため。 */
+  const [resultEl, setResultEl] = useState<HTMLDivElement | null>(null);
+  const [resultOnScreen, setResultOnScreen] = useState(false);
+  useEffect(() => {
+    if (!resultEl || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([e]) => setResultOnScreen(e.isIntersecting),
+      { threshold: 0.5 },
+    );
+    io.observe(resultEl);
+    return () => io.disconnect();
+  }, [resultEl]);
+
+  const condSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (atkRank !== 0) parts.push(`攻撃${rankLabel(atkRank)}`);
+    if (defRank !== 0) parts.push(`防御${rankLabel(defRank)}`);
+    if (weather !== "なし") parts.push(weather);
+    if (field !== "なし") parts.push(field);
+    if (crit) parts.push("急所");
+    if (burn) parts.push("やけど");
+    if (helpingHand) parts.push("てだすけ");
+    if (spread) parts.push("複数体");
+    if (wall) parts.push("壁");
+    if (protect) parts.push("まもる");
+    if (atkItem !== "（なし）") parts.push(atkItem);
+    if (defItem !== "（なし）") parts.push(defItem);
+    if (atkAbil !== "（補正なし）") parts.push(atkAbil);
+    if (defAbil !== "（補正なし）") parts.push(defAbil);
+    if (extraMul !== 100) parts.push(`補正${extraMul}%`);
+    return parts.length > 0 ? parts.join(" / ") : "既定（補正なし）";
+  }, [atkRank, defRank, weather, field, crit, burn, helpingHand, spread, wall, protect,
+      atkItem, defItem, atkAbil, defAbil, extraMul]);
+
   if (!self || !selfForm) {
     return <div className="panel muted">先に「チーム管理」でポケモンを登録してください。</div>;
   }
@@ -302,43 +343,6 @@ export function DamageTab() {
     `AP ${apSummary(threat.ap)}`,
   ].join("・");
 
-  /* 結果パネルが画面に入っているか。入っていないときだけ下に要約を貼る
-     （両方出ると同じ数字が二重に見えるため）。
-     タブは display:none で切り替えているので、他タブでは box が無く
-     isIntersecting=false になるが、貼り付く要素も同じ非表示の中にあるので出ない。 */
-  const resultRef = useRef<HTMLDivElement>(null);
-  const [resultOnScreen, setResultOnScreen] = useState(false);
-  useEffect(() => {
-    const el = resultRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(
-      ([e]) => setResultOnScreen(e.isIntersecting),
-      { threshold: 0.5 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  const condSummary = useMemo(() => {
-    const parts: string[] = [];
-    if (atkRank !== 0) parts.push(`攻撃${rankLabel(atkRank)}`);
-    if (defRank !== 0) parts.push(`防御${rankLabel(defRank)}`);
-    if (weather !== "なし") parts.push(weather);
-    if (field !== "なし") parts.push(field);
-    if (crit) parts.push("急所");
-    if (burn) parts.push("やけど");
-    if (helpingHand) parts.push("てだすけ");
-    if (spread) parts.push("複数体");
-    if (wall) parts.push("壁");
-    if (protect) parts.push("まもる");
-    if (atkItem !== "（なし）") parts.push(atkItem);
-    if (defItem !== "（なし）") parts.push(defItem);
-    if (atkAbil !== "（補正なし）") parts.push(atkAbil);
-    if (defAbil !== "（補正なし）") parts.push(defAbil);
-    if (extraMul !== 100) parts.push(`補正${extraMul}%`);
-    return parts.length > 0 ? parts.join(" / ") : "既定（補正なし）";
-  }, [atkRank, defRank, weather, field, crit, burn, helpingHand, spread, wall, protect,
-      atkItem, defItem, atkAbil, defAbil, extraMul]);
 
   return (
     <div>
@@ -684,7 +688,7 @@ export function DamageTab() {
         {/* 見張るのは判定・ダメージ・HPバーの塊だけにする。パネル全体だと
             画面が低いとき（横向き等）に threshold に届かず、貼り付く要約が
             消えなくなるため。 */}
-        <div ref={resultRef}>
+        <div ref={setResultEl}>
         {!move ? (
           <div className="muted">技を選択してください。</div>
         ) : result?.immune ? (
@@ -714,7 +718,7 @@ export function DamageTab() {
           type="button"
           className="dmg-sticky"
           title="計算結果まで移動"
-          onClick={() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          onClick={() => resultEl?.scrollIntoView({ behavior: "smooth", block: "start" })}
         >
           <span className="dmg-sticky-in">
             {result?.immune ? (
