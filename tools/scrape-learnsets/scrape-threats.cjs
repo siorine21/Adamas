@@ -32,11 +32,20 @@ const LOG_OUT = path.join(OUT_DIR, "scrape_threats_log.txt");
 
 /** 個別ページのURLを引くための一覧 */
 const LINK_SOURCES = [
-  "https://gamewith.jp/pokemon-champions/546414", // 内定ポケモン一覧
-  "https://gamewith.jp/pokemon-champions/553006", // はがねタイプ一覧
-  "https://gamewith.jp/pokemon-champions/553007", // あくタイプ一覧
+  "https://gamewith.jp/pokemon-champions/546414", // 内定ポケモン一覧（5〜7世代の多くが載らない）
+  "https://gamewith.jp/pokemon-champions/553081", // 1世代
+  "https://gamewith.jp/pokemon-champions/553089", // 2世代
+  "https://gamewith.jp/pokemon-champions/553088", // 3世代
+  "https://gamewith.jp/pokemon-champions/553087", // 4世代
+  "https://gamewith.jp/pokemon-champions/553086", // 5世代
+  "https://gamewith.jp/pokemon-champions/553085", // 6世代
+  "https://gamewith.jp/pokemon-champions/553084", // 7世代
   "https://gamewith.jp/pokemon-champions/553083", // 8世代
   "https://gamewith.jp/pokemon-champions/553082", // 9世代
+  "https://gamewith.jp/pokemon-champions/546494", // メガシンカ一覧
+  "https://gamewith.jp/pokemon-champions/574460", // レギュM-Cの追加ポケモン一覧
+  "https://gamewith.jp/pokemon-champions/553006", // はがねタイプ一覧
+  "https://gamewith.jp/pokemon-champions/553007", // あくタイプ一覧
 ];
 
 /** 一覧から引けない／誤って引くものの直接指定（当方の名前 → URL） */
@@ -162,6 +171,14 @@ const lineup = (text) => text.split("\n").map((s) => s.trim());
     for (const c of candidates(t)) if (byName.has(c)) return { url: byName.get(c), how: "一覧" };
     const s = sharedName(t);
     if (s && byName.has(s)) return { url: byName.get(s), how: "共有（フォルム名を外して一致）" };
+    // 別フォルムのページしか無い（「ギルガルド(シールド)」しか無いときのブレード等）
+    if (s) {
+      const other = [...byName.keys()].find((k) => k.startsWith(s) && !k.startsWith(`メガ${s}`));
+      if (other) return { url: byName.get(other), how: `共有（別フォルム「${other}」のページ）` };
+    }
+    // メガの個別ページしか一覧に無い種族。覚える技は元の姿と同じ
+    const mega = norm(`メガ${t}`);
+    if (byName.has(mega)) return { url: byName.get(mega), how: "共有（メガのページ）" };
     return null;
   };
 
