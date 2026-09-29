@@ -22,7 +22,7 @@ interface StoreCtx {
   removeEntry: (key: string) => void;
   /** メインタイプに合わない個体は登録しない。合わなければ false を返す */
   addEntry: (entry: RosterEntry) => boolean;
-  /** アクティブチームのメインタイプ（統一の軸） */
+  /** アクティブチームのメインタイプ（統一の軸）。"" は統一なし */
   mainType: string;
   resetToPreset: () => void;
   // チーム管理
@@ -31,6 +31,8 @@ interface StoreCtx {
   activeTeam: Team | undefined;
   setActiveTeam: (id: string) => void;
   createTeam: (mainType: string, name?: string) => void;
+  /** アクティブチームの統一タイプを変える（"" で統一なし）。今の個体が合わないタイプには変えない */
+  setMainType: (mainType: string) => void;
   duplicateTeam: () => void;
   renameTeam: (name: string) => void;
   removeTeam: () => void;
@@ -127,11 +129,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => (prev.teams.some((t) => t.id === id) ? { ...prev, activeTeamId: id } : prev));
   }, []);
 
+  const setMainType = useCallback((t: string) => {
+    setState((prev) => ({
+      ...prev,
+      teams: prev.teams.map((team) => (team.id !== prev.activeTeamId
+        || !team.roster.every((e) => entryFitsMainType(e, t)) ? team : { ...team, mainType: t })),
+    }));
+  }, []);
+
   const createTeam = useCallback((mainType: string, name?: string) => {
     setState((prev) => {
       const t: Team = {
         id: makeTeamId(),
-        name: name?.trim() || `${mainType}チーム${prev.teams.length + 1}`,
+        name: name?.trim() || `${mainType ? `${mainType}統一` : "チーム"}${prev.teams.length + 1}`,
         mainType,
         roster: [],
       };
@@ -183,7 +193,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider
       value={{
-        roster, setRoster, updateEntry, removeEntry, addEntry, resetToPreset, mainType,
+        roster, setRoster, updateEntry, removeEntry, addEntry, resetToPreset, mainType, setMainType,
         teams: state.teams, activeTeamId: state.activeTeamId, activeTeam,
         setActiveTeam, createTeam, duplicateTeam, renameTeam, removeTeam, loadPresetTeam,
         saveState, saveError, starredCount,

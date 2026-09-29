@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DexEntry, StatKey } from "../types";
 import { useStore } from "../store";
-import { DEX_BY_TYPE, DEX_TYPES, type DexType } from "../data/dex";
+import { ALL_DEX, dexOfType, megaOnlyFor } from "../data/dex";
 import { MAX_STARRED, STAT_KEYS, STAT_LABEL, TYPES, TYPE_COLORS } from "../data/game";
 import { typeEffectiveness } from "../calc";
-import { BANNED_MOVES, LEARNSETS, MOVE_BY_NAME } from "../data/moves";
+import { MOVE_BY_NAME } from "../data/moves";
+import { bannedMovesOf, learnsetOf } from "../data/learnsets";
 import type { Move } from "../types";
 import { dexFitsMainType, displayName, entryFromDex } from "../data/roster";
 import { usePersistedState } from "../uiState";
@@ -33,7 +34,7 @@ interface Form {
 /** 1系統（フォルムをまとめたもの） */
 interface Species {
   name: string;
-  /** メガシンカで初めてはがねが付く（通常フォルムは非はがね） */
+  /** メガシンカで初めて図鑑のタイプが付く（グソクムシャ→はがね 等）。「すべて」では常に false */
   megaOnly: boolean;
   /** メガシンカのフォルムを持つ */
   hasMega: boolean;
@@ -49,7 +50,7 @@ const SORT_LABEL: Record<SortKey, string> = {
   H: "H", A: "A", B: "B", C: "C", D: "D", S: "S",
 };
 
-/** メガ絞り込み。has=メガを持つ / none=持たない / steel=メガで初めてはがねが付く */
+/** メガ絞り込み。has=メガを持つ / none=持たない / steel=メガで初めて図鑑のタイプが付く */
 type MegaMode = "all" | "has" | "none" | "steel";
 const MEGA_MODES: { key: MegaMode; label: string; title: string }[] = [
   { key: "all", label: "すべて", title: "メガの有無で絞らない" },
@@ -68,9 +69,9 @@ const TYPE_MODES: { key: TypeMode; label: string; title: string }[] = [
 
 /** 覚える攻撃技が何タイプあるか（打点の広さ）。没収技は除く */
 function coverageOf(name: string): number {
-  const banned = BANNED_MOVES[name] ?? [];
+  const banned = bannedMovesOf(name);
   const types = new Set<string>();
-  for (const n of LEARNSETS[name]?.moves ?? []) {
+  for (const n of learnsetOf(name)?.moves ?? []) {
     if (banned.includes(n)) continue;
     const m = MOVE_BY_NAME[n];
     if (m && m.cat !== "変化") types.add(m.type);
@@ -78,8 +79,8 @@ function coverageOf(name: string): number {
   return types.size;
 }
 
-/** 1タイプぶんの図鑑データ。タイプを切り替えても作り直さずに済むよう、
- *  起動時に一度だけ組んでおく（はがね24系統・あく25系統なので軽い）。 */
+/** 1タイプぶんの図鑑データ。タイプごとに初めて開いたときに組み、以後は使い回す
+ *  （全269系統を18タイプぶん起動時に組むと重いので、開いたタイプだけ）。 */
 interface Dataset {
   species: Species[];
   movesByType: Record<string, Record<string, Move[]>>;
@@ -94,10 +95,10 @@ interface Dataset {
   withLearnset: number;
 }
 
-function buildDataset(dex: DexEntry[]): Dataset {
+function buildDataset(dex: DexEntry[], type: string): Dataset {
   const species: Species[] = dex.map((d) => ({
     name: d.name,
-    megaOnly: !!d.megaOnly,
+    megaOnly: megaOnlyFor(d, type),
     hasMega: d.forms.some((f) => f.form.startsWith("メガ")),
     coverage: coverageOf(d.name),
     forms: d.forms.map((f) => {
@@ -129,10 +130,10 @@ function buildDataset(dex: DexEntry[]): Dataset {
   const movesByType: Record<string, Record<string, Move[]>> = {};
   const moveSet: Record<string, Set<string>> = {};
   for (const sp of species) {
-    const banned = BANNED_MOVES[sp.name] ?? [];
+    const banned = bannedMovesOf(sp.name);
     const byType: Record<string, Move[]> = {};
     const names = new Set<string>();
-    for (const n of LEARNSETS[sp.name]?.moves ?? []) {
+    for (const n of learnsetOf(sp.name)?.moves ?? []) {
       if (banned.includes(n)) continue;
       const m = MOVE_BY_NAME[n];
       if (!m) continue;
@@ -190,9 +191,19 @@ function buildDataset(dex: DexEntry[]): Dataset {
   };
 }
 
-const DATASETS = Object.fromEntries(
-  DEX_TYPES.map((t) => [t, buildDataset(DEX_BY_TYPE[t])]),
-) as Record<DexType, Dataset>;
+const datasets = new Map<string, Dataset>();
+/** 図鑑のタイプ（"" はすべて）の図鑑データ */
+function datasetFor(type: string): Dataset {
+  let d = datasets.get(type);
+  if (!d) { d = buildDataset(dexOfType(type), type); datasets.set(type, d); }
+  return d;
+}
+
+/** 図鑑の切り替え。すべて＋18タイプ（系統数つき） */
+const DEX_TYPE_ITEMS = [
+  { value: "", label: "すべての内定ポケモン", sub: `${ALL_DEX.length}系統` },
+  ...TYPES.map((t) => ({ value: t, label: `${t}図鑑`, swatch: TYPE_COLORS[t], sub: `${dexOfType(t).length}系統` })),
+];
 
 const ADD_MOVE = "（技を追加…）";
 const ANY_ABILITY = "（すべて）";
@@ -209,15 +220,13 @@ const isStrRecord = (v: unknown) =>
 
 export function DexTab() {
   const { addEntry, roster, starredCount, mainType } = useStore();
-  // どのタイプの図鑑を見るか。はがね統一が主目的だが、あく統一でも同じ道具が使える
-  const [dexType, setDexType] = usePersistedState<DexType>(
-    "dex.type", "はがね", (v) => DEX_TYPES.includes(v as DexType));
-  const D = DATASETS[dexType];
-  // チームを切り替えたら、その統一タイプの図鑑を開く（別タイプの図鑑では何も追加できないため）。
-  // 開いたあとに手で切り替えるのは自由。
-  useEffect(() => {
-    if (DEX_TYPES.includes(mainType as DexType)) setDexType(mainType as DexType);
-  }, [mainType, setDexType]);
+  // どのタイプの図鑑を見るか（"" はすべての内定ポケモン）
+  const [dexType, setDexType] = usePersistedState<string>(
+    "dex.type", "はがね", (v) => v === "" || TYPES.includes(v as string));
+  const D = datasetFor(dexType);
+  // チームを切り替えたら、その統一タイプの図鑑を開く（統一なしのチームなら全系統）。
+  // 別タイプの図鑑では何も追加できないため。開いたあとに手で切り替えるのは自由。
+  useEffect(() => { setDexType(mainType); }, [mainType, setDexType]);
   const [q, setQ] = useState(""); // 検索語は一時的なものなので保存しない
   const [typeFilter, setTypeFilter] = usePersistedState<string[]>(
     "dex.types", [], (v) => Array.isArray(v) && v.every((x) => typeof x === "string"));
@@ -229,6 +238,8 @@ export function DexTab() {
   const [ability, setAbility] = usePersistedState(
     "dex.ability", ANY_ABILITY,
     (v) => v === ANY_ABILITY || D.abilityOptions.some((a) => a.value === v));
+  // 「すべて」に切り替えたとき「メガで初獲得」のままだと誰も残らないので戻す
+  useEffect(() => { if (!dexType && megaMode === "steel") setMegaMode("all"); }, [dexType, megaMode, setMegaMode]);
   // 自軍に1フォルムも入れていない系統だけ（6体を埋めていくとき用）
   const [unowned, setUnowned] = usePersistedState("dex.unowned", false, (v) => typeof v === "boolean");
   const [minCoverage, setMinCoverage] = usePersistedState(
@@ -251,7 +262,7 @@ export function DexTab() {
   const starDisabled = starredCount >= MAX_STARRED;
   /** この系統を今のチームに入れられるか。メインタイプを持つフォルムが1つでもあればよい */
   const fits = (name: string) => {
-    const d = DEX_BY_TYPE[dexType].find((x) => x.name === name);
+    const d = ALL_DEX.find((x) => x.name === name);
     return !!d && dexFitsMainType(d, mainType);
   };
 
@@ -372,14 +383,15 @@ export function DexTab() {
         summary={`${filterSummary}・${SORT_LABEL[sortKey]}${asc ? "▲" : "▼"}`}
         always={(
           <>
-            {/* 図鑑のタイプ。はがね統一が主目的だが、あく統一でも同じ道具が使える */}
+            {/* 図鑑のタイプ。統一チームならそのタイプ、統一なしなら全内定ポケモンから始まる */}
             <div className="row tight" style={{ margin: "8px 0" }}>
-              <Segmented
-                ariaLabel="図鑑のタイプ"
-                style={{ flex: "0 1 200px" }}
-                options={DEX_TYPES.map((t) => ({ value: t, label: t, swatch: TYPE_COLORS[t] }))}
+              <SelectMenu
+                style={{ flex: "0 1 190px", minWidth: 150 }}
+                items={DEX_TYPE_ITEMS}
                 value={dexType}
+                subInListOnly /* 系統数は右隣に出しているので、閉じたボタンには出さない */
                 onChange={setDexType}
+                searchPlaceholder="タイプで探す…"
               />
               <span className="small muted">
                 {D.species.length}系統 / {D.allForms.length}フォルム
@@ -418,7 +430,8 @@ export function DexTab() {
             <Segmented
               ariaLabel="メガシンカ"
               style={{ flex: "1 1 220px" }}
-              options={MEGA_MODES.map((m) => ({ value: m.key, label: m.label, title: m.title }))}
+              // 「メガで初獲得」はタイプ図鑑のときだけ意味がある（すべてでは誰も当たらない）
+              options={MEGA_MODES.filter((m) => dexType || m.key !== "steel").map((m) => ({ value: m.key, label: m.label, title: m.title }))}
               value={megaMode}
               onChange={setMegaMode}
             />

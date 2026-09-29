@@ -1,5 +1,6 @@
 import type { DexEntry, DexForm, StatBlock, Threat } from "../types";
-import { DEX_DARK } from "./dexDark";
+import { DEX_REST } from "./dexAll";
+import { CONFIRMED } from "./confirmed";
 
 const B = (h: number, a: number, b: number, c: number, d: number, s: number): StatBlock =>
   ({ H: h, A: a, B: b, C: c, D: d, S: s });
@@ -88,29 +89,33 @@ export const THREATS: Threat[] = [
   { name: "手動入力", types: ["ノーマル"], base: B(100, 100, 100, 100, 100, 100) },
 ];
 
-/* ---------- 図鑑のタイプ切り替え ----------
-   はがね統一が主目的だが、あく統一でも同じ道具が使えるので両方を持つ。
-   はがね図鑑は一次ソースのスプレッドシートから手で起こしたもの、
-   あく図鑑は confirmed.ts から自動生成（tools/gen-dex）。 */
-export const DEX_TYPES = ["はがね", "あく"] as const;
-export type DexType = (typeof DEX_TYPES)[number];
+/* ---------- 内定ポケモン全系統の図鑑 ----------
+   はがね図鑑（上の DEX）は一次ソースのスプレッドシートから手で起こしたもの、
+   それ以外の系統は confirmed.ts から自動生成（dexAll.ts / tools/gen-dex）。
+   ドドゲザン（あく/はがね）のように重なる系統は、はがね図鑑側だけを持つ。 */
 
-export const DEX_BY_TYPE: Record<DexType, DexEntry[]> = {
-  "はがね": DEX,
-  "あく": DEX_DARK,
-};
+/** 系統の図鑑番号。はがね図鑑は番号を持たないので内定表から引く
+ *  （「ギルガルド」→「ギルガルド(シールドフォルム)」、メガ限定の系統は「メガ○○」も見る） */
+function noOf(d: DexEntry): number {
+  if (d.no) return d.no;
+  const c = CONFIRMED.find((x) => x.name === d.name || x.name.startsWith(`${d.name}(`) || x.name === `メガ${d.name}`);
+  return c?.no ?? 9999;
+}
 
-/** どちらの図鑑からでも引ける統合ビュー。ロスター登録・チーム管理はタイプを問わない。
- *  ドドゲザン（あく/はがね）のように両方に載る系統は、はがね側を先勝ちで1つだけ持つ。 */
-export const ALL_DEX: DexEntry[] = (() => {
-  const seen = new Set<string>();
-  const out: DexEntry[] = [];
-  for (const t of DEX_TYPES) {
-    for (const d of DEX_BY_TYPE[t]) {
-      if (seen.has(d.name)) continue;
-      seen.add(d.name);
-      out.push(d);
-    }
-  }
-  return out;
-})();
+/** 図鑑番号順の全系統。ロスター登録・チーム管理・図鑑はここから引く */
+export const ALL_DEX: DexEntry[] = [...DEX, ...DEX_REST]
+  .map((d) => ({ ...d, no: noOf(d) }))
+  .sort((a, b) => (a.no ?? 0) - (b.no ?? 0));
+
+/** そのタイプを持つフォルムが1つでもある系統（メガで初めて付くものも含む）。
+ *  "" なら全系統 */
+export function dexOfType(type: string): DexEntry[] {
+  return type ? ALL_DEX.filter((d) => d.forms.some((f) => f.types.includes(type))) : ALL_DEX;
+}
+
+/** 通常の姿はそのタイプを持たず、メガシンカで初めて付く系統か（グソクムシャ→はがね 等） */
+export function megaOnlyFor(d: DexEntry, type: string): boolean {
+  if (!type) return false;
+  const base = d.forms.find((f) => !f.form.startsWith("メガ")) ?? d.forms[0];
+  return !base.types.includes(type) && d.forms.some((f) => f.types.includes(type));
+}

@@ -56,6 +56,7 @@ export interface Team {
   name: string; // チーム名
   /** 統一パーティの軸になるタイプ。このタイプを持たない個体は登録できない。
    *  メガシンカで初めて付く場合は許可する（どれか1フォルムが持てばよい）。
+   *  "" は統一なし（自由編成）で、どの個体も登録できる。
    *  未設定の古いデータは読み込み時に「はがね」を入れる。 */
   mainType: string;
   roster: RosterEntry[]; // このチームの登録個体（★手持ち＋控え）
@@ -70,6 +71,8 @@ export interface DexForm {
 
 export interface DexEntry {
   name: string;
+  /** 全国図鑑番号（並び順用）。手で起こしたはがね図鑑には無い */
+  no?: number;
   megaOnly?: boolean;
   forms: DexForm[];
 }

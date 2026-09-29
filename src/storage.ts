@@ -47,8 +47,9 @@ export function loadTeams(): TeamsState | null {
         const activeTeamId = data.teams.some((t) => t.id === data.activeTeamId)
           ? data.activeTeamId
           : data.teams[0].id;
-        // メインタイプを持たない旧データは、それまで唯一の対象だった「はがね」とみなす
-        const teams = data.teams.map((t) => (t.mainType ? t : { ...t, mainType: "はがね" }));
+        // メインタイプを持たない旧データは、それまで唯一の対象だった「はがね」とみなす。
+        // 空文字は「統一なし」なので残す（真偽で見ると はがね に化ける）
+        const teams = data.teams.map((t) => (typeof t.mainType === "string" ? t : { ...t, mainType: "はがね" }));
         return { teams, activeTeamId };
       }
     }

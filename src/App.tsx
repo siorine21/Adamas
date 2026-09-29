@@ -54,7 +54,7 @@ export default function App() {
       <header className="app-header" ref={headerRef}>
         <div className="app-title">
           <h1>アダマス工房</h1>
-          <span className="sub">はがね／あく統一チーム構成支援 ／ レギュM-C・Lv50</span>
+          <span className="sub">内定ポケモンのチーム構成支援 ／ レギュM-C・Lv50</span>
           <SaveBadge />
         </div>
         <nav className="tabbar">

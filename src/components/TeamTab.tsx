@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
-import { MAX_STARRED, TYPE_COLORS } from "../data/game";
-import { ALL_DEX, DEX_BY_TYPE, DEX_TYPES } from "../data/dex";
+import { MAX_STARRED, TYPES, TYPE_COLORS } from "../data/game";
+import { ALL_DEX, dexOfType } from "../data/dex";
 import { dexFitsMainType, emptyEntry, entryFitsMainType, entryFromDex } from "../data/roster";
 import { PRESET_TEAMS } from "../data/teams";
 import { exportJSON, importJSON } from "../storage";
@@ -11,6 +11,13 @@ import { TypeBadges } from "./TypeBadge";
 import { SelectMenu } from "./SelectMenu";
 import { WeaknessTable } from "./WeaknessTable";
 import { CoverageTable } from "./CoverageTable";
+
+/** 新規チームの「統一なし」を表す選択肢の値（SelectMenu の空文字は未選択扱いになるため別の値にする） */
+const FREE = "__free__";
+const NEW_TEAM_ITEMS = [
+  { value: FREE, label: "統一なし（自由編成）", sub: `${ALL_DEX.length}系統` },
+  ...TYPES.map((t) => ({ value: t, label: `${t}統一`, swatch: TYPE_COLORS[t], sub: `${dexOfType(t).length}系統` })),
+];
 
 const EXPANDED_KEY = "adamas-koubou/team-expanded/v1";
 
@@ -37,7 +44,7 @@ export function TeamTab() {
   const {
     roster, addEntry, setRoster, resetToPreset, starredCount,
     teams, activeTeamId, activeTeam, setActiveTeam,
-    createTeam, duplicateTeam, renameTeam, removeTeam, loadPresetTeam, mainType,
+    createTeam, duplicateTeam, renameTeam, removeTeam, loadPresetTeam, mainType, setMainType,
   } = useStore();
   // このチームに入れられる系統だけを「図鑑から追加」に出す
   const addable = useMemo(
@@ -118,6 +125,14 @@ export function TeamTab() {
         + off.map((e) => e.name || "（無名）").join("・"));
   };
 
+  /** 統一タイプの変更先。統一なし＋今の個体が全員持つタイプだけ */
+  const mainTypeItems = [
+    { value: FREE, label: "統一なし（自由編成）" },
+    ...TYPES
+      .filter((t) => roster.every((e) => entryFitsMainType(e, t)))
+      .map((t) => ({ value: t, label: `${t}統一`, swatch: TYPE_COLORS[t] })),
+  ];
+
   const doAddPreset = () => {
     if (!presetId) return;
     loadPresetTeam(presetId);
@@ -155,27 +170,25 @@ export function TeamTab() {
   return (
     <div>
       {/* チーム選択・管理。よく使う操作だけを表に出し、入出力・削除・初期化は奥の「管理」に */}
-      <Panel id="team.manage" title="チーム" summary={`${activeTeam?.name ?? ""}・${mainType}統一・全${teams.length}チーム`}>
+      <Panel id="team.manage" title="チーム" summary={`${activeTeam?.name ?? ""}・${mainType ? `${mainType}統一` : "統一なし"}・全${teams.length}チーム`}>
         <div className="row">
           <SelectMenu
             style={{ flex: "1 1 200px", minWidth: 0 }}
             items={teams.map((t) => ({
               value: t.id,
               label: t.name,
-              sub: `${t.roster.filter((e) => e.starred).length}/${t.roster.length}体`,
+              sub: `${t.mainType ? `${t.mainType}統一` : "統一なし"}・${t.roster.filter((e) => e.starred).length}/${t.roster.length}体`,
             }))}
             value={activeTeamId}
             onChange={setActiveTeam}
           />
           <SelectMenu
             style={{ flex: "0 1 190px", minWidth: 150 }}
-            items={DEX_TYPES.map((t) => ({
-              value: t, label: t, swatch: TYPE_COLORS[t],
-              sub: `${DEX_BY_TYPE[t].length}系統`,
-            }))}
+            items={NEW_TEAM_ITEMS}
             value=""
-            onChange={(t) => createTeam(t)}
-            placeholder="＋新規（メインタイプ）"
+            onChange={(t) => createTeam(t === FREE ? "" : t)}
+            placeholder="＋新規チーム"
+            searchPlaceholder="タイプで探す…"
           />
           <button className="btn" onClick={duplicateTeam} title="このチームを複製">複製</button>
           <button
@@ -196,16 +209,34 @@ export function TeamTab() {
           <button className="btn primary" onClick={doAddPreset} disabled={!presetId}>追加</button>
         </div>
         <div className="small muted" style={{ marginTop: 6 }}>
-          このチームのメインタイプは{" "}
-          <span className="tbadge" style={{ background: TYPE_COLORS[mainType] }}>{mainType}</span>
-          {" "}です。{mainType}を持たないポケモンは登録できません
-          （メガシンカで初めて付く枠は登録できます）。
+          {mainType ? (
+            <>
+              このチームは{" "}
+              <span className="tbadge" style={{ background: TYPE_COLORS[mainType] }}>{mainType}</span>
+              {" "}統一です。{mainType}を持たないポケモンは登録できません
+              （メガシンカで初めて付く枠は登録できます）。
+            </>
+          ) : (
+            <>このチームは統一なし（自由編成）です。内定ポケモンを誰でも登録できます。</>
+          )}
           <br />
           チームは複数保存できます。別チームであれば同じポケモンも使えます（各チーム独立）。
         </div>
 
         {/* めったに使わず、押し間違えると困る操作はここにまとめて畳んでおく */}
         <Panel id="team.admin" title="管理" summary="入出力・初期化・チーム削除" defaultOpen={false}>
+          {/* 統一タイプの変更。今いる個体が全員そのタイプを持つときだけ選べる
+              （合わない個体が混ざると登録の前提が崩れるため） */}
+          <div className="row tight" style={{ marginBottom: 8 }}>
+            <span className="small muted">統一タイプ</span>
+            <SelectMenu
+              style={{ flex: "1 1 180px", minWidth: 0 }}
+              items={mainTypeItems}
+              value={mainType || FREE}
+              onChange={(t) => setMainType(t === FREE ? "" : t)}
+              searchPlaceholder="タイプで探す…"
+            />
+          </div>
           <div className="row">
             <button className="btn" onClick={doExport}>エクスポート</button>
             <button className="btn" onClick={() => { setIoOpen((v) => !v); setIoMsg(null); }}>インポート</button>
