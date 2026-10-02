@@ -1122,3 +1122,8 @@ input.tool-num { width: 62px; text-align: right; }
   0%, 30% { background: rgba(127, 168, 207, .35); }
   100% { background: transparent; }
 }
+
+/* テーマの候補の一覧（タップで外す） */
+.theme-members { display: flex; flex-wrap: wrap; gap: 4px; }
+/* 図鑑の行の分類（「コブラポケモン」等）。名前の後ろに小さく */
+.dex-genus { display: block; font-weight: 400; margin-top: 1px; }
