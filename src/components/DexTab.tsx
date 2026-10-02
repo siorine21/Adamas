@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DexEntry, StatKey } from "../types";
 import { useStore } from "../store";
 import { ALL_DEX, dexOfType, megaOnlyFor } from "../data/dex";
@@ -15,6 +15,8 @@ import { SelectMenu } from "./SelectMenu";
 import { kanaMatcher } from "../search";
 import { abilitySummary } from "../data/abilities";
 import { AbilityNote } from "./AbilityNote";
+import { SHAPES, type SpeciesMeta } from "../data/speciesMeta";
+import { THEME_TEMPLATES, isTheme, metaOf, templateMatches, type Theme } from "../data/themes";
 
 /** 1フォルム */
 interface Form {
@@ -38,6 +40,8 @@ interface Species {
   megaOnly: boolean;
   /** メガシンカのフォルムを持つ */
   hasMega: boolean;
+  /** 分類・体型・タマゴグループ・色（テーマ探し用）。PokeAPI に無ければ undefined */
+  meta?: SpeciesMeta;
   /** 覚える攻撃技のタイプ数（打点の広さ）。習得表が無い系統は0 */
   coverage: number;
   forms: Form[];
@@ -99,6 +103,7 @@ function buildDataset(dex: DexEntry[], type: string): Dataset {
   const species: Species[] = dex.map((d) => ({
     name: d.name,
     megaOnly: megaOnlyFor(d, type),
+    meta: metaOf(d),
     hasMega: d.forms.some((f) => f.form.startsWith("メガ")),
     coverage: coverageOf(d.name),
     forms: d.forms.map((f) => {
@@ -205,6 +210,22 @@ const DEX_TYPE_ITEMS = [
   ...TYPES.map((t) => ({ value: t, label: `${t}図鑑`, swatch: TYPE_COLORS[t], sub: `${dexOfType(t).length}系統` })),
 ];
 
+/** 体型・タマゴグループ・色の絞り込み。"" は絞らない */
+const ANY = "";
+const EGG_GROUPS = ["すいちゅう1", "すいちゅう2", "すいちゅう3", "ひこう", "むし", "りくじょう", "かいじゅう",
+  "ドラゴン", "ようせい", "しょくぶつ", "ひとがた", "ふていけい", "こうぶつ"];
+const COLOR_NAMES = ["あかいろ", "あおいろ", "きいろ", "みどりいろ", "くろいろ", "しろいろ", "ちゃいろ", "むらさきいろ", "ももいろ", "はいいろ"];
+const metaItems = (label: string, values: string[]) =>
+  [{ value: ANY, label: `${label}（すべて）` }, ...values.map((v) => ({ value: v, label: v }))];
+
+/** ひな形ごとの該当数（図鑑は固定データなので起動時に1回だけ数える） */
+const TEMPLATE_ITEMS = THEME_TEMPLATES.map((t) => ({
+  value: t.id, label: t.name, sub: `${templateMatches(t.id).length}体・${t.rule}`,
+}));
+
+/** テーマで図鑑をどう見せるか。all=全部 / in=テーマの候補だけ / suggest=条件に合うがまだ入れていない系統 */
+type ThemeView = "all" | "in" | "suggest";
+
 const ADD_MOVE = "（技を追加…）";
 const ANY_ABILITY = "（すべて）";
 
@@ -226,7 +247,13 @@ export function DexTab() {
   const D = datasetFor(dexType);
   // チームを切り替えたら、その統一タイプの図鑑を開く（統一なしのチームなら全系統）。
   // 別タイプの図鑑では何も追加できないため。開いたあとに手で切り替えるのは自由。
-  useEffect(() => { setDexType(mainType); }, [mainType, setDexType]);
+  // 開いた直後（初回の描画）は保存してある図鑑のまま。チームを替えたときだけ合わせる
+  const prevMainType = useRef(mainType);
+  useEffect(() => {
+    if (prevMainType.current === mainType) return;
+    prevMainType.current = mainType;
+    setDexType(mainType);
+  }, [mainType, setDexType]);
   const [q, setQ] = useState(""); // 検索語は一時的なものなので保存しない
   const [typeFilter, setTypeFilter] = usePersistedState<string[]>(
     "dex.types", [], (v) => Array.isArray(v) && v.every((x) => typeof x === "string"));
@@ -258,6 +285,62 @@ export function DexTab() {
   // 手動で選んだフォルム（系統名 → フォルム名）。未選択なら並び替えに合わせて自動で選ぶ
   const [picked, setPicked] = usePersistedState<Record<string, string>>(
     "dex.form", {}, isStrRecord);
+  // 体型・タマゴグループ・色（テーマ探し用）
+  const isStr = (v: unknown) => typeof v === "string";
+  const [shapeF, setShapeF] = usePersistedState("dex.shape", ANY, isStr);
+  const [eggF, setEggF] = usePersistedState("dex.egg", ANY, isStr);
+  const [colorF, setColorF] = usePersistedState("dex.color", ANY, isStr);
+
+  /* ---------- テーマ ----------
+     テーマは「候補の系統名の集まり」。選んでいるテーマがあると、各行に出し入れのボタンが出て、
+     図鑑を「テーマの候補だけ」「おすすめ（ひな形の条件に合う未登録）」に切り替えられる。 */
+  const [themes, setThemes] = usePersistedState<Theme[]>(
+    "themes", [], (v) => Array.isArray(v) && v.every(isTheme));
+  const [themeId, setThemeId] = usePersistedState("dex.themeId", "", isStr);
+  const [themeView, setThemeView] = usePersistedState<ThemeView>(
+    "dex.themeView", "all", (v) => v === "all" || v === "in" || v === "suggest");
+  const theme = themes.find((t) => t.id === themeId);
+  const members = useMemo(() => new Set(theme?.members ?? []), [theme]);
+  // ひな形の条件に合うが、まだテーマに入れていない系統
+  const suggested = useMemo(() => {
+    if (!theme?.template) return new Set<string>();
+    return new Set(templateMatches(theme.template).filter((n) => !members.has(n)));
+  }, [theme, members]);
+  const view: ThemeView = !theme ? "all" : themeView === "suggest" && !theme.template ? "all" : themeView;
+  const updateTheme = (fn: (t: Theme) => Theme) =>
+    setThemes((prev) => prev.map((t) => (t.id === themeId ? fn(t) : t)));
+  const toggleMember = (name: string) =>
+    updateTheme((t) => ({
+      ...t,
+      members: t.members.includes(name) ? t.members.filter((x) => x !== name) : [...t.members, name],
+    }));
+  const newTheme = (name: string, templateId?: string) => {
+    const id = `th_${Date.now().toString(36)}`;
+    const memberList = templateId ? templateMatches(templateId) : [];
+    setThemes((prev) => [...prev, { id, name, members: memberList, template: templateId }]);
+    setThemeId(id);
+    setThemeView(memberList.length ? "in" : "all");
+  };
+  const createBlank = () => {
+    const name = prompt("テーマの名前（例: へびパ）");
+    if (name?.trim()) newTheme(name.trim());
+  };
+  const createFromTemplate = (templateId: string) => {
+    const t = THEME_TEMPLATES.find((x) => x.id === templateId);
+    if (!t) return;
+    const name = prompt("テーマの名前", `${t.name}パ`);
+    if (name?.trim()) newTheme(name.trim(), templateId);
+  };
+  const renameTheme = () => {
+    if (!theme) return;
+    const name = prompt("テーマの名前", theme.name);
+    if (name?.trim()) updateTheme((t) => ({ ...t, name: name.trim() }));
+  };
+  const deleteTheme = () => {
+    if (!theme || !confirm(`テーマ「${theme.name}」を削除します。よろしいですか？`)) return;
+    setThemes((prev) => prev.filter((t) => t.id !== themeId));
+    setThemeId("");
+  };
 
   const starDisabled = starredCount >= MAX_STARRED;
   /** この系統を今のチームに入れられるか。メインタイプを持つフォルムが1つでもあればよい */
@@ -284,6 +367,11 @@ export function DexTab() {
     const hitQ = kanaMatcher(q);
     const out: { sp: Species; forms: Form[]; sel: Form; sortVal: number; hitMoves: Move[] }[] = [];
     for (const sp of D.species) {
+      if (view === "in" && !members.has(sp.name)) continue;
+      if (view === "suggest" && !suggested.has(sp.name)) continue;
+      if (shapeF && sp.meta?.shape !== shapeF) continue;
+      if (eggF && !sp.meta?.eggs.includes(eggF)) continue;
+      if (colorF && sp.meta?.color !== colorF) continue;
       if (megaMode === "has" && !sp.hasMega) continue;
       if (megaMode === "none" && sp.hasMega) continue;
       if (megaMode === "steel" && !sp.megaOnly) continue;
@@ -312,7 +400,10 @@ export function DexTab() {
           forms = forms.filter((f) => typeFilter.every((t) => f.types.includes(t)));
         }
       }
-      if (qq && !hitQ(sp.name)) forms = forms.filter((f) => hitQ(f.label));
+      // 名前のほか、分類（「すなへびポケモン」等）・体型（へび型）・タマゴグループ（すいちゅう1）でも
+      // 引けるようにする。「へび」「すいちゅう」でテーマの候補をまとめて探せる
+      const metaHit = !!sp.meta && [sp.meta.genus, sp.meta.shape, ...sp.meta.eggs].some((x) => hitQ(x));
+      if (qq && !hitQ(sp.name) && !metaHit) forms = forms.filter((f) => hitQ(f.label));
       if (forms.length === 0) continue;
       const auto = sortKey === "name"
         ? forms[0]
@@ -326,7 +417,8 @@ export function DexTab() {
       }
       return asc ? a.sortVal - b.sortVal : b.sortVal - a.sortVal;
     });
-  }, [D, q, typeFilter, typeMode, megaMode, ability, unowned, minCoverage, moveFilter, owned, sortKey, asc, picked]);
+  }, [D, q, typeFilter, typeMode, megaMode, ability, unowned, minCoverage, moveFilter, owned, sortKey, asc, picked,
+      view, members, suggested, shapeF, eggF, colorF]);
 
   const shownForms = list.reduce((n, x) => n + x.forms.length, 0);
 
@@ -343,10 +435,12 @@ export function DexTab() {
 
   // 絞り込みが増えたので、何か効いているときだけ「まとめて解除」を出す
   const filtered = typeFilter.length > 0 || megaMode !== "all"
-    || ability !== ANY_ABILITY || unowned || minCoverage > 0 || moveFilter.length > 0;
+    || ability !== ANY_ABILITY || unowned || minCoverage > 0 || moveFilter.length > 0
+    || !!shapeF || !!eggF || !!colorF;
   const clearFilters = () => {
     setTypeFilter([]); setMegaMode("all"); setAbility(ANY_ABILITY);
     setUnowned(false); setMinCoverage(0); setMoveFilter([]);
+    setShapeF(ANY); setEggF(ANY); setColorF(ANY);
   };
   /** 畳んだままでも何が効いているか分かるよう、見出しに出す要約 */
   const filterSummary = useMemo(() => {
@@ -355,12 +449,15 @@ export function DexTab() {
     if (ability !== ANY_ABILITY) parts.push(ability);
     if (moveFilter.length > 0) parts.push(moveFilter.join("・"));
     if (minCoverage > 0) parts.push(`打点${minCoverage}+`);
+    if (shapeF) parts.push(shapeF);
+    if (eggF) parts.push(`タマゴ:${eggF}`);
+    if (colorF) parts.push(colorF);
     if (typeFilter.length > 0) {
       const how = typeMode === "move" ? "の技" : typeMode === "safe" ? "が弱点でない" : "";
       parts.push(typeFilter.join("・") + how);
     }
     return parts.length > 0 ? parts.join(" / ") : "未設定";
-  }, [megaMode, ability, moveFilter, minCoverage, typeFilter, typeMode]);
+  }, [megaMode, ability, moveFilter, minCoverage, typeFilter, typeMode, shapeF, eggF, colorF]);
 
   /** 図鑑から自軍へ。star=true なら★手持ちとして入れる */
   const add = (speciesName: string, form: string, star: boolean) => {
@@ -374,6 +471,82 @@ export function DexTab() {
 
   return (
     <div>
+      {/* テーマ（へびパ・水生生物パ など）。選んでいるテーマがあると、各行にテーマの
+          出し入れボタンが出て、図鑑を「テーマ内」「おすすめ」に切り替えられる */}
+      <Panel
+        id="dex.theme"
+        title="テーマ"
+        summary={theme ? `${theme.name}・${theme.members.length}体` : `未選択・${themes.length}テーマ`}
+        always={(
+          <>
+            <div className="row tight" style={{ marginTop: 8 }}>
+              <SelectMenu
+                style={{ flex: "1 1 160px", minWidth: 0 }}
+                items={[
+                  { value: "", label: "（テーマなし）" },
+                  ...themes.map((t) => ({ value: t.id, label: t.name, sub: `${t.members.length}体` })),
+                ]}
+                value={themeId}
+                onChange={setThemeId}
+              />
+              <button type="button" className="btn small" onClick={createBlank}>＋新規</button>
+            </div>
+            {theme && (
+              <Segmented<ThemeView>
+                ariaLabel="テーマでの表示"
+                style={{ marginTop: 6 }}
+                options={[
+                  { value: "all", label: "すべて" },
+                  { value: "in", label: "テーマ内", sub: `${members.size}体` },
+                  ...(theme.template ? [{ value: "suggest" as ThemeView, label: "おすすめ", sub: `未登録${suggested.size}体` }] : []),
+                ]}
+                value={view}
+                onChange={setThemeView}
+              />
+            )}
+          </>
+        )}
+      >
+        <div className="sub-head">ひな形から作る</div>
+        <SelectMenu
+          items={TEMPLATE_ITEMS}
+          value=""
+          placeholder="ひな形を選ぶ（水生生物・へび・色 など）…"
+          stacked
+          onChange={createFromTemplate}
+        />
+        <div className="small muted" style={{ marginTop: 4 }}>
+          条件に合う系統が最初から入ります。データだけでは分けきれないので
+          （へび型にミミッキュが入る等）、図鑑の各行の「テーマ」ボタンで出し入れして仕上げてください。
+          名前の検索は分類・体型・タマゴグループにも当たり（「へび」「すいちゅう」等）、
+          絞り込みでは体型・タマゴグループ・色も選べます。
+        </div>
+        {theme && (
+          <>
+            <div className="sub-head">「{theme.name}」の候補（{theme.members.length}体・タップで外す）</div>
+            {theme.members.length === 0 && (
+              <div className="small muted">まだ候補がいません。図鑑の各行の「＋テーマ」で入れてください。</div>
+            )}
+            <div className="theme-members">
+              {theme.members.map((n) => (
+                <button key={n} type="button" className="sort-chip on" onClick={() => toggleMember(n)} title="テーマから外す">
+                  {n} ✕
+                </button>
+              ))}
+            </div>
+            {theme.template && (
+              <div className="small muted" style={{ marginTop: 4 }}>
+                ひな形の条件: {THEME_TEMPLATES.find((t) => t.id === theme.template)?.rule}
+              </div>
+            )}
+            <div className="danger-zone">
+              <button type="button" className="btn small" onClick={renameTheme}>名前を変える</button>
+              <button type="button" className="btn small danger" onClick={deleteTheme}>このテーマを削除</button>
+            </div>
+          </>
+        )}
+      </Panel>
+
       {/* 検索・絞り込み・並び替えを1枚にまとめる。以前は3枚に分かれていて、
           一覧までのスクロールが長かった。図鑑の切替と名前検索は畳んでも出しておく */}
       <Panel
@@ -402,7 +575,7 @@ export function DexTab() {
             <div className="row">
               <input
                 type="text"
-                placeholder="名前で検索…"
+                placeholder="名前・分類・体型で検索（例: へび）…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 style={{ flex: "1 1 160px" }}
@@ -520,6 +693,12 @@ export function DexTab() {
               </button>
             ))}
           </div>
+        {/* 体型・タマゴグループ・色。テーマ（へび型・すいちゅう・あかいろ 等）の候補探しに */}
+        <div className="row tight" style={{ marginTop: 8 }}>
+          <SelectMenu style={{ flex: "1 1 110px", minWidth: 0 }} items={metaItems("体型", SHAPES)} value={shapeF} onChange={setShapeF} />
+          <SelectMenu style={{ flex: "1 1 110px", minWidth: 0 }} items={metaItems("タマゴ", EGG_GROUPS)} value={eggF} onChange={setEggF} />
+          <SelectMenu style={{ flex: "1 1 110px", minWidth: 0 }} items={metaItems("色", COLOR_NAMES)} value={colorF} onChange={setColorF} />
+        </div>
         <div className="sub-head">並び替え</div>
         {/* 表のヘッダーをタップして並べ替える代わりの操作。横スクロールが無くなったぶんここに出す */}
         <div className="sort-bar">
@@ -565,8 +744,18 @@ export function DexTab() {
                   {sel.label}
                   {sp.megaOnly && <span className="small amber" title={`メガシンカで初めて${dexType}が付く`}> ⚑</span>}
                   {isOwned && <span className="small dex-owned" title="すでに自軍にいます"> 自軍</span>}
+                  {sp.meta?.genus && <span className="small muted dex-genus">{sp.meta.genus}</span>}
                 </span>
                 <span className="dex-actions">
+                  {theme && (
+                    <button
+                      className={`btn small ${members.has(sp.name) ? "primary" : ""}`}
+                      title={members.has(sp.name) ? `「${theme.name}」から外す` : `「${theme.name}」に入れる`}
+                      onClick={() => toggleMember(sp.name)}
+                    >
+                      {members.has(sp.name) ? "テーマ✓" : "＋テーマ"}
+                    </button>
+                  )}
                   <button
                     className="btn small"
                     title={offType ? offReason : starDisabled ? "★手持ちは最大6体まで" : "★手持ちに直接追加"}
